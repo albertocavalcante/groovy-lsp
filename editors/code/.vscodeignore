@@ -1,0 +1,16 @@
+.vscode/**
+.vscode-test/**
+client/src/**
+scripts/**
+.gitignore
+.yarnrc
+tsconfig.json
+**/*.map
+**/*.ts
+!server/groovy-lsp.jar
+node_modules/
+.eslintrc.json
+.git/
+.github/
+.DS_Store
+*.log

@@ -1,0 +1,144 @@
+{
+  "name": "vscode-groovy",
+  "displayName": "Groovy Language Support",
+  "description": "Language support for Apache Groovy, Gradle, and Jenkins Pipeline",
+  "version": "0.1.0",
+  "publisher": "albertocavalcante",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "groovy",
+    "gradle",
+    "jenkinsfile",
+    "jenkins",
+    "pipeline"
+  ],
+  "activationEvents": [
+    "onLanguage:groovy",
+    "onLanguage:jenkinsfile",
+    "workspaceContains:**/Jenkinsfile",
+    "workspaceContains:**/Jenkinsfile.*",
+    "workspaceContains:**/*.groovy",
+    "workspaceContains:**/*.gradle",
+    "workspaceContains:**/*.gradle.kts"
+  ],
+  "main": "./client/out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "groovy.restartServer",
+        "title": "Groovy: Restart Language Server"
+      }
+    ],
+    "languages": [
+      {
+        "id": "groovy",
+        "aliases": [
+          "Groovy",
+          "groovy"
+        ],
+        "extensions": [
+          ".groovy",
+          ".gvy",
+          ".gy",
+          ".gsh",
+          ".gradle"
+        ],
+        "firstLine": "^#!.*\\b(groovy|gradle)\\b",
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "jenkinsfile",
+        "aliases": [
+          "Jenkinsfile",
+          "Jenkins Pipeline"
+        ],
+        "filenames": [
+          "Jenkinsfile"
+        ],
+        "filenamePatterns": [
+          "Jenkinsfile*",
+          "*.jenkinsfile",
+          "*.Jenkinsfile"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "groovy",
+        "scopeName": "source.groovy",
+        "path": "./syntaxes/groovy.tmLanguage.json"
+      },
+      {
+        "language": "jenkinsfile",
+        "scopeName": "source.groovy",
+        "path": "./syntaxes/groovy.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Groovy Language Server",
+      "properties": {
+        "groovy.java.home": {
+          "type": "string",
+          "description": "Path to Java home (requires Java 17+)"
+        },
+        "groovy.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Trace communication with Groovy Language Server"
+        },
+        "groovy.server.maxNumberOfProblems": {
+          "scope": "resource",
+          "type": "number",
+          "default": 100,
+          "description": "Controls the maximum number of problems produced by the server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run prepare-server && npm run package-build",
+    "prepare-server": "node scripts/prepare-server.js",
+    "prepare-server:local": "PREFER_LOCAL=true node scripts/prepare-server.js",
+    "prepare-server:download": "FORCE_DOWNLOAD=true node scripts/prepare-server.js",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "package-build": "npm run check-types && npm run lint && node esbuild.js --production",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project client/tsconfig.json",
+    "check-types": "tsc --noEmit --project client/tsconfig.json",
+    "lint": "eslint client/src/**/*.ts",
+    "package": "npm run prepare-server && vsce package",
+    "clean": "rm -rf client/out/ server/*.jar",
+    "postinstall": "cd client && npm install && cd .. && npm run prepare-server"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@eslint/js": "^9.13.0",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.13.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.39.0",
+    "@vscode/vsce": "^3.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/albertocavalcante/vscode-groovy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/albertocavalcante/vscode-groovy/issues"
+  },
+  "homepage": "https://github.com/albertocavalcante/vscode-groovy#readme"
+}
