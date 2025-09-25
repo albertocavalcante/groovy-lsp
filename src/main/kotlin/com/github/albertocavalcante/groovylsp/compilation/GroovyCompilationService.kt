@@ -76,23 +76,17 @@ class GroovyCompilationService {
         // Get the AST
         val ast = getAstFromCompilationUnit(compilationUnit)
 
-        val result = if (ast != null &&
-            diagnostics.none { it.severity == org.eclipse.lsp4j.DiagnosticSeverity.Error }
-        ) {
-            // Cache successful result
+        val result = if (ast != null) {
+            // We have an AST, cache it and the diagnostics.
             astCache.put(uri, content, ast)
             diagnosticsCache[uri] = diagnostics
-            CompilationResult.success(ast, diagnostics)
+            // Success is true only if there are no error-level diagnostics.
+            val isSuccess = diagnostics.none { it.severity == org.eclipse.lsp4j.DiagnosticSeverity.Error }
+            CompilationResult(isSuccess, ast, diagnostics)
         } else {
-            // Cache diagnostics even for failed compilation
+            // No AST, compilation definitely failed.
             diagnosticsCache[uri] = diagnostics
-            if (ast != null) {
-                // We got an AST even with errors (partial parsing)
-                astCache.put(uri, content, ast)
-                CompilationResult.success(ast, diagnostics)
-            } else {
-                CompilationResult.failure(diagnostics)
-            }
+            CompilationResult.failure(diagnostics)
         }
 
         logger.debug("Compilation result for $uri: success=${result.isSuccess}, diagnostics=${diagnostics.size}")
@@ -135,9 +129,6 @@ class GroovyCompilationService {
 
         // Set encoding
         sourceEncoding = "UTF-8"
-
-        // Don't generate .class files
-        targetDirectory = null
     }
 
     /**

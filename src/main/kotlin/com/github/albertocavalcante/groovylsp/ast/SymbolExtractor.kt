@@ -115,28 +115,27 @@ object SymbolExtractor {
         )
     }
 
-    private fun processStaticImports(ast: ModuleNode): List<ImportSymbol> =
-        ast.staticImports.map { (alias, importNode) ->
-            val className = importNode.className
-            val packageName = if (className.contains('.')) {
-                className.substringBeforeLast('.')
-            } else {
-                ""
-            }
-
-            ImportSymbol(
-                packageName = packageName,
-                className = className.substringAfterLast('.'),
-                isStarImport = false,
-                isStatic = true,
-                line = importNode.lineNumber - 1,
-            )
+    private fun processStaticImports(ast: ModuleNode): List<ImportSymbol> = ast.staticImports.map { (_, importNode) ->
+        val className = importNode.className
+        val packageName = if (className.contains('.')) {
+            className.substringBeforeLast('.')
+        } else {
+            ""
         }
 
+        ImportSymbol(
+            packageName = packageName,
+            className = className.substringAfterLast('.'),
+            isStarImport = false,
+            isStatic = true,
+            line = importNode.lineNumber - 1,
+        )
+    }
+
     private fun processStaticStarImports(ast: ModuleNode): List<ImportSymbol> =
-        ast.staticStarImports.map { (packageName, importNode) ->
+        ast.staticStarImports.map { (className, importNode) ->
             ImportSymbol(
-                packageName = packageName.trimEnd('.'),
+                packageName = className.trimEnd('.'),
                 className = null,
                 isStarImport = true,
                 isStatic = true,
@@ -155,8 +154,8 @@ object SymbolExtractor {
 
         // Find the class we're currently in (if any)
         val currentClass = classes.find { classSymbol ->
-            line >= classSymbol.line
-            // NOTE: Position checking could be enhanced to consider column ranges
+            val classNode = classSymbol.astNode as org.codehaus.groovy.ast.ClassNode
+            line >= classSymbol.line && line < classNode.lastLineNumber
         }
 
         val methods = currentClass?.let { extractMethodSymbols(it.astNode) } ?: emptyList()

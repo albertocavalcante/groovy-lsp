@@ -135,48 +135,35 @@ class GroovyTextDocumentService(
         CompletableFuture.completedFuture(unresolved)
 
     override fun hover(params: HoverParams): CompletableFuture<Hover> = coroutineScope.future {
-        try {
-            logger.debug(
-                "Hover requested for ${params.textDocument.uri} at " +
-                    "${params.position.line}:${params.position.character}",
+        logger.debug(
+            "Hover requested for ${params.textDocument.uri} at " +
+                "${params.position.line}:${params.position.character}",
+        )
+
+        val hoverContent = """
+            ## Groovy LSP
+
+            **Position**: Line ${params.position.line + 1}, Column ${params.position.character + 1}
+
+            This is a basic implementation of a Groovy Language Server.
+
+            ### Features
+            - Syntax highlighting
+            - Basic completions
+            - Error diagnostics
+            - Hover information
+
+            ### Status
+            Currently in development. More features coming soon!
+        """.trimIndent()
+
+        Hover().apply {
+            contents = Either.forRight(
+                MarkupContent().apply {
+                    kind = MarkupKind.MARKDOWN
+                    value = hoverContent
+                },
             )
-
-            val hoverContent = """
-                ## Groovy LSP
-
-                **Position**: Line ${params.position.line + 1}, Column ${params.position.character + 1}
-
-                This is a basic implementation of a Groovy Language Server.
-
-                ### Features
-                - Syntax highlighting
-                - Basic completions
-                - Error diagnostics
-                - Hover information
-
-                ### Status
-                Currently in development. More features coming soon!
-            """.trimIndent()
-
-            Hover().apply {
-                contents = Either.forRight(
-                    MarkupContent().apply {
-                        kind = MarkupKind.MARKDOWN
-                        value = hoverContent
-                    },
-                )
-            }
-        } catch (e: org.codehaus.groovy.control.CompilationFailedException) {
-            logger.error("Error providing hover information", e)
-            // Return a fallback hover instead of null
-            Hover().apply {
-                contents = Either.forRight(
-                    MarkupContent().apply {
-                        kind = MarkupKind.MARKDOWN
-                        value = "## Groovy LSP\n\nError retrieving hover information"
-                    },
-                )
-            }
         }
     }
 

@@ -6,9 +6,13 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Cache for storing parsed ASTs and their associated metadata.
- * Thread-safe implementation using ConcurrentHashMap.
+ * Thread-safe implementation using ConcurrentHashMap with LRU eviction.
  */
 class AstCache {
+    companion object {
+        private const val MAX_CACHE_SIZE = 100
+    }
+
     private data class CacheEntry(
         val ast: ASTNode,
         val contentHash: Int,
@@ -16,13 +20,22 @@ class AstCache {
     )
 
     private val cache = ConcurrentHashMap<URI, CacheEntry>()
+    private val accessOrder = ConcurrentHashMap<URI, Long>()
 
     /**
      * Stores an AST in the cache for the given URI and content.
      */
     fun put(uri: URI, content: String, ast: ASTNode) {
         val contentHash = content.hashCode()
-        cache[uri] = CacheEntry(ast, contentHash)
+        val timestamp = System.currentTimeMillis()
+
+        cache[uri] = CacheEntry(ast, contentHash, timestamp)
+        accessOrder[uri] = timestamp
+
+        // Evict oldest entries if cache exceeds max size
+        if (cache.size > MAX_CACHE_SIZE) {
+            evictOldestEntries()
+        }
     }
 
     /**
@@ -34,10 +47,13 @@ class AstCache {
         val contentHash = content.hashCode()
 
         return if (entry.contentHash == contentHash) {
+            // Update access time for LRU
+            accessOrder[uri] = System.currentTimeMillis()
             entry.ast
         } else {
             // Content has changed, remove stale entry
             cache.remove(uri)
+            accessOrder.remove(uri)
             null
         }
     }
@@ -47,6 +63,7 @@ class AstCache {
      */
     fun remove(uri: URI) {
         cache.remove(uri)
+        accessOrder.remove(uri)
     }
 
     /**
@@ -54,6 +71,7 @@ class AstCache {
      */
     fun clear() {
         cache.clear()
+        accessOrder.clear()
     }
 
     /**
@@ -78,5 +96,29 @@ class AstCache {
      * Gets the AST for a URI without content validation.
      * Use this only when you're sure the cache is still valid.
      */
-    fun getUnchecked(uri: URI): ASTNode? = cache[uri]?.ast
+    fun getUnchecked(uri: URI): ASTNode? {
+        val entry = cache[uri]
+        if (entry != null) {
+            // Update access time for LRU even for unchecked access
+            accessOrder[uri] = System.currentTimeMillis()
+        }
+        return entry?.ast
+    }
+
+    /**
+     * Evicts the oldest entries when cache exceeds maximum size.
+     */
+    private fun evictOldestEntries() {
+        val entriesToRemove = cache.size - MAX_CACHE_SIZE + 1
+        if (entriesToRemove <= 0) return
+
+        val sortedByAccess = accessOrder.toList().sortedBy { it.second }
+        repeat(entriesToRemove) { index ->
+            if (index < sortedByAccess.size) {
+                val uriToRemove = sortedByAccess[index].first
+                cache.remove(uriToRemove)
+                accessOrder.remove(uriToRemove)
+            }
+        }
+    }
 }

@@ -91,10 +91,11 @@ tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
 }
 
 spotless {
+    val ktlintVersion = "1.7.1"
     kotlin {
         target("**/*.kt")
         targetExclude("**/build/**/*.kt")
-        ktlint("1.7.1")
+        ktlint(ktlintVersion)
             .editorConfigOverride(
                 mapOf(
                     "max_line_length" to "120",
@@ -105,7 +106,7 @@ spotless {
     }
     kotlinGradle {
         target("*.gradle.kts")
-        ktlint("1.7.1")
+        ktlint(ktlintVersion)
     }
 }
 

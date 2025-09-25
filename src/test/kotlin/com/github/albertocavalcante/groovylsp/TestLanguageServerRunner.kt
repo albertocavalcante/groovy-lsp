@@ -158,32 +158,3 @@ data class TestLanguageServerHandle(
         }
     }
 }
-
-/**
- * Mock language client for testing.
- */
-class TestLanguageClient : LanguageClient {
-    val diagnostics = mutableListOf<org.eclipse.lsp4j.PublishDiagnosticsParams>()
-    val messages = mutableListOf<org.eclipse.lsp4j.MessageParams>()
-
-    override fun telemetryEvent(obj: Any?) {
-        // Mock implementation for testing - telemetry events not needed in tests
-    }
-
-    override fun publishDiagnostics(diagnostics: org.eclipse.lsp4j.PublishDiagnosticsParams) {
-        this.diagnostics.add(diagnostics)
-    }
-
-    override fun showMessage(messageParams: org.eclipse.lsp4j.MessageParams) {
-        messages.add(messageParams)
-    }
-
-    override fun showMessageRequest(requestParams: org.eclipse.lsp4j.ShowMessageRequestParams) =
-        CompletableFuture.completedFuture(org.eclipse.lsp4j.MessageActionItem())
-
-    override fun logMessage(message: org.eclipse.lsp4j.MessageParams) {
-        // Mock implementation for testing - log messages handled by test framework
-    }
-
-    override fun workspaceFolders() = CompletableFuture.completedFuture(emptyList<org.eclipse.lsp4j.WorkspaceFolder>())
-}

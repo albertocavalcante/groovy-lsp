@@ -97,9 +97,9 @@ class GroovyLanguageServer :
 
         // Send a test message to the client
         client?.showMessage(
-            MessageParams().also {
-                it.type = MessageType.Info
-                it.message = "Groovy Language Server is ready!"
+            MessageParams().apply {
+                type = MessageType.Info
+                message = "Groovy Language Server is ready!"
             },
         )
     }
