@@ -54,8 +54,14 @@ jobs:
       - name: Compile Kotlin
         run: ./gradlew compileKotlin compileTestKotlin --stacktrace
 
+      - name: Run Quality Checks
+        run: ./gradlew lint --stacktrace
+
       - name: Run Tests
         run: ./gradlew test --stacktrace
+
+      - name: Run Code Coverage
+        run: ./gradlew koverHtmlReport --stacktrace
 
       - name: Generate Test Report
         uses: dorny/test-reporter@v1
