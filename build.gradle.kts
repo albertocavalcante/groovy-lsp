@@ -108,6 +108,25 @@ spotless {
         target("*.gradle.kts")
         ktlint(ktlintVersion)
     }
+    format("markdown") {
+        target("**/*.md")
+        targetExclude("**/build/**/*.md", "**/target/**/*.md")
+        prettier()
+            .config(
+                mapOf(
+                    "parser" to "markdown",
+                    "printWidth" to 120,
+                    "tabWidth" to 2,
+                    "useTabs" to false,
+                    "proseWrap" to "always",
+                ),
+            )
+    }
+    yaml {
+        target("**/*.yml", "**/*.yaml")
+        targetExclude("**/build/**/*.yml", "**/build/**/*.yaml", "**/target/**/*.yml", "**/target/**/*.yaml")
+        jackson()
+    }
 }
 
 kover {

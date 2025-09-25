@@ -5,15 +5,19 @@ This project uses multiple tools to maintain high code quality and consistent fo
 ## Tools Overview
 
 ### Detekt
+
 Static analysis for Kotlin code that detects code smells, complexity issues, and style violations.
 
 ### Spotless + ktlint
+
 Code formatting and style enforcement following Kotlin official style guidelines.
 
 ### Kover
+
 Native Kotlin code coverage tracking with 70% line coverage requirement.
 
 ### EditorConfig
+
 IDE-agnostic configuration for consistent formatting across different editors.
 
 ## Running Quality Checks
@@ -37,12 +41,15 @@ IDE-agnostic configuration for consistent formatting across different editors.
 ## Quality Rules
 
 ### Wildcard Imports
+
 Prohibited via triple enforcement:
+
 - .editorconfig settings
 - Spotless/ktlint rules
 - Detekt configuration
 
 Replace wildcard imports with explicit imports:
+
 ```kotlin
 // Bad
 import kotlinx.coroutines.*
@@ -53,16 +60,19 @@ import kotlinx.coroutines.Dispatchers
 ```
 
 ### Code Coverage
+
 - Minimum 70% line coverage required
 - Reports generated at `build/reports/kover/html/index.html`
 
 ### Code Style
+
 - Maximum line length: 120 characters
 - 4-space indentation
 - No trailing whitespace
 - Final newline required
 
 ### Complexity Limits
+
 - Cyclomatic complexity: ≤15 per method
 - Method length: ≤60 lines
 - Parameter count: ≤6 for functions, ≤7 for constructors
@@ -71,6 +81,7 @@ import kotlinx.coroutines.Dispatchers
 ## CI Integration
 
 Quality checks run automatically on:
+
 - Push to main/master
 - Pull requests
 - Workflow dispatch
@@ -80,7 +91,9 @@ All checks must pass before merging.
 ## Common Fixes
 
 ### Magic Numbers
+
 Replace magic numbers with named constants:
+
 ```kotlin
 // Bad
 if (items.size > 5) { ... }
@@ -91,7 +104,9 @@ if (items.size > MAX_ITEMS) { ... }
 ```
 
 ### Complex Methods
+
 Break down complex methods:
+
 ```kotlin
 // Bad - high cyclomatic complexity
 fun processData(data: List<String>): Result {
@@ -111,7 +126,9 @@ fun processData(data: List<String>): Result {
 ```
 
 ### Return Count
+
 Limit return statements per method (max 2):
+
 ```kotlin
 // Bad - multiple returns
 fun validate(input: String): Boolean {
