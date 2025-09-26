@@ -194,24 +194,24 @@ class SymbolTable {
      */
     private fun findFieldInEnclosingClass(variableExpr: VariableExpression, visitor: AstVisitor): Variable? {
         // Look for the field in symbol tables of all classes in the current URI
-        val uri = visitor.getUri(variableExpr) ?: return null
-        val classDecls = classDeclarations[uri] ?: return null
+        val context = getFieldSearchContext(variableExpr, visitor) ?: return null
 
         // For each class, check if it has a field with this name
-        for (classNode in classDecls.values) {
-            val field = findFieldDeclaration(classNode, variableExpr.name)
-            if (field != null) {
-                // Convert field to Variable if needed
-                val result = when (field) {
+        return context.values.firstNotNullOfOrNull { classNode ->
+            findFieldDeclaration(classNode, variableExpr.name)?.let { field ->
+                when (field) {
                     is Variable -> field
                     is org.codehaus.groovy.ast.FieldNode -> field
                     is org.codehaus.groovy.ast.PropertyNode -> field
                     else -> null
                 }
-                if (result != null) return result
             }
         }
-        return null
+    }
+
+    private fun getFieldSearchContext(variableExpr: VariableExpression, visitor: AstVisitor): Map<String, ClassNode>? {
+        val uri = visitor.getUri(variableExpr) ?: return null
+        return classDeclarations[uri]
     }
 
     /**

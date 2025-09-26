@@ -59,24 +59,40 @@ class ReferenceProvider(private val compilationService: GroovyCompilationService
     )
 
     /**
+     * Parameters for processing a node reference.
+     */
+    private data class ProcessNodeParams(
+        val node: ASTNode,
+        val definition: ASTNode,
+        val visitor: com.github.albertocavalcante.groovylsp.ast.AstVisitor,
+        val symbolTable: com.github.albertocavalcante.groovylsp.ast.SymbolTable,
+        val includeDeclaration: Boolean,
+        val emittedLocations: MutableSet<String>,
+    )
+
+    /**
      * Create reference context from URI and position.
      */
-    private fun createReferenceContext(uri: String, position: Position): ReferenceContext? {
-        val documentUri = URI.create(uri)
-        val visitor = compilationService.getAstVisitor(documentUri)
-        val symbolTable = compilationService.getSymbolTable(documentUri)
+    private fun createReferenceContext(uri: String, position: Position): ReferenceContext? =
+        createReferenceContextInternal(uri, position) ?: logAndReturnNull("No referenceable node found at position")
 
-        if (visitor == null || symbolTable == null) {
-            return null
-        }
+    private fun createReferenceContextInternal(uri: String, position: Position): ReferenceContext? {
+        val documentUri = URI.create(uri)
+        val visitor = compilationService.getAstVisitor(documentUri) ?: return null
+        val symbolTable = compilationService.getSymbolTable(documentUri) ?: return null
 
         val targetNode = visitor.getNodeAt(documentUri, position.line, position.character)
-        if (targetNode == null || !targetNode.isReferenceableSymbol()) {
-            logger.debug("No referenceable node found at position")
-            return null
-        }
+            ?.takeIf { it.isReferenceableSymbol() }
 
-        return ReferenceContext(documentUri, visitor, symbolTable, targetNode)
+        return targetNode?.let { ReferenceContext(documentUri, visitor, symbolTable, it) }
+    }
+
+    /**
+     * Helper to log debug message and return null.
+     */
+    private fun logAndReturnNull(message: String): ReferenceContext? {
+        logger.debug(message)
+        return null
     }
 
     /**
@@ -102,46 +118,60 @@ class ReferenceProvider(private val compilationService: GroovyCompilationService
     ) {
         val emittedLocations = mutableSetOf<String>()
 
-        // Find all references by checking all nodes
         visitor.getAllNodes()
             .filter { it.hasValidPosition() }
             .forEach { node ->
-                val nodeDefinition = node.resolveToDefinition(visitor, symbolTable, strict = false)
-
-                // Check if this node references the definition we're looking for
-                if (nodeDefinition == definition) {
-                    // Check if this node is part of a declaration context
-                    val isPartOfDeclaration = when {
-                        // Check if this is a declaration based on node type
-                        node is org.codehaus.groovy.ast.Parameter -> true
-                        node is org.codehaus.groovy.ast.MethodNode -> true
-                        node is org.codehaus.groovy.ast.FieldNode -> true
-                        node is org.codehaus.groovy.ast.PropertyNode -> true
-                        node is org.codehaus.groovy.ast.ClassNode -> true
-                        node is org.codehaus.groovy.ast.expr.VariableExpression -> {
-                            // For variable expressions, check if it's part of a declaration
-                            val parent = visitor.getParent(node)
-                            val isDecl = parent is org.codehaus.groovy.ast.expr.DeclarationExpression &&
-                                parent.leftExpression == node
-                            if (isDecl) {
-                                logger.debug("Found variable ${node.name} as part of declaration")
-                            }
-                            isDecl
-                        }
-                        else -> false
-                    }
-
-                    logger.debug(
-                        "Node ${node.javaClass.simpleName} at ${node.lineNumber}:${node.columnNumber} - " +
-                            "isPartOfDeclaration: $isPartOfDeclaration, includeDeclaration: $includeDeclaration",
-                    )
-
-                    // Only emit if we're including declarations OR this isn't part of a declaration
-                    if (includeDeclaration || !isPartOfDeclaration) {
-                        emitUniqueLocation(node, visitor, emittedLocations)
-                    }
-                }
+                val params = ProcessNodeParams(
+                    node = node,
+                    definition = definition,
+                    visitor = visitor,
+                    symbolTable = symbolTable,
+                    includeDeclaration = includeDeclaration,
+                    emittedLocations = emittedLocations,
+                )
+                processNode(params)
             }
+    }
+
+    /**
+     * Process a single node to check if it references our target definition.
+     */
+    private suspend fun ProducerScope<Location>.processNode(params: ProcessNodeParams) {
+        val nodeDefinition = params.node.resolveToDefinition(params.visitor, params.symbolTable, strict = false)
+        if (nodeDefinition != params.definition) return
+
+        val isPartOfDeclaration = params.node.isPartOfDeclaration(params.visitor)
+        logger.debug(
+            "Node ${params.node.javaClass.simpleName} at ${params.node.lineNumber}:${params.node.columnNumber} - " +
+                "isPartOfDeclaration: $isPartOfDeclaration, includeDeclaration: ${params.includeDeclaration}",
+        )
+
+        if (params.includeDeclaration || !isPartOfDeclaration) {
+            emitUniqueLocation(params.node, params.visitor, params.emittedLocations)
+        }
+    }
+
+    /**
+     * Check if a node is part of a declaration.
+     */
+    private fun ASTNode.isPartOfDeclaration(
+        visitor: com.github.albertocavalcante.groovylsp.ast.AstVisitor,
+    ): Boolean = when {
+        this is org.codehaus.groovy.ast.Parameter -> true
+        this is org.codehaus.groovy.ast.MethodNode -> true
+        this is org.codehaus.groovy.ast.FieldNode -> true
+        this is org.codehaus.groovy.ast.PropertyNode -> true
+        this is org.codehaus.groovy.ast.ClassNode -> true
+        this is org.codehaus.groovy.ast.expr.VariableExpression -> {
+            val parent = visitor.getParent(this)
+            val isDecl = parent is org.codehaus.groovy.ast.expr.DeclarationExpression &&
+                parent.leftExpression == this
+            if (isDecl) {
+                logger.debug("Found variable ${this.name} as part of declaration")
+            }
+            isDecl
+        }
+        else -> false
     }
 
     /**
