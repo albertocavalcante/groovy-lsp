@@ -471,7 +471,8 @@ class AstVisitor : ClassCodeVisitorSupport() {
  * Helper extension to calculate range size for node prioritization
  */
 private fun ASTNode.calculateRangeSize(): Int {
-    if (lineNumber < 0 || columnNumber < 0 || lastLineNumber < 0 || lastColumnNumber < 0) {
+    val hasInvalidPosition = lineNumber < 0 || columnNumber < 0 || lastLineNumber < 0 || lastColumnNumber < 0
+    if (hasInvalidPosition) {
         return Int.MAX_VALUE
     }
 

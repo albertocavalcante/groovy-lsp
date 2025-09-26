@@ -202,12 +202,13 @@ class SymbolTable {
             val field = findFieldDeclaration(classNode, variableExpr.name)
             if (field != null) {
                 // Convert field to Variable if needed
-                return when (field) {
+                val result = when (field) {
                     is Variable -> field
                     is org.codehaus.groovy.ast.FieldNode -> field
                     is org.codehaus.groovy.ast.PropertyNode -> field
                     else -> null
                 }
+                if (result != null) return result
             }
         }
         return null

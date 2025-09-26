@@ -19,6 +19,10 @@ import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
 import java.net.URI
 
+// Constants for range size calculations
+private const val COLUMN_WEIGHT_FOR_MULTILINE = 100
+private const val LINE_WEIGHT = 1000
+
 /**
  * Type-safe wrappers for position coordinates
  */
@@ -174,9 +178,9 @@ fun ASTNode.rangeSize(): Int = if (!hasValidPosition()) {
     val columnSpan = if (lineSpan == 0) {
         lastColumnNumber - columnNumber
     } else {
-        lineSpan * 100 + lastColumnNumber
+        lineSpan * COLUMN_WEIGHT_FOR_MULTILINE + lastColumnNumber
     }
-    lineSpan * 1000 + columnSpan
+    lineSpan * LINE_WEIGHT + columnSpan
 }
 
 /**

@@ -1,7 +1,6 @@
 package com.github.albertocavalcante.groovylsp.providers.references
 
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
-import com.github.albertocavalcante.groovylsp.providers.references.ReferenceProvider
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.eclipse.lsp4j.Position
@@ -202,9 +201,11 @@ class ReferenceProviderTest {
         // Assert - Should find no references since variable is never used after declaration
         // Note: This test may be implementation-dependent. If references are found,
         // they should only be the declaration itself (which we're excluding)
+        val message = "Should find few or no references for unused variable when excluding declaration, " +
+            "found: ${references.size}"
         assertTrue(
             references.isEmpty() || references.size <= 1,
-            "Should find few or no references for unused variable when excluding declaration, found: ${references.size}",
+            message,
         )
     }
 

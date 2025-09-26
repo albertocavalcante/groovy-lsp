@@ -44,6 +44,7 @@ class GroovyCompilationService {
     /**
      * Compiles Groovy source code and returns the result.
      */
+    @Suppress("TooGenericExceptionCaught") // TODO: Review if catch-all is needed - final fallback
     suspend fun compile(uri: URI, content: String): CompilationResult {
         logger.debug("Compiling: $uri")
 
@@ -95,9 +96,9 @@ class GroovyCompilationService {
             logger.error("I/O error during compilation for $uri", e)
             val errorDiagnostic = createErrorDiagnostic("I/O error: ${e.message}")
             CompilationResult.failure(listOf(errorDiagnostic))
-        } catch (e: RuntimeException) {
-            logger.error("Runtime error during compilation for $uri", e)
-            val errorDiagnostic = createErrorDiagnostic("Runtime error: ${e.message}")
+        } catch (e: Exception) {
+            logger.error("Unexpected error during compilation for $uri", e)
+            val errorDiagnostic = createErrorDiagnostic("Compilation error: ${e.message}")
             CompilationResult.failure(listOf(errorDiagnostic))
         }
     }
@@ -227,6 +228,7 @@ class GroovyCompilationService {
     /**
      * Build AST visitor and symbol table for go-to-definition functionality
      */
+    @Suppress("TooGenericExceptionCaught") // TODO: Review if catch-all is needed - final fallback for AST building
     private fun buildAstVisitorAndSymbolTable(uri: URI, compilationUnit: CompilationUnit, sourceUnit: SourceUnit) {
         try {
             // Create and configure AST visitor
@@ -285,10 +287,10 @@ class GroovyCompilationService {
             val specificException =
                 CacheCorruptionException("AST visitor/symbol table", e.message ?: "Invalid state", e)
             logger.warn("Specific exception type: ${specificException.javaClass.simpleName}")
-        } catch (e: RuntimeException) {
-            logger.error("Runtime error building AST visitor and symbol table for $uri", e)
+        } catch (e: Exception) {
+            logger.error("Unexpected error building AST visitor and symbol table for $uri", e)
             val specificException =
-                CacheCorruptionException("AST visitor/symbol table", e.message ?: "Runtime error", e)
+                CacheCorruptionException("AST visitor/symbol table", e.message ?: "Unexpected error", e)
             logger.warn("Specific exception type: ${specificException.javaClass.simpleName}")
         }
     }

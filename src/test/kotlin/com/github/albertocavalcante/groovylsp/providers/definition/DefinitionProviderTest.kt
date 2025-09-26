@@ -1,7 +1,6 @@
 package com.github.albertocavalcante.groovylsp.providers.definition
 
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
-import com.github.albertocavalcante.groovylsp.providers.definition.DefinitionProvider
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.eclipse.lsp4j.Position

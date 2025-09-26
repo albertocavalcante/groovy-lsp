@@ -35,6 +35,7 @@ inline fun <T, R> LspResult<T>.flatMapResult(transform: (T) -> LspResult<R>): Ls
 /**
  * Converts exceptions to LspError types
  */
+@Suppress("TooGenericExceptionCaught") // TODO: Review if catch-all is needed - utility function's final error wrapper
 inline fun <T> lspResultOf(block: () -> T): LspResult<T> = try {
     Result.success(block())
 } catch (e: LspError) {
@@ -55,7 +56,7 @@ inline fun <T> lspResultOf(block: () -> T): LspResult<T> = try {
     Result.failure(
         LspError.InternalError("io_error", e.message ?: "I/O operation failed", e),
     )
-} catch (e: RuntimeException) {
+} catch (e: Exception) {
     Result.failure(
         LspError.InternalError("unknown", e.message ?: "Unexpected error", e),
     )
