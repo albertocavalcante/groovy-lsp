@@ -109,7 +109,7 @@ class DefinitionResolver(private val astVisitor: AstVisitor, private val symbolT
      */
     @Suppress("ThrowsCount") // This method centralizes all throws to satisfy detekt
     private fun handleResolutionError(
-        originalException: Exception?,
+        originalException: Throwable?,
         targetNode: ASTNode,
         uri: URI,
         position: Position,
