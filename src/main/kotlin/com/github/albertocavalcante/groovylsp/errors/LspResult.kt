@@ -92,17 +92,6 @@ inline fun <T> LspResult<T>.recoverFrom(errorType: Class<out LspError>, recovery
     }
 
 /**
- * Recovers from NodeNotFound errors
- */
-inline fun <T> LspResult<T>.recoverFromNodeNotFound(recovery: (LspError.NodeNotFound) -> T): LspResult<T> =
-    recoverCatching { error ->
-        when (error) {
-            is LspError.NodeNotFound -> recovery(error)
-            else -> throw error
-        }
-    }
-
-/**
  * Recovers from SymbolNotFound errors
  */
 inline fun <T> LspResult<T>.recoverFromSymbolNotFound(recovery: (LspError.SymbolNotFound) -> T): LspResult<T> =

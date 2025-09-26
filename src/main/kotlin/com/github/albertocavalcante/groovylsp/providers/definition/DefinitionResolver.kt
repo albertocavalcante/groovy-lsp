@@ -49,12 +49,12 @@ class DefinitionResolver(private val astVisitor: AstVisitor, private val symbolT
     private fun validateAndFindNode(uri: URI, position: Position): ASTNode {
         // Validate position
         if (position.line < 0 || position.character < 0) {
-            handleValidationError("invalidPosition", uri, position)
+            handleValidationError("invalidPosition", uri, ValidationContext.PositionContext(position))
         }
 
         // Find the node at the given LSP position
         val targetNode = astVisitor.getNodeAt(uri, position)
-            ?: handleValidationError("nodeNotFound", uri, position)
+            ?: handleValidationError("nodeNotFound", uri, ValidationContext.PositionContext(position))
 
         logger.debug("Found target node: ${targetNode.javaClass.simpleName}")
         return targetNode
@@ -87,7 +87,7 @@ class DefinitionResolver(private val astVisitor: AstVisitor, private val symbolT
         // Make sure the definition has valid position information
         if (!definition.hasValidPosition()) {
             logger.debug("Definition node has invalid position information")
-            handleValidationError("invalidDefinitionPosition", uri, definition)
+            handleValidationError("invalidDefinitionPosition", uri, ValidationContext.NodeContext(definition))
         }
 
         logger.debug(
@@ -122,32 +122,42 @@ class DefinitionResolver(private val astVisitor: AstVisitor, private val symbolT
     }
 
     /**
+     * Validation context for different error scenarios.
+     */
+    private sealed class ValidationContext {
+        data class PositionContext(val position: Position) : ValidationContext()
+        data class NodeContext(val node: ASTNode) : ValidationContext()
+    }
+
+    /**
      * Handle validation errors by throwing appropriate exceptions.
      * Consolidates validation throws to reduce throw count.
      */
     @Suppress("ThrowsCount") // This method centralizes all throws to satisfy detekt
-    private fun handleValidationError(errorType: String, uri: URI, position: Position): Nothing =
+    private fun handleValidationError(errorType: String, uri: URI, context: ValidationContext): Nothing =
+        when (context) {
+            is ValidationContext.PositionContext -> handlePositionValidationError(errorType, uri, context.position)
+            is ValidationContext.NodeContext -> handleNodeValidationError(errorType, uri, context.node)
+        }
+
+    private fun handlePositionValidationError(errorType: String, uri: URI, position: Position): Nothing =
         when (errorType) {
             "invalidPosition" -> throw uri.invalidPosition(position.line, position.character, "Negative coordinates")
             "nodeNotFound" -> throw uri.nodeNotFoundAtPosition(position.line, position.character)
             else -> throw createSymbolNotFoundException("unknown", uri, position)
         }
 
-    /**
-     * Handle validation errors for definition nodes.
-     */
-    @Suppress("ThrowsCount") // This method centralizes all throws to satisfy detekt
-    private fun handleValidationError(errorType: String, uri: URI, definition: ASTNode): Nothing =
+    private fun handleNodeValidationError(errorType: String, uri: URI, node: ASTNode): Nothing =
         when (errorType) {
             "invalidDefinitionPosition" -> throw uri.invalidPosition(
-                definition.lineNumber,
-                definition.columnNumber,
+                node.lineNumber,
+                node.columnNumber,
                 "Definition node has invalid position information",
             )
             else -> throw createSymbolNotFoundException(
-                definition.toString(),
+                node.toString(),
                 uri,
-                org.eclipse.lsp4j.Position(definition.lineNumber, definition.columnNumber),
+                org.eclipse.lsp4j.Position(node.lineNumber, node.columnNumber),
             )
         }
 

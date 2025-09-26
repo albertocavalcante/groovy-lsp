@@ -215,59 +215,58 @@ private class PositionAwareVisitor(private val targetLine: Int, private val targ
 
     private fun visitExpression(expression: Expression) {
         checkAndUpdateSmallest(expression)
+        expressionVisitors[expression::class]?.invoke(this, expression) ?: Unit
+    }
 
-        when (expression) {
-            is MethodCallExpression -> {
-                visitExpression(expression.objectExpression)
-                // DON'T visit method name separately - it conflicts with the call itself
-                // visitExpression(expression.method)
-                (expression.arguments as? ArgumentListExpression)?.expressions?.forEach {
-                    visitExpression(it)
-                }
-            }
-            is VariableExpression -> {
-                // Variable expressions are leaf nodes, already handled by checkAndUpdateSmallest
-            }
-            is ConstantExpression -> {
-                // Constant expressions (strings, numbers, etc.) are leaf nodes
-                // Already handled by checkAndUpdateSmallest
-            }
-            is ArgumentListExpression -> {
-                // Visit all argument expressions
-                expression.expressions.forEach { visitExpression(it) }
-            }
-            is DeclarationExpression -> {
-                // Visit the variable being declared and the right-hand side
-                visitExpression(expression.leftExpression)
-                visitExpression(expression.rightExpression)
-            }
-            is BinaryExpression -> {
-                // Visit both sides of the binary expression
-                visitExpression(expression.leftExpression)
-                visitExpression(expression.rightExpression)
-            }
-            is ClosureExpression -> {
-                // Visit closure parameters
-                expression.parameters?.forEach { param ->
-                    checkAndUpdateSmallest(param)
-                }
-
-                // Visit closure body
-                expression.code?.let { visitNode(it) }
-            }
-            is GStringExpression -> {
-                // Visit all string constant parts
-                expression.strings?.forEach { stringExpr ->
-                    checkAndUpdateSmallest(stringExpr)
-                }
-
-                // Visit all interpolated value expressions
-                expression.values?.forEach { valueExpr ->
-                    visitExpression(valueExpr)
-                }
-            }
-            // Add more expression types as needed
+    private fun visitMethodCallExpression(expr: MethodCallExpression) {
+        visitExpression(expr.objectExpression)
+        (expr.arguments as? ArgumentListExpression)?.expressions?.forEach {
+            visitExpression(it)
         }
+    }
+
+    private fun visitArgumentListExpression(expr: ArgumentListExpression) {
+        expr.expressions.forEach { visitExpression(it) }
+    }
+
+    private fun visitDeclarationExpression(expr: DeclarationExpression) {
+        visitExpression(expr.leftExpression)
+        visitExpression(expr.rightExpression)
+    }
+
+    private fun visitBinaryExpression(expr: BinaryExpression) {
+        visitExpression(expr.leftExpression)
+        visitExpression(expr.rightExpression)
+    }
+
+    private fun visitClosureExpression(expr: ClosureExpression) {
+        expr.parameters?.forEach { param ->
+            checkAndUpdateSmallest(param)
+        }
+        expr.code?.let { visitNode(it) }
+    }
+
+    private fun visitGStringExpression(expr: GStringExpression) {
+        expr.strings?.forEach { stringExpr ->
+            checkAndUpdateSmallest(stringExpr)
+        }
+        expr.values?.forEach { valueExpr ->
+            visitExpression(valueExpr)
+        }
+    }
+
+    companion object {
+        private val expressionVisitors = mapOf<
+            kotlin.reflect.KClass<out Expression>,
+            PositionAwareVisitor.(Expression) -> Unit
+        >(
+            MethodCallExpression::class to { expr -> visitMethodCallExpression(expr as MethodCallExpression) },
+            ArgumentListExpression::class to { expr -> visitArgumentListExpression(expr as ArgumentListExpression) },
+            DeclarationExpression::class to { expr -> visitDeclarationExpression(expr as DeclarationExpression) },
+            BinaryExpression::class to { expr -> visitBinaryExpression(expr as BinaryExpression) },
+            ClosureExpression::class to { expr -> visitClosureExpression(expr as ClosureExpression) },
+            GStringExpression::class to { expr -> visitGStringExpression(expr as GStringExpression) },
+        )
     }
 
     private fun visitNode(node: ASTNode) {
@@ -353,56 +352,77 @@ fun ASTNode.resolveToDefinition(visitor: AstVisitor, symbolTable: SymbolTable, s
     val parent = visitor.getParent(this)
 
     return when (this) {
-        is VariableExpression -> {
-            // Look up variable declaration in symbol table
-            symbolTable.resolveSymbol(this, visitor) as? ASTNode
-        }
-        is MethodCallExpression -> {
-            // Try to resolve method call
-            visitor.getUri(this)?.let { uri ->
-                val methods = symbolTable.findMethodDeclarations(uri, method.text)
-                if (methods.isNotEmpty()) methods.first() else null
-            }
-        }
-        is ClassNode -> {
-            // For class nodes, they are their own definition unless looking for imported classes
-            this
-        }
-        is ClassExpression -> {
-            // ClassExpression references the type directly
-            type
-        }
-        is ConstructorCallExpression -> {
-            // Constructor call references the class being instantiated
-            type
-        }
-        is PropertyExpression -> {
-            // Try to resolve property access to field/property definition
-            resolvePropertyExpression(this, visitor, symbolTable)
-        }
-        is DeclarationExpression -> {
-            // Return the variable being declared
-            if (!isMultipleAssignmentDeclaration) {
-                leftExpression
-            } else {
-                null
-            }
-        }
-        is Parameter -> this // Parameters are their own definition
-        is MethodNode -> this // Methods are their own definition
-        is FieldNode -> this // Fields are their own definition
-        is PropertyNode -> this // Properties are their own definition
-        is ImportNode -> this // Imports are their own definition
-        is ConstantExpression -> {
-            // Check if this constant is part of a method call or property access
-            parent?.let { parentNode ->
-                when (parentNode) {
-                    is MethodCallExpression -> parentNode.resolveToDefinition(visitor, symbolTable, strict)
-                    else -> if (strict) null else this
-                }
-            }
-        }
+        is VariableExpression -> resolveVariableDefinition(this, symbolTable, visitor)
+        is MethodCallExpression -> resolveMethodDefinition(this, symbolTable, visitor)
+        is ClassNode, is ClassExpression, is ConstructorCallExpression -> resolveTypeDefinition(this)
+        is PropertyExpression -> resolvePropertyDefinition(this, visitor, symbolTable)
+        is DeclarationExpression -> resolveDeclarationDefinition(this)
+        is Parameter, is MethodNode, is FieldNode, is PropertyNode, is ImportNode -> this
+        is ConstantExpression -> resolveConstantExpression(this, parent, visitor, symbolTable, strict)
         else -> if (strict) null else this
+    }
+}
+
+/**
+ * Resolve a variable expression to its definition.
+ */
+private fun resolveVariableDefinition(
+    expr: VariableExpression,
+    symbolTable: SymbolTable,
+    visitor: AstVisitor,
+): ASTNode? = symbolTable.resolveSymbol(expr, visitor) as? ASTNode
+
+/**
+ * Resolve a method call expression to its definition.
+ */
+private fun resolveMethodDefinition(
+    call: MethodCallExpression,
+    symbolTable: SymbolTable,
+    visitor: AstVisitor,
+): ASTNode? = visitor.getUri(call)?.let { uri ->
+    symbolTable.findMethodDeclarations(uri, call.method.text).firstOrNull()
+}
+
+/**
+ * Resolve type-related nodes to their definitions.
+ */
+private fun resolveTypeDefinition(node: ASTNode): ASTNode? = when (node) {
+    is ClassNode -> node
+    is ClassExpression -> node.type
+    is ConstructorCallExpression -> node.type
+    else -> null
+}
+
+/**
+ * Resolve a property expression to its definition.
+ */
+private fun resolvePropertyDefinition(
+    expr: PropertyExpression,
+    visitor: AstVisitor,
+    symbolTable: SymbolTable,
+): ASTNode? = resolvePropertyExpression(expr, visitor, symbolTable)
+
+/**
+ * Resolve a declaration expression to its definition.
+ */
+private fun resolveDeclarationDefinition(expr: DeclarationExpression): ASTNode? =
+    if (!expr.isMultipleAssignmentDeclaration) expr.leftExpression else null
+
+/**
+ * Resolve a constant expression based on its parent context.
+ */
+private fun resolveConstantExpression(
+    node: ConstantExpression,
+    parent: ASTNode?,
+    visitor: AstVisitor,
+    symbolTable: SymbolTable,
+    strict: Boolean,
+): ASTNode? {
+    return parent?.let { parentNode ->
+        when (parentNode) {
+            is MethodCallExpression -> parentNode.resolveToDefinition(visitor, symbolTable, strict)
+            else -> if (strict) null else node
+        }
     }
 }
 
@@ -415,76 +435,111 @@ private fun resolvePropertyExpression(
     symbolTable: SymbolTable,
 ): ASTNode? {
     val propertyName = propertyExpr.propertyAsString ?: return null
+    val targetClass = resolveTargetClass(propertyExpr.objectExpression, visitor, symbolTable, propertyExpr)
+        ?: return null
 
-    // Try to resolve the object expression first to get the class
-    val objectExpr = propertyExpr.objectExpression
-    val targetClass = when (objectExpr) {
-        is org.codehaus.groovy.ast.expr.VariableExpression -> {
-            when (objectExpr.name) {
-                "this" -> {
-                    // Find the enclosing class for "this" reference
-                    var current = visitor.getParent(propertyExpr)
-                    while (current != null && current !is org.codehaus.groovy.ast.ClassNode) {
-                        current = visitor.getParent(current)
-                    }
-                    current as? org.codehaus.groovy.ast.ClassNode
-                }
-                "super" -> {
-                    // Handle super.field access
-                    var current = visitor.getParent(propertyExpr)
-                    while (current != null && current !is org.codehaus.groovy.ast.ClassNode) {
-                        current = visitor.getParent(current)
-                    }
-                    (current as? org.codehaus.groovy.ast.ClassNode)?.superClass
-                }
-                else -> {
-                    // Regular variable - resolve to its type
-                    val resolvedVar = symbolTable.resolveSymbol(objectExpr, visitor)
-                    when (resolvedVar) {
-                        is org.codehaus.groovy.ast.Variable -> resolvedVar.type
-                        is org.codehaus.groovy.ast.FieldNode -> resolvedVar.type
-                        is org.codehaus.groovy.ast.PropertyNode -> resolvedVar.type
-                        else -> null
-                    }
-                }
-            }
-        }
-        is org.codehaus.groovy.ast.expr.MethodCallExpression -> {
-            // Method call - try to determine return type (simplified)
-            // This would require more sophisticated type inference
-            null
-        }
+    return findPropertyInClass(targetClass, propertyName, symbolTable)
+}
+
+/**
+ * Resolve the target class from an object expression.
+ */
+private fun resolveTargetClass(
+    objectExpr: org.codehaus.groovy.ast.expr.Expression,
+    visitor: AstVisitor,
+    symbolTable: SymbolTable,
+    context: ASTNode,
+): org.codehaus.groovy.ast.ClassNode? {
+    return when (objectExpr) {
+        is org.codehaus.groovy.ast.expr.VariableExpression ->
+            resolveVariableType(objectExpr, visitor, symbolTable, context)
+        is org.codehaus.groovy.ast.expr.MethodCallExpression ->
+            null // Would require type inference
         else -> null
-    }
-
-    // If we have a target class, look for the field/property in it
-    return targetClass?.let { classNode ->
-        symbolTable.findFieldDeclaration(classNode, propertyName)
-            ?: classNode.getField(propertyName)
-            ?: classNode.getProperty(propertyName)
     }
 }
 
 /**
+ * Resolve the type of a variable expression.
+ */
+private fun resolveVariableType(
+    varExpr: org.codehaus.groovy.ast.expr.VariableExpression,
+    visitor: AstVisitor,
+    symbolTable: SymbolTable,
+    context: ASTNode,
+): org.codehaus.groovy.ast.ClassNode? {
+    return when (varExpr.name) {
+        "this" -> findEnclosingClass(context, visitor)
+        "super" -> findEnclosingClass(context, visitor)?.superClass
+        else -> getVariableTypeFromSymbol(varExpr, symbolTable, visitor)
+    }
+}
+
+/**
+ * Find the enclosing class of a given node.
+ */
+private fun findEnclosingClass(node: ASTNode, visitor: AstVisitor): org.codehaus.groovy.ast.ClassNode? {
+    var current = visitor.getParent(node)
+    while (current != null && current !is org.codehaus.groovy.ast.ClassNode) {
+        current = visitor.getParent(current)
+    }
+    return current as? org.codehaus.groovy.ast.ClassNode
+}
+
+/**
+ * Get the type of a variable from the symbol table.
+ */
+private fun getVariableTypeFromSymbol(
+    varExpr: org.codehaus.groovy.ast.expr.VariableExpression,
+    symbolTable: SymbolTable,
+    visitor: AstVisitor,
+): org.codehaus.groovy.ast.ClassNode? {
+    val resolvedVar = symbolTable.resolveSymbol(varExpr, visitor)
+    return when (resolvedVar) {
+        is org.codehaus.groovy.ast.Variable -> resolvedVar.type
+        is org.codehaus.groovy.ast.FieldNode -> resolvedVar.type
+        is org.codehaus.groovy.ast.PropertyNode -> resolvedVar.type
+        else -> null
+    }
+}
+
+/**
+ * Find a property in a class.
+ */
+private fun findPropertyInClass(
+    classNode: org.codehaus.groovy.ast.ClassNode,
+    propertyName: String,
+    symbolTable: SymbolTable,
+): ASTNode? {
+    return symbolTable.findFieldDeclaration(classNode, propertyName)
+        ?: classNode.getField(propertyName)
+        ?: classNode.getProperty(propertyName)
+}
+
+/**
+ * Types that can provide hover information.
+ */
+private val HOVERABLE_TYPES = setOf(
+    MethodNode::class,
+    Variable::class,
+    ClassNode::class,
+    FieldNode::class,
+    PropertyNode::class,
+    Parameter::class,
+    VariableExpression::class,
+    ConstantExpression::class,
+    MethodCallExpression::class,
+    DeclarationExpression::class,
+    BinaryExpression::class,
+    ClosureExpression::class,
+    GStringExpression::class,
+    ImportNode::class,
+    PackageNode::class,
+    AnnotationNode::class,
+    AnnotationConstantExpression::class,
+)
+
+/**
  * Check if this node represents a symbol that can provide hover information.
  */
-fun ASTNode.isHoverable(): Boolean = when (this) {
-    is MethodNode -> true
-    is Variable -> true
-    is ClassNode -> true
-    is FieldNode -> true
-    is PropertyNode -> true
-    is Parameter -> true
-    is VariableExpression -> true
-    is ConstantExpression -> true
-    is MethodCallExpression -> true
-    is DeclarationExpression -> true
-    is BinaryExpression -> true
-    is ClosureExpression -> true
-    is GStringExpression -> true
-    is ImportNode -> true
-    is PackageNode -> true
-    is AnnotationNode -> true
-    is AnnotationConstantExpression -> true
-    else -> false
-}
+fun ASTNode.isHoverable(): Boolean = HOVERABLE_TYPES.contains(this::class)

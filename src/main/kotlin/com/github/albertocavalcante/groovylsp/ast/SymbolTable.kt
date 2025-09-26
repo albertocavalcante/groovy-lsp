@@ -121,31 +121,44 @@ class SymbolTable {
                 }
                 is ImportNode -> addImportDeclaration(uri, node)
                 is org.codehaus.groovy.ast.expr.DeclarationExpression -> {
-                    // Extract variable from declaration expression
-                    if (!node.isMultipleAssignmentDeclaration) {
-                        val leftExpr = node.leftExpression
-                        if (leftExpr is org.codehaus.groovy.ast.expr.VariableExpression) {
-                            // Create a synthetic Variable for the declaration
-                            val variable = object : org.codehaus.groovy.ast.Variable {
-                                override fun getName() = leftExpr.name
-                                override fun getType() = node.variableExpression.type
-                                override fun getOriginType() = node.variableExpression.originType
-                                override fun isDynamicTyped() = node.variableExpression.isDynamicTyped
-                                override fun isClosureSharedVariable() = false
-                                override fun setClosureSharedVariable(inClosure: Boolean) {
-                                    // TODO: Implement closure shared variable tracking if needed for
-                                    //       advanced symbol resolution
-                                }
-                                override fun getModifiers() = node.variableExpression.modifiers
-                                override fun isInStaticContext() = node.variableExpression.isInStaticContext
-                                override fun hasInitialExpression() = node.rightExpression != null
-                                override fun getInitialExpression() = node.rightExpression
-                            }
-                            addVariableDeclaration(uri, variable)
-                        }
-                    }
+                    processDeclarationExpression(node, uri)
                 }
             }
+        }
+    }
+
+    /**
+     * Process a declaration expression to extract variable information.
+     */
+    private fun processDeclarationExpression(node: org.codehaus.groovy.ast.expr.DeclarationExpression, uri: URI) {
+        if (node.isMultipleAssignmentDeclaration) return
+
+        val leftExpr = node.leftExpression as? org.codehaus.groovy.ast.expr.VariableExpression ?: return
+        val variable = createSyntheticVariable(leftExpr, node)
+        addVariableDeclaration(uri, variable)
+    }
+
+    /**
+     * Create a synthetic Variable for a declaration expression.
+     */
+    private fun createSyntheticVariable(
+        leftExpr: org.codehaus.groovy.ast.expr.VariableExpression,
+        node: org.codehaus.groovy.ast.expr.DeclarationExpression,
+    ): org.codehaus.groovy.ast.Variable {
+        return object : org.codehaus.groovy.ast.Variable {
+            override fun getName() = leftExpr.name
+            override fun getType() = node.variableExpression.type
+            override fun getOriginType() = node.variableExpression.originType
+            override fun isDynamicTyped() = node.variableExpression.isDynamicTyped
+            override fun isClosureSharedVariable() = false
+            override fun setClosureSharedVariable(inClosure: Boolean) {
+                // TODO: Implement closure shared variable tracking if needed for
+                //       advanced symbol resolution
+            }
+            override fun getModifiers() = node.variableExpression.modifiers
+            override fun isInStaticContext() = node.variableExpression.isInStaticContext
+            override fun hasInitialExpression() = node.rightExpression != null
+            override fun getInitialExpression() = node.rightExpression
         }
     }
 

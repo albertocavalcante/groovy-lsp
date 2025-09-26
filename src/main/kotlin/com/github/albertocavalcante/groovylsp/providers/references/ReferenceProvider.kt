@@ -78,13 +78,13 @@ class ReferenceProvider(private val compilationService: GroovyCompilationService
 
     private fun createReferenceContextInternal(uri: String, position: Position): ReferenceContext? {
         val documentUri = URI.create(uri)
-        val visitor = compilationService.getAstVisitor(documentUri) ?: return null
-        val symbolTable = compilationService.getSymbolTable(documentUri) ?: return null
-
-        val targetNode = visitor.getNodeAt(documentUri, position.line, position.character)
-            ?.takeIf { it.isReferenceableSymbol() }
-
-        return targetNode?.let { ReferenceContext(documentUri, visitor, symbolTable, it) }
+        return compilationService.getAstVisitor(documentUri)?.let { visitor ->
+            compilationService.getSymbolTable(documentUri)?.let { symbolTable ->
+                visitor.getNodeAt(documentUri, position.line, position.character)
+                    ?.takeIf { it.isReferenceableSymbol() }
+                    ?.let { ReferenceContext(documentUri, visitor, symbolTable, it) }
+            }
+        }
     }
 
     /**

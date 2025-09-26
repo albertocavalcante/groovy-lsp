@@ -153,11 +153,6 @@ fun ASTNode.safeRange(): LspResult<Range> = safePosition().flatMapResult { start
     }
 }
 
-/**
- * Checks if an AST node has valid position information
- */
-fun ASTNode.hasValidPosition(): Boolean =
-    lineNumber > 0 && columnNumber > 0 && lastLineNumber > 0 && lastColumnNumber > 0
 
 /**
  * Checks if a position is within an AST node's range
@@ -286,10 +281,3 @@ fun ASTNode.safeName(): String? = when (this) {
     else -> null
 }
 
-/**
- * Extension function for creating validation errors
- */
-fun ASTNode.validationError(message: String): LspError.InternalError = LspError.InternalError(
-    operation = "node_validation",
-    reason = "$message for ${typeName()} at line $lineNumber",
-)

@@ -234,14 +234,20 @@ class AstVisitor : ClassCodeVisitorSupport() {
         node.annotations?.forEach { annotation ->
             pushNode(annotation)
             try {
-                // Visit annotation members if present
-                annotation.members?.forEach { (_, value) ->
-                    if (value is org.codehaus.groovy.ast.expr.Expression) {
-                        value.visit(this)
-                    }
-                }
+                processAnnotationMembers(annotation)
             } finally {
                 popNode()
+            }
+        }
+    }
+
+    /**
+     * Process annotation members to visit their expressions.
+     */
+    private fun processAnnotationMembers(annotation: org.codehaus.groovy.ast.AnnotationNode) {
+        annotation.members?.forEach { (_, value) ->
+            if (value is org.codehaus.groovy.ast.expr.Expression) {
+                value.visit(this)
             }
         }
     }

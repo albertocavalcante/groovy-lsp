@@ -58,49 +58,46 @@ class GroovyCompilationService {
             } else {
                 performCompilation(uri, content)
             }
-        } catch (e: CompilationFailedException) {
-            logger.error("Compilation failed for $uri", e)
-
-            // Try to extract more specific error information
-            val specificException = when {
-                e.message?.contains("Syntax error", ignoreCase = true) == true -> {
-                    // Extract line/column if available from error message
-                    val lineColumn = extractLineColumnFromMessage(e.message)
-                    uri.syntaxError(
-                        lineColumn?.first ?: 0,
-                        lineColumn?.second ?: 0,
-                        e.message ?: "Unknown syntax error",
-                        e,
-                    )
-                }
-                else -> AstGenerationException(uri, e.message ?: "Unknown compilation error", e)
-            }
-
-            val errorDiagnostic = createErrorDiagnostic(
-                "${specificException.javaClass.simpleName}: ${specificException.message}",
-            )
-            CompilationResult.failure(listOf(errorDiagnostic))
-        } catch (e: GroovyLspException) {
-            logger.error("LSP error during compilation for $uri", e)
-            val errorDiagnostic = createErrorDiagnostic("LSP error: ${e.message}")
-            CompilationResult.failure(listOf(errorDiagnostic))
-        } catch (e: IllegalArgumentException) {
-            logger.error("Invalid arguments during compilation for $uri", e)
-            val errorDiagnostic = createErrorDiagnostic("Invalid arguments: ${e.message}")
-            CompilationResult.failure(listOf(errorDiagnostic))
-        } catch (e: IllegalStateException) {
-            logger.error("Invalid state during compilation for $uri", e)
-            val errorDiagnostic = createErrorDiagnostic("Invalid state: ${e.message}")
-            CompilationResult.failure(listOf(errorDiagnostic))
-        } catch (e: java.io.IOException) {
-            logger.error("I/O error during compilation for $uri", e)
-            val errorDiagnostic = createErrorDiagnostic("I/O error: ${e.message}")
-            CompilationResult.failure(listOf(errorDiagnostic))
         } catch (e: Exception) {
-            logger.error("Unexpected error during compilation for $uri", e)
-            val errorDiagnostic = createErrorDiagnostic("Compilation error: ${e.message}")
-            CompilationResult.failure(listOf(errorDiagnostic))
+            handleCompilationException(e, uri)
         }
+    }
+
+    /**
+     * Handle compilation exceptions and convert them to appropriate results.
+     */
+    private fun handleCompilationException(e: Exception, uri: URI): CompilationResult {
+        val (logMessage, diagnostic) = when (e) {
+            is CompilationFailedException -> createCompilationFailedDiagnostic(e, uri)
+            is GroovyLspException -> "LSP error" to "LSP error: ${e.message}"
+            is IllegalArgumentException -> "Invalid arguments" to "Invalid arguments: ${e.message}"
+            is IllegalStateException -> "Invalid state" to "Invalid state: ${e.message}"
+            is java.io.IOException -> "I/O error" to "I/O error: ${e.message}"
+            else -> "Unexpected error" to "Compilation error: ${e.message}"
+        }
+
+        logger.error("$logMessage during compilation for $uri", e)
+        return CompilationResult.failure(listOf(createErrorDiagnostic(diagnostic)))
+    }
+
+    /**
+     * Create diagnostic for compilation failed exception.
+     */
+    private fun createCompilationFailedDiagnostic(e: CompilationFailedException, uri: URI): Pair<String, String> {
+        val specificException = when {
+            e.message?.contains("Syntax error", ignoreCase = true) == true -> {
+                val lineColumn = extractLineColumnFromMessage(e.message)
+                uri.syntaxError(
+                    lineColumn?.first ?: 0,
+                    lineColumn?.second ?: 0,
+                    e.message ?: "Unknown syntax error",
+                    e,
+                )
+            }
+            else -> AstGenerationException(uri, e.message ?: "Unknown compilation error", e)
+        }
+
+        return "Compilation failed" to "${specificException.javaClass.simpleName}: ${specificException.message}"
     }
 
     private suspend fun performCompilation(uri: URI, content: String): CompilationResult {
