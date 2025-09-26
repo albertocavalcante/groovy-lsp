@@ -472,7 +472,7 @@ private fun ImportNode.formatImport(): String = buildString {
 }
 
 private fun ASTNode.modifiersString(): String = buildString {
-    val modifiers = when (this) {
+    val modifiers = when (this@modifiersString) {
         is MethodNode -> this.modifiers
         is FieldNode -> this.modifiers
         is ClassNode -> this.modifiers

@@ -134,7 +134,7 @@ fun <T> LspResult<T>.getOrLogNull(logger: org.slf4j.Logger, message: String = "O
 /**
  * Converts LspResult to a default value, logging errors
  */
-inline fun <T> LspResult<T>.getOrDefault(
+fun <T> LspResult<T>.getOrDefault(
     default: T,
     logger: org.slf4j.Logger? = null,
     message: String = "Operation failed, using default",
