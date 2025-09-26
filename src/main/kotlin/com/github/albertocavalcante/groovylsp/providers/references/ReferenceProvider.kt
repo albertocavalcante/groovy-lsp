@@ -27,65 +27,68 @@ class ReferenceProvider(private val compilationService: GroovyCompilationService
      * @param includeDeclaration Whether to include the declaration in the results
      * @return Flow of locations where the symbol is referenced
      */
+    @Suppress("TooGenericExceptionCaught") // TODO: Review if catch-all is needed - currently serves as final fallback
     fun provideReferences(uri: String, position: Position, includeDeclaration: Boolean): Flow<Location> = channelFlow {
         logger.debug("Finding references for $uri at ${position.line}:${position.character}")
 
         try {
-            val documentUri = URI.create(uri)
+            val context = createReferenceContext(uri, position) ?: return@channelFlow
+            val definition = resolveTargetDefinition(context) ?: return@channelFlow
 
-            // Get AST visitor and symbol table for the document
-            val visitor = compilationService.getAstVisitor(documentUri) ?: return@channelFlow
-            val symbolTable = compilationService.getSymbolTable(documentUri) ?: return@channelFlow
-
-            // Find the node at the position
-            val targetNode = visitor.getNodeAt(documentUri, position.line, position.character)
-            if (targetNode == null) {
-                logger.debug("No node found at position")
-                return@channelFlow
-            }
-
-            // Validate that the node is a referenceable symbol
-            if (!targetNode.isReferenceableSymbol()) {
-                logger.debug("Node at position is not a referenceable symbol: ${targetNode.javaClass.simpleName}")
-                return@channelFlow
-            }
-
-            // Check if the target node itself is part of a declaration
-            val targetIsDeclaration = when {
-                targetNode is org.codehaus.groovy.ast.expr.VariableExpression -> {
-                    val parent = visitor.getParent(targetNode)
-                    parent is org.codehaus.groovy.ast.expr.DeclarationExpression && parent.leftExpression == targetNode
-                }
-                targetNode is org.codehaus.groovy.ast.Parameter -> true
-                targetNode is org.codehaus.groovy.ast.MethodNode -> true
-                targetNode is org.codehaus.groovy.ast.FieldNode -> true
-                targetNode is org.codehaus.groovy.ast.PropertyNode -> true
-                targetNode is org.codehaus.groovy.ast.ClassNode -> true
-                else -> false
-            }
-
-            // Resolve the target node to its definition
-            val definition = targetNode.resolveToDefinition(visitor, symbolTable, strict = false)
-            if (definition == null) {
-                logger.debug("Could not resolve definition for node")
-                return@channelFlow
-            }
-
-            logger.debug(
-                "Found definition: ${definition.javaClass.simpleName}, targetIsDeclaration: $targetIsDeclaration",
-            )
-
-            // Find all references to this definition
-            findReferences(definition, visitor, symbolTable, includeDeclaration)
+            logger.debug("Found definition: ${definition.javaClass.simpleName}")
+            findReferences(definition, context.visitor, context.symbolTable, includeDeclaration)
         } catch (e: GroovyLspException) {
             logger.error("LSP error finding references", e)
         } catch (e: IllegalArgumentException) {
             logger.error("Invalid arguments for finding references", e)
         } catch (e: IllegalStateException) {
             logger.error("Invalid state while finding references", e)
-        } catch (e: RuntimeException) {
-            logger.error("Runtime error finding references", e)
+        } catch (e: Exception) {
+            logger.error("Unexpected error finding references", e)
         }
+    }
+
+    /**
+     * Context for reference resolution.
+     */
+    private data class ReferenceContext(
+        val documentUri: URI,
+        val visitor: com.github.albertocavalcante.groovylsp.ast.AstVisitor,
+        val symbolTable: com.github.albertocavalcante.groovylsp.ast.SymbolTable,
+        val targetNode: ASTNode,
+    )
+
+    /**
+     * Create reference context from URI and position.
+     */
+    private fun createReferenceContext(uri: String, position: Position): ReferenceContext? {
+        val documentUri = URI.create(uri)
+        val visitor = compilationService.getAstVisitor(documentUri)
+        val symbolTable = compilationService.getSymbolTable(documentUri)
+
+        if (visitor == null || symbolTable == null) {
+            return null
+        }
+
+        val targetNode = visitor.getNodeAt(documentUri, position.line, position.character)
+        if (targetNode == null || !targetNode.isReferenceableSymbol()) {
+            logger.debug("No referenceable node found at position")
+            return null
+        }
+
+        return ReferenceContext(documentUri, visitor, symbolTable, targetNode)
+    }
+
+    /**
+     * Resolve the target node to its definition.
+     */
+    private fun resolveTargetDefinition(context: ReferenceContext): ASTNode? {
+        val definition = context.targetNode.resolveToDefinition(context.visitor, context.symbolTable, strict = false)
+        if (definition == null) {
+            logger.debug("Could not resolve definition for node")
+            return null
+        }
+        return definition
     }
 
     /**
