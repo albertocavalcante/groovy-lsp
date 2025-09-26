@@ -12,7 +12,7 @@ jobs:
   release-please:
     runs-on: "ubuntu-latest"
     steps:
-    - uses: "googleapis/release-please-action@c2a5a2bd6a758a0937f1ddb1e8950609867ed15c"
+    - uses: "googleapis/release-please-action@4cd397a333e5500c1683589c277f56a3c10990e6"
       with:
         token: "${{ secrets.RELEASE_PLEASE_TOKEN }}"
         config-file: "release-please-config.json"
