@@ -10,7 +10,7 @@ plugins {
 
 group = "com.github.albertocavalcante"
 // x-release-please-start-version
-val baseVersion = "0.1.0"
+val baseVersion = "0.2.0"
 // x-release-please-end
 
 // Smart version detection: SNAPSHOT for development, clean for releases
