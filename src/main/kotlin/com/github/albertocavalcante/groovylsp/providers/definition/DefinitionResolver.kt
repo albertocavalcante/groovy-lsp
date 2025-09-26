@@ -65,7 +65,7 @@ class DefinitionResolver(private val astVisitor: AstVisitor, private val symbolT
      */
     private fun resolveDefinition(targetNode: ASTNode, uri: URI, position: Position): ASTNode {
         val definition = try {
-            targetNode.resolveToDefinition(astVisitor, symbolTable, strict = true)
+            targetNode.resolveToDefinition(astVisitor, symbolTable, strict = false)
         } catch (e: StackOverflowError) {
             logger.debug("Stack overflow during definition resolution, likely circular reference", e)
             handleResolutionError(e, targetNode, uri, position)
@@ -77,7 +77,13 @@ class DefinitionResolver(private val astVisitor: AstVisitor, private val symbolT
             handleResolutionError(e, targetNode, uri, position)
         }
 
-        return definition ?: handleResolutionError(null, targetNode, uri, position)
+        // FIXME: Filter out non-definition nodes that shouldn't be treated as symbols
+        val filteredDefinition = when (definition) {
+            is org.codehaus.groovy.ast.expr.ConstantExpression -> null // String literals aren't definitions
+            else -> definition
+        }
+
+        return filteredDefinition ?: handleResolutionError(null, targetNode, uri, position)
     }
 
     /**
@@ -147,19 +153,18 @@ class DefinitionResolver(private val astVisitor: AstVisitor, private val symbolT
             else -> throw createSymbolNotFoundException("unknown", uri, position)
         }
 
-    private fun handleNodeValidationError(errorType: String, uri: URI, node: ASTNode): Nothing =
-        when (errorType) {
-            "invalidDefinitionPosition" -> throw uri.invalidPosition(
-                node.lineNumber,
-                node.columnNumber,
-                "Definition node has invalid position information",
-            )
-            else -> throw createSymbolNotFoundException(
-                node.toString(),
-                uri,
-                org.eclipse.lsp4j.Position(node.lineNumber, node.columnNumber),
-            )
-        }
+    private fun handleNodeValidationError(errorType: String, uri: URI, node: ASTNode): Nothing = when (errorType) {
+        "invalidDefinitionPosition" -> throw uri.invalidPosition(
+            node.lineNumber,
+            node.columnNumber,
+            "Definition node has invalid position information",
+        )
+        else -> throw createSymbolNotFoundException(
+            node.toString(),
+            uri,
+            org.eclipse.lsp4j.Position(node.lineNumber, node.columnNumber),
+        )
+    }
 
     /**
      * Find all targets at the given position for the specified target kinds.
