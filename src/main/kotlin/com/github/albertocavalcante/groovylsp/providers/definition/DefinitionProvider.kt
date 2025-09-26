@@ -37,7 +37,7 @@ class DefinitionProvider(private val compilationService: GroovyCompilationServic
         // Get the AST for the document
         val ast = compilationService.getAst(documentUri)
         if (ast == null) {
-            logger.debug("No AST available for $uri")
+            logger.warn("No AST available for $uri - this might indicate compilation service cache issue")
             return@flow
         }
 
@@ -45,13 +45,13 @@ class DefinitionProvider(private val compilationService: GroovyCompilationServic
         // Note: We need to update GroovyCompilationService to provide these
         val visitor = compilationService.getAstVisitor(documentUri)
         if (visitor == null) {
-            logger.debug("No AST visitor available for $uri")
+            logger.warn("No AST visitor available for $uri - this might indicate visitor cache issue")
             return@flow
         }
 
         val symbolTable = compilationService.getSymbolTable(documentUri)
         if (symbolTable == null) {
-            logger.debug("No symbol table available for $uri")
+            logger.warn("No symbol table available for $uri - this might indicate symbol table cache issue")
             return@flow
         }
 
@@ -64,7 +64,10 @@ class DefinitionProvider(private val compilationService: GroovyCompilationServic
                 // Convert to Location and emit
                 val location = LocationConverter.nodeToLocation(definitionNode, visitor)
                 if (location != null) {
-                    logger.debug("Found definition at ${location.uri}:${location.range}")
+                    logger.debug(
+                        "Found definition at ${location.uri}:${location.range} " +
+                            "(node: ${definitionNode.javaClass.simpleName})",
+                    )
                     emit(location)
                 } else {
                     logger.debug("Could not convert definition node to location")

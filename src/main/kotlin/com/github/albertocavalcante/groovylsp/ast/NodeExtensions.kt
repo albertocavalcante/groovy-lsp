@@ -153,7 +153,6 @@ fun ASTNode.safeRange(): LspResult<Range> = safePosition().flatMapResult { start
     }
 }
 
-
 /**
  * Checks if a position is within an AST node's range
  */
@@ -280,4 +279,3 @@ fun ASTNode.safeName(): String? = when (this) {
     is Parameter -> name
     else -> null
 }
-

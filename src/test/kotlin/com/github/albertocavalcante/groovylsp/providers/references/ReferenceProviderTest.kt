@@ -37,10 +37,10 @@ class ReferenceProviderTest {
         val result = compilationService.compile(uri, content)
         assertTrue(result.isSuccess, "Compilation should succeed")
 
-        // Act - Find references of 'localVar' at its declaration (line 0, column 4)
+        // Act - Find references of 'localVar' at its declaration (line 0, column 6)
         val references = referenceProvider.provideReferences(
             uri.toString(),
-            Position(0, 4), // pointing at 'localVar' in declaration
+            Position(0, 6), // pointing at 'ocalVar' in declaration
             includeDeclaration = true,
         ).toList()
 
@@ -72,7 +72,7 @@ class ReferenceProviderTest {
         // Act - Find references without including declaration
         val references = referenceProvider.provideReferences(
             uri.toString(),
-            Position(0, 4),
+            Position(0, 6),
             includeDeclaration = false,
         ).toList()
 

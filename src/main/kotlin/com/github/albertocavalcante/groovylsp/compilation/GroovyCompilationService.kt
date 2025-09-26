@@ -1,17 +1,11 @@
 package com.github.albertocavalcante.groovylsp.compilation
 
-import com.github.albertocavalcante.groovylsp.ast.AstCache
 import com.github.albertocavalcante.groovylsp.ast.AstVisitor
 import com.github.albertocavalcante.groovylsp.ast.SymbolTable
 import com.github.albertocavalcante.groovylsp.cache.LRUCache
-import com.github.albertocavalcante.groovylsp.dsl.RangeBuilder
-import com.github.albertocavalcante.groovylsp.dsl.diagnostic
-import com.github.albertocavalcante.groovylsp.errors.AstGenerationException
 import com.github.albertocavalcante.groovylsp.errors.CacheCorruptionException
 import com.github.albertocavalcante.groovylsp.errors.CircularReferenceException
-import com.github.albertocavalcante.groovylsp.errors.GroovyLspException
 import com.github.albertocavalcante.groovylsp.errors.ResourceExhaustionException
-import com.github.albertocavalcante.groovylsp.errors.syntaxError
 import com.github.albertocavalcante.groovylsp.providers.symbols.SymbolStorage
 import com.github.albertocavalcante.groovylsp.providers.symbols.buildFromVisitor
 import groovy.lang.GroovyClassLoader
@@ -25,16 +19,16 @@ import org.codehaus.groovy.control.io.StringReaderSource
 import org.eclipse.lsp4j.Diagnostic
 import org.slf4j.LoggerFactory
 import java.net.URI
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Service for compiling Groovy source code and managing ASTs.
+ * Refactored to use composition with cache and error handler components.
  */
 class GroovyCompilationService {
 
     private val logger = LoggerFactory.getLogger(GroovyCompilationService::class.java)
-    private val astCache = AstCache()
-    private val diagnosticsCache = ConcurrentHashMap<URI, List<Diagnostic>>()
+    private val cache = CompilationCache()
+    private val errorHandler = CompilationErrorHandler()
 
     // AST visitor and symbol table caches with LRU eviction
     private val astVisitorCache = LRUCache<URI, AstVisitor>(maxSize = 100)
@@ -50,54 +44,17 @@ class GroovyCompilationService {
 
         return try {
             // Check cache first
-            val cachedAst = astCache.get(uri, content)
+            val cachedAst = cache.getCachedAst(uri, content)
             if (cachedAst != null) {
                 logger.debug("Using cached AST for: $uri")
-                val cachedDiagnostics = diagnosticsCache[uri] ?: emptyList()
+                val cachedDiagnostics = cache.getCachedDiagnostics(uri)
                 CompilationResult.success(cachedAst, cachedDiagnostics)
             } else {
                 performCompilation(uri, content)
             }
         } catch (e: Exception) {
-            handleCompilationException(e, uri)
+            errorHandler.handleException(e, uri)
         }
-    }
-
-    /**
-     * Handle compilation exceptions and convert them to appropriate results.
-     */
-    private fun handleCompilationException(e: Exception, uri: URI): CompilationResult {
-        val (logMessage, diagnostic) = when (e) {
-            is CompilationFailedException -> createCompilationFailedDiagnostic(e, uri)
-            is GroovyLspException -> "LSP error" to "LSP error: ${e.message}"
-            is IllegalArgumentException -> "Invalid arguments" to "Invalid arguments: ${e.message}"
-            is IllegalStateException -> "Invalid state" to "Invalid state: ${e.message}"
-            is java.io.IOException -> "I/O error" to "I/O error: ${e.message}"
-            else -> "Unexpected error" to "Compilation error: ${e.message}"
-        }
-
-        logger.error("$logMessage during compilation for $uri", e)
-        return CompilationResult.failure(listOf(createErrorDiagnostic(diagnostic)))
-    }
-
-    /**
-     * Create diagnostic for compilation failed exception.
-     */
-    private fun createCompilationFailedDiagnostic(e: CompilationFailedException, uri: URI): Pair<String, String> {
-        val specificException = when {
-            e.message?.contains("Syntax error", ignoreCase = true) == true -> {
-                val lineColumn = extractLineColumnFromMessage(e.message)
-                uri.syntaxError(
-                    lineColumn?.first ?: 0,
-                    lineColumn?.second ?: 0,
-                    e.message ?: "Unknown syntax error",
-                    e,
-                )
-            }
-            else -> AstGenerationException(uri, e.message ?: "Unknown compilation error", e)
-        }
-
-        return "Compilation failed" to "${specificException.javaClass.simpleName}: ${specificException.message}"
     }
 
     private suspend fun performCompilation(uri: URI, content: String): CompilationResult {
@@ -130,8 +87,7 @@ class GroovyCompilationService {
 
         val result = if (ast != null) {
             // We have an AST, cache it and the diagnostics.
-            astCache.put(uri, content, ast)
-            diagnosticsCache[uri] = diagnostics
+            cache.cacheResult(uri, content, ast, diagnostics)
 
             // Build AST visitor and symbol table for go-to-definition
             buildAstVisitorAndSymbolTable(uri, compilationUnit, sourceUnit)
@@ -141,7 +97,6 @@ class GroovyCompilationService {
             CompilationResult(isSuccess, ast, diagnostics)
         } else {
             // No AST, compilation definitely failed.
-            diagnosticsCache[uri] = diagnostics
             CompilationResult.failure(diagnostics)
         }
 
@@ -153,12 +108,12 @@ class GroovyCompilationService {
      * Gets the cached AST for a URI, or null if not cached.
      * Note: This method doesn't validate cache freshness - use compile() for that.
      */
-    fun getAst(uri: URI): ASTNode? = astCache.getUnchecked(uri)
+    fun getAst(uri: URI): ASTNode? = cache.getCachedAst(uri)
 
     /**
      * Gets the cached diagnostics for a URI.
      */
-    fun getDiagnostics(uri: URI): List<Diagnostic> = diagnosticsCache[uri] ?: emptyList()
+    fun getDiagnostics(uri: URI): List<Diagnostic> = cache.getCachedDiagnostics(uri)
 
     /**
      * Gets the AST visitor for a URI, or null if not available.
@@ -179,12 +134,13 @@ class GroovyCompilationService {
      * Clears all caches.
      */
     fun clearCaches() {
-        astCache.clear()
-        diagnosticsCache.clear()
+        cache.clear()
         astVisitorCache.clear()
         symbolTableCache.clear()
         symbolStorageCache.clear()
     }
+
+    fun getCacheStatistics() = cache.getStatistics()
 
     /**
      * Creates a compiler configuration optimized for language server use.
@@ -292,36 +248,6 @@ class GroovyCompilationService {
         }
     }
 
-    /**
-     * Creates an error diagnostic for unexpected compilation errors.
-     */
-    private fun createErrorDiagnostic(message: String): Diagnostic = diagnostic {
-        range(RangeBuilder.at(0, 0))
-        error(message)
-        source("groovy-lsp")
-        code("compilation-error")
-    }
-
-    /**
-     * Extract line and column information from Groovy compiler error messages.
-     * Groovy error messages often contain position information like "@ line 5, column 10"
-     */
-    private fun extractLineColumnFromMessage(message: String?): Pair<Int, Int>? {
-        if (message == null) return null
-
-        // Look for patterns like "@ line 5, column 10" or "line: 5, column: 10"
-        val lineColumnRegex = """(?:@\s*)?line[:\s]*(\d+)(?:[,\s]*column[:\s]*(\d+))?""".toRegex(
-            RegexOption.IGNORE_CASE,
-        )
-        val match = lineColumnRegex.find(message)
-
-        return match?.let { matchResult ->
-            val line = matchResult.groups[1]?.value?.toIntOrNull() ?: 0
-            val column = matchResult.groups[2]?.value?.toIntOrNull() ?: 0
-            line to column
-        }
-    }
-
     // Expose cache for testing purposes
-    internal val cache: AstCache get() = astCache
+    internal val astCache get() = cache
 }
