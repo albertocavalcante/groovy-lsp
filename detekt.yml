@@ -133,7 +133,7 @@ style:
     - "STOPSHIP:"
     - "XXX:"
   LoopWithTooManyJumpStatements:
-    active: false
+    active: true
   MaxLineLength:
     active: true
     maxLineLength: 120
