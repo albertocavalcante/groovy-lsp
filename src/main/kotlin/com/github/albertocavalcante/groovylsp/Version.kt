@@ -46,22 +46,21 @@ object Version {
 
     private fun loadVersionProperties(): Properties {
         val properties = Properties()
+        val resourceName = "version.properties"
+        val inputStream = Version::class.java.classLoader.getResourceAsStream(resourceName)
+
+        if (inputStream == null) {
+            logger.warn("{} not found in classpath", resourceName)
+            return properties
+        }
 
         try {
-            // Load from classpath resource generated at build time
-            val inputStream = Version::class.java.classLoader
-                .getResourceAsStream("version.properties")
-
-            if (inputStream != null) {
-                inputStream.use { stream ->
-                    properties.load(stream)
-                }
-                logger.debug("Successfully loaded version properties")
-            } else {
-                logger.warn("version.properties not found in classpath")
-            }
+            inputStream.use(properties::load)
+            logger.debug("Successfully loaded version properties")
         } catch (e: IOException) {
-            logger.error("Failed to load version properties", e)
+            logger.error("Failed to read {}", resourceName, e)
+        } catch (e: IllegalArgumentException) {
+            logger.error("Failed to parse {}", resourceName, e)
         }
 
         return properties

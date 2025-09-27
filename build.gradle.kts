@@ -204,7 +204,6 @@ tasks.register("generateVersionProperties") {
             """
             version=$version
             baseVersion=$baseVersion
-            buildTime=${System.currentTimeMillis()}
             """.trimIndent(),
         )
         println("Generated version.properties: version=$version, baseVersion=$baseVersion")
