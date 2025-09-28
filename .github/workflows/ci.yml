@@ -57,12 +57,10 @@ jobs:
     - name: "Run Code Coverage"
       run: "./gradlew koverHtmlReport koverXmlReport --stacktrace"
     - name: "SonarCloud Analysis"
-      if: |
-        matrix.os == 'ubuntu-latest' && matrix.java == 17 &&
-        ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-         (github.event_name == 'pull_request' &&
-          github.event.pull_request.base.ref == 'main' &&
-          github.event.pull_request.head.repo.full_name == github.repository))
+      if: "matrix.os == 'ubuntu-latest' && matrix.java == 17 &&\n((github.event_name\
+        \ == 'push' && github.ref == 'refs/heads/main') ||\n (github.event_name ==\
+        \ 'pull_request' &&\n  github.event.pull_request.base.ref == 'main' &&\n \
+        \ github.event.pull_request.head.repo.full_name == github.repository))\n"
       env:
         GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         SONAR_TOKEN: "${{ secrets.SONAR_TOKEN }}"
