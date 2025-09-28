@@ -309,6 +309,8 @@ class TypeDefinitionIntegrationTest {
                 workspaceRoot = null,
             )
         } catch (e: Exception) {
+            // Log the compilation error but continue with partial AST
+            logger.warn("Compilation error, proceeding with partial AST: {}", e.message, e)
             // Even with compilation errors, we might have partial AST
             val module = sourceUnit.ast ?: ModuleNode(sourceUnit)
             astVisitor.visitModule(module, sourceUnit, uri)

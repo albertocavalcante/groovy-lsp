@@ -54,10 +54,9 @@ class TypeDefinitionDiagnosticTest {
         logger.debug("Node at position: $nodeAtPosition")
         logger.debug("Node type: {}", nodeAtPosition?.javaClass?.simpleName)
 
-        // 4. Try type resolution (simplified - just check if we can create a TypeResolver)
+        // 4. Check if we found a node for type resolution
         if (nodeAtPosition != null) {
-            val typeResolver = GroovyTypeResolver()
-            logger.debug("✓ TypeResolver created successfully")
+            logger.debug("✓ Node found for type resolution")
             logger.debug("Node available for resolution: {}", nodeAtPosition.javaClass.simpleName)
         } else {
             logger.debug("❌ No node found at position - cannot test type resolution")

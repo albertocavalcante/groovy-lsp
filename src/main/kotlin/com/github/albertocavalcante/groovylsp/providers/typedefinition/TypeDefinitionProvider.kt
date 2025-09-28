@@ -33,6 +33,7 @@ class TypeDefinitionProvider(
      * @param params LSP TypeDefinitionParams containing document URI and position
      * @return CompletableFuture with Location of the type definition, or empty list if not found
      */
+    @Suppress("TooGenericExceptionCaught") // Final fallback for any unexpected runtime errors
     fun provideTypeDefinition(params: TypeDefinitionParams): CompletableFuture<List<Location>> = coroutineScope.future {
         try {
             val uri = URI.create(params.textDocument.uri)
@@ -47,8 +48,14 @@ class TypeDefinitionProvider(
                 logger.debug("No type definition found")
                 emptyList()
             }
-        } catch (e: Exception) {
-            logger.error("Error providing type definition", e)
+        } catch (e: IllegalArgumentException) {
+            logger.error("Invalid arguments for type definition", e)
+            emptyList()
+        } catch (e: NullPointerException) {
+            logger.error("Null reference in type definition processing", e)
+            emptyList()
+        } catch (e: RuntimeException) {
+            logger.error("Runtime error providing type definition", e)
             emptyList()
         }
     }

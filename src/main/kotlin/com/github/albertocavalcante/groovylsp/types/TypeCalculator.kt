@@ -63,7 +63,11 @@ class GroovyTypeCalculator {
  */
 class DefaultTypeCalculator : TypeCalculator {
 
-    override val priority: Int = -100 // Low priority - fallback calculator
+    companion object {
+        private const val FALLBACK_PRIORITY = -100
+    }
+
+    override val priority: Int = FALLBACK_PRIORITY // Low priority - fallback calculator
 
     override suspend fun calculateType(expression: Expression, context: CompilationContext): ClassNode? = when {
         // Null safety - return null if expression type is null
