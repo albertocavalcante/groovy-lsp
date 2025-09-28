@@ -17,11 +17,24 @@ gitHooks {
                 exit 1
             fi
 
-            echo "Running code quality checks..."
+            echo "Running auto-formatting and code quality fixes..."
+
+            # Store list of staged files
+            staged_files=${'$'}(git diff --cached --name-only --diff-filter=d)
+
+            # Run auto-fixers (spotlessApply + detektAutoCorrect)
+            ./gradlew lintFix --quiet || exit 1
+
+            # Re-stage modified files
+            for file in ${'$'}staged_files; do
+                if [ -f "${'$'}file" ]; then
+                    git add "${'$'}file"
+                fi
+            done
+
+            echo "✓ Code formatting applied and files re-staged"
             """
         }
-        // Use Gradle wrapper - works cross-platform
-        tasks("spotlessCheck", "detekt")
     }
 
     commitMsg {
