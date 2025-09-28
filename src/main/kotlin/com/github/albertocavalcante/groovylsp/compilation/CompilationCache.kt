@@ -24,7 +24,13 @@ class CompilationCache {
 
     fun getCachedCompilationUnit(uri: URI): CompilationUnit? = compilationUnitCache[uri]
 
-    fun cacheResult(uri: URI, content: String, ast: ASTNode, diagnostics: List<Diagnostic>, compilationUnit: CompilationUnit) {
+    fun cacheResult(
+        uri: URI,
+        content: String,
+        ast: ASTNode,
+        diagnostics: List<Diagnostic>,
+        compilationUnit: CompilationUnit,
+    ) {
         astCache.put(uri, content, ast)
         diagnosticsCache[uri] = diagnostics
         compilationUnitCache[uri] = compilationUnit

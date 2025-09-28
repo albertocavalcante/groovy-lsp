@@ -189,5 +189,4 @@ class GroovyTypeResolver(
         // For now, return null - this would be enhanced with proper dependency scanning
         return null
     }
-
 }
