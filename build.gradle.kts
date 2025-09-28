@@ -252,9 +252,10 @@ tasks.register<io.gitlab.arturbosch.detekt.Detekt>("detektAutoCorrect") {
 tasks.register("lintFix") {
     description = "Fix all auto-correctable lint and formatting issues"
     group = "formatting"
-    dependsOn("spotlessApply")
-    finalizedBy("detektAutoCorrect")
+    dependsOn("spotlessApply", "detektAutoCorrect")
 }
+
+tasks.named("detektAutoCorrect").configure { mustRunAfter("spotlessApply") }
 
 tasks.register("format") {
     description = "Format all source code"
