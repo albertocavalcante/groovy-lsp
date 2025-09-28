@@ -56,7 +56,9 @@ data class CompilationContext(
 
             // Create a minimal compilation unit if we don't have one
             val compilationUnit = CompilationUnit()
-            compilationUnit.addSource(uri.toString(), result.ast.toString())
+            // Use the actual source text if available, fallback to empty string if not
+            val sourceText = result.sourceText ?: ""
+            compilationUnit.addSource(uri.toString(), sourceText)
 
             return CompilationContext(
                 uri = uri,

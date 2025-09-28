@@ -55,7 +55,7 @@ class GroovyCompilationService {
             if (cachedAst != null) {
                 logger.debug("Using cached AST for: $uri")
                 val cachedDiagnostics = cache.getCachedDiagnostics(uri)
-                CompilationResult.success(cachedAst, cachedDiagnostics)
+                CompilationResult.success(cachedAst, cachedDiagnostics, content)
             } else {
                 performCompilation(uri, content)
             }
@@ -101,10 +101,10 @@ class GroovyCompilationService {
 
             // Success is true only if there are no error-level diagnostics.
             val isSuccess = diagnostics.none { it.severity == org.eclipse.lsp4j.DiagnosticSeverity.Error }
-            CompilationResult(isSuccess, ast, diagnostics)
+            CompilationResult(isSuccess, ast, diagnostics, content)
         } else {
             // No AST, compilation definitely failed.
-            CompilationResult.failure(diagnostics)
+            CompilationResult.failure(diagnostics, content)
         }
 
         logger.debug("Compilation result for $uri: success=${result.isSuccess}, diagnostics=${diagnostics.size}")

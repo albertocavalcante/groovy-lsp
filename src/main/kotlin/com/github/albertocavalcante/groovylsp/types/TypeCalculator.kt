@@ -90,8 +90,11 @@ class DefaultTypeCalculator : TypeCalculator {
         // 1. It has no generics AND
         // 2. It has no interfaces (except default Object ones) AND
         // 3. It appears to be a synthetic/default type
-        return this.genericsTypes?.isEmpty() != false &&
-            this.interfaces?.all { it.name == "java.lang.Object" || it.name == "groovy.lang.GroovyObject" } != false &&
+        return this.genericsTypes.isNullOrEmpty() &&
+            (
+                this.interfaces.isNullOrEmpty() ||
+                    this.interfaces.all { it.name == "java.lang.Object" || it.name == "groovy.lang.GroovyObject" }
+                ) &&
             this.redirect() == this // Not redirected to another type
     }
 }

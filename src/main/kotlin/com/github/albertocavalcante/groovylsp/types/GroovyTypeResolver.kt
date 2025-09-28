@@ -67,7 +67,7 @@ class GroovyTypeResolver(
         }
 
         // Look for external classes in dependencies
-        else -> findExternalClassLocation(classNode, context)
+        else -> findExternalClassLocation(classNode)
     }
 
     private suspend fun resolveVariableType(variable: VariableExpression, context: CompilationContext): ClassNode? {
@@ -144,9 +144,12 @@ class GroovyTypeResolver(
         return property.type
     }
 
-    private fun findMethodDeclaration(methodCall: MethodCallExpression, context: CompilationContext): MethodNode? {
+    private suspend fun findMethodDeclaration(
+        methodCall: MethodCallExpression,
+        context: CompilationContext,
+    ): MethodNode? {
         val methodName = methodCall.methodAsString
-        val objectType = resolveTypeSync(methodCall.objectExpression, context)
+        val objectType = resolveType(methodCall.objectExpression, context)
 
         return objectType?.methods?.find { method ->
             method.name == methodName &&
@@ -178,27 +181,7 @@ class GroovyTypeResolver(
         return method.parameters.size == argumentsSize
     }
 
-    private fun resolveTypeSync(expression: Expression, context: CompilationContext): ClassNode? {
-        // Synchronous version for internal use - try different strategies
-        return when {
-            // If the expression already has a resolved type, use it
-            expression.type != null && expression.type != ClassHelper.DYNAMIC_TYPE -> expression.type
-
-            // For variable expressions, try to resolve the variable
-            expression is VariableExpression -> {
-                val variable = expression.accessedVariable
-                when (variable) {
-                    is Variable -> variable.originType ?: variable.type
-                    else -> expression.type
-                }
-            }
-
-            // Fallback to expression type
-            else -> expression.type
-        }
-    }
-
-    private suspend fun findExternalClassLocation(classNode: ClassNode, context: CompilationContext): Location? {
+    private suspend fun findExternalClassLocation(classNode: ClassNode): Location? {
         // Look for the class in dependencies (JAR files, other source files)
         // This is a simplified implementation - can be enhanced with actual dependency resolution
         logger.debug("Looking for external class: ${classNode.name}")
@@ -207,9 +190,5 @@ class GroovyTypeResolver(
         return null
     }
 
-    private fun String.capitalize(): String = if (isNotEmpty()) {
-        this[0].uppercase() + substring(1)
-    } else {
-        this
-    }
+    private fun String.capitalize(): String = this.replaceFirstChar { it.uppercase() }
 }
