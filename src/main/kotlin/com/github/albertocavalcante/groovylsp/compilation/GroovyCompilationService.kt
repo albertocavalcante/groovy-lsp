@@ -94,7 +94,7 @@ class GroovyCompilationService {
 
         val result = if (ast != null) {
             // We have an AST, cache it and the diagnostics.
-            cache.cacheResult(uri, content, ast, diagnostics)
+            cache.cacheResult(uri, content, ast, diagnostics, compilationUnit)
 
             // Build AST visitor and symbol table for go-to-definition
             buildAstVisitorAndSymbolTable(uri, compilationUnit, sourceUnit)
@@ -121,6 +121,11 @@ class GroovyCompilationService {
      * Gets the cached diagnostics for a URI.
      */
     fun getDiagnostics(uri: URI): List<Diagnostic> = cache.getCachedDiagnostics(uri)
+
+    /**
+     * Gets the cached CompilationUnit for a URI.
+     */
+    fun getCompilationUnit(uri: URI): CompilationUnit? = cache.getCachedCompilationUnit(uri)
 
     /**
      * Gets the AST visitor for a URI, or null if not available.

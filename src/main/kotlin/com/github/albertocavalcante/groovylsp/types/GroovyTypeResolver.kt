@@ -163,7 +163,7 @@ class GroovyTypeResolver(
         ?: classNode.superClass?.let { findFieldInClass(it, fieldName) }
 
     private fun findGetterMethod(classNode: ClassNode, propertyName: String): MethodNode? {
-        val getterName = "get${propertyName.capitalize()}"
+        val getterName = "get${propertyName.replaceFirstChar { it.uppercase() }}"
         return classNode.methods.find {
             it.name == getterName && it.parameters.isEmpty()
         }
@@ -190,5 +190,4 @@ class GroovyTypeResolver(
         return null
     }
 
-    private fun String.capitalize(): String = this.replaceFirstChar { it.titlecase() }
 }

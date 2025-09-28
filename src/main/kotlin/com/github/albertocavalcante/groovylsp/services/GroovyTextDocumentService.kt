@@ -81,9 +81,11 @@ class GroovyTextDocumentService(
         val diagnostics = compilationService.getDiagnostics(uri)
 
         if (ast is org.codehaus.groovy.ast.ModuleNode && astVisitor != null) {
-            // Create a minimal compilation unit for the context
-            // TODO: Get actual compilation unit from compilation service
-            val compilationUnit = org.codehaus.groovy.control.CompilationUnit()
+            // Use the actual compilation unit from the compilation service
+            val compilationUnit = compilationService.getCompilationUnit(uri)
+            if (compilationUnit == null) {
+                return null
+            }
 
             return CompilationContext(
                 uri = uri,
