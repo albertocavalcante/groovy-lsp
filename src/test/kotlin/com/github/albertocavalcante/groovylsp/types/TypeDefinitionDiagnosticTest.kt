@@ -11,12 +11,15 @@ import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.io.StringReaderSource
 import org.eclipse.lsp4j.Position
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 import java.net.URI
 
 /**
  * Diagnostic test to understand what's happening with type resolution.
  */
 class TypeDefinitionDiagnosticTest {
+
+    private val logger = LoggerFactory.getLogger(TypeDefinitionDiagnosticTest::class.java)
 
     @Test
     fun `debug type resolution process`() {
@@ -28,44 +31,39 @@ class TypeDefinitionDiagnosticTest {
             person.name = "test"
         """.trimIndent()
 
-        println("=== DEBUGGING TYPE RESOLUTION ===")
-        println("Input code:")
-        println(code)
-        println()
+        logger.debug("=== DEBUGGING TYPE RESOLUTION ===")
+        logger.debug("Input code: {}", code)
 
         // 1. Compile the code
         val context = compileGroovy(code)
-        println("✓ Compilation completed")
-        println("ModuleNode: ${context.moduleNode}")
-        println("AstVisitor: ${context.astVisitor}")
-        println()
+        logger.debug("✓ Compilation completed")
+        logger.debug("ModuleNode: {}", context.moduleNode)
+        logger.debug("AstVisitor: {}", context.astVisitor)
 
         // 2. Try to find all nodes
         val allNodes = context.astVisitor.getAllNodes()
-        println("Found ${allNodes.size} AST nodes:")
+        logger.debug("Found {} AST nodes:", allNodes.size)
         allNodes.forEachIndexed { index, node ->
-            println("  $index: ${node.javaClass.simpleName} - $node")
+            logger.debug("  {}: {} - {}", index, node.javaClass.simpleName, node)
         }
-        println()
 
         // 3. Try position-based lookup
         val testPosition = Position(4, 10) // Should be around "person.name"
-        println("Looking for node at position $testPosition...")
+        logger.debug("Looking for node at position $testPosition...")
         val nodeAtPosition = context.astVisitor.getNodeAt(context.uri, testPosition)
-        println("Node at position: $nodeAtPosition")
-        println("Node type: ${nodeAtPosition?.javaClass?.simpleName}")
-        println()
+        logger.debug("Node at position: $nodeAtPosition")
+        logger.debug("Node type: {}", nodeAtPosition?.javaClass?.simpleName)
 
         // 4. Try type resolution (simplified - just check if we can create a TypeResolver)
         if (nodeAtPosition != null) {
             val typeResolver = GroovyTypeResolver()
-            println("✓ TypeResolver created successfully")
-            println("Node available for resolution: ${nodeAtPosition.javaClass.simpleName}")
+            logger.debug("✓ TypeResolver created successfully")
+            logger.debug("Node available for resolution: {}", nodeAtPosition.javaClass.simpleName)
         } else {
-            println("❌ No node found at position - cannot test type resolution")
+            logger.debug("❌ No node found at position - cannot test type resolution")
         }
 
-        println("=== END DEBUG ===")
+        logger.debug("=== END DEBUG ===")
     }
 
     private fun compileGroovy(code: String): CompilationContext {
@@ -96,7 +94,7 @@ class TypeDefinitionDiagnosticTest {
                 workspaceRoot = null,
             )
         } catch (e: Exception) {
-            println("Compilation error: ${e.message}")
+            logger.debug("Compilation error: {}", e.message)
             // Even with compilation errors, we might have partial AST
             val module = sourceUnit.ast ?: ModuleNode(sourceUnit)
             astVisitor.visitModule(module, sourceUnit, uri)

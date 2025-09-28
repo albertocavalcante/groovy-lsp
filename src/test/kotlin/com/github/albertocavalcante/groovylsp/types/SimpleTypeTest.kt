@@ -9,11 +9,14 @@ import org.codehaus.groovy.control.Phases
 import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.io.StringReaderSource
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 import java.net.URI
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class SimpleTypeTest {
+
+    private val logger = LoggerFactory.getLogger(SimpleTypeTest::class.java)
 
     @Test
     fun `test basic Groovy compilation and AST creation`() {
@@ -42,9 +45,9 @@ class SimpleTypeTest {
         val allNodes = astVisitor.getAllNodes()
         assertTrue(allNodes.isNotEmpty(), "Should have AST nodes")
 
-        println("✓ Basic compilation works, found ${allNodes.size} nodes")
+        logger.debug("✓ Basic compilation works, found {} nodes", allNodes.size)
         allNodes.forEachIndexed { i, node ->
-            println("  $i: ${node.javaClass.simpleName}")
+            logger.debug("  {}: {}", i, node.javaClass.simpleName)
         }
     }
 
@@ -60,9 +63,9 @@ class SimpleTypeTest {
         )
 
         // Test basic synchronous type resolution if possible
-        println("✓ Created field node: $fieldNode")
-        println("  Field type: ${fieldNode.type}")
-        println("  Field type name: ${fieldNode.type.name}")
+        logger.debug("✓ Created field node: $fieldNode")
+        logger.debug("  Field type: {}", fieldNode.type)
+        logger.debug("  Field type name: {}", fieldNode.type.name)
 
         assertTrue(fieldNode.type.name == "java.lang.String", "Field should be String type")
     }

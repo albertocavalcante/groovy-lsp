@@ -190,5 +190,5 @@ class GroovyTypeResolver(
         return null
     }
 
-    private fun String.capitalize(): String = this.replaceFirstChar { it.uppercase() }
+    private fun String.capitalize(): String = this.replaceFirstChar { it.titlecase() }
 }

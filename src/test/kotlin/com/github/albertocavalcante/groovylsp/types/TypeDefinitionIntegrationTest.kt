@@ -14,6 +14,7 @@ import org.codehaus.groovy.control.io.StringReaderSource
 import org.eclipse.lsp4j.Position
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 import java.net.URI
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -26,6 +27,7 @@ import kotlin.test.assertTrue
  */
 class TypeDefinitionIntegrationTest {
 
+    private val logger = LoggerFactory.getLogger(TypeDefinitionIntegrationTest::class.java)
     private lateinit var typeResolver: GroovyTypeResolver
 
     @BeforeEach
@@ -46,20 +48,19 @@ class TypeDefinitionIntegrationTest {
 
         // Diagnostic version with enhanced debugging
         val (cleanCode, position) = extractCursorPosition(code, "//^")
-        println("=== Debug: Variable Type Definition Test ===")
-        println("Clean code:")
-        println(cleanCode)
-        println("Target position: line=${position.line}, col=${position.character}")
+        logger.debug("=== Debug: Variable Type Definition Test ===")
+        logger.debug("Clean code: {}", cleanCode)
+        logger.debug("Target position: line={}, col={}", position.line, position.character)
 
         val context = compileGroovy(cleanCode)
         val node = context.astVisitor.getNodeAt(context.uri, position)
 
-        println("Found node: ${node?.javaClass?.simpleName}")
+        logger.debug("Found node: {}", node?.javaClass?.simpleName)
         assertNotNull(node, "Should find AST node at position $position")
 
         val type = typeResolver.resolveType(node, context)
-        println("Resolved type: $type")
-        println("Type name: ${type?.name}")
+        logger.debug("Resolved type: {}", type)
+        logger.debug("Type name: {}", type?.name)
 
         // For property access like "person.name", we expect to resolve to String type
         assertNotNull(type, "Should resolve to a type")
@@ -75,21 +76,20 @@ class TypeDefinitionIntegrationTest {
         """.trimIndent()
 
         val (cleanCode, position) = extractCursorPosition(code, "//^")
-        println("=== Debug: Primitive Types Test ===")
-        println("Clean code:")
-        println(cleanCode)
-        println("Target position: line=${position.line}, col=${position.character}")
+        logger.debug("=== Debug: Primitive Types Test ===")
+        logger.debug("Clean code: {}", cleanCode)
+        logger.debug("Target position: line={}, col={}", position.line, position.character)
 
         val context = compileGroovy(cleanCode)
         val node = context.astVisitor.getNodeAt(context.uri, position)
 
-        println("Found node: ${node?.javaClass?.simpleName}")
+        logger.debug("Found node: {}", node?.javaClass?.simpleName)
         assertNotNull(node, "Should find AST node at position $position")
 
         val type = typeResolver.resolveType(node, context)
-        println("Resolved type: $type")
-        println("Type name: ${type?.name}")
-        println("Is primitive: ${type?.let { ClassHelper.isPrimitiveType(it) }}")
+        logger.debug("Resolved type: {}", type)
+        logger.debug("Type name: {}", type?.name)
+        logger.debug("Is primitive: {}", type?.let { ClassHelper.isPrimitiveType(it) })
 
         // For int primitives, we expect either null, int primitive, or Object (due to boxing)
         assertTrue(
@@ -98,7 +98,7 @@ class TypeDefinitionIntegrationTest {
         )
 
         val location = typeResolver.resolveClassLocation(type ?: ClassHelper.int_TYPE, context)
-        println("Location: $location")
+        logger.debug("Location: $location")
         assertNull(location, "Primitive types should not have location")
     }
 
@@ -114,27 +114,26 @@ class TypeDefinitionIntegrationTest {
 
         // Debug version to understand the failure
         val (cleanCode, position) = extractCursorPosition(code, "//^")
-        println("=== Debug: Field Type Definition Test ===")
-        println("Clean code:")
-        println(cleanCode)
-        println("Target position: line=${position.line}, col=${position.character}")
+        logger.debug("=== Debug: Field Type Definition Test ===")
+        logger.debug("Clean code: {}", cleanCode)
+        logger.debug("Target position: line={}, col={}", position.line, position.character)
 
         val context = compileGroovy(cleanCode)
         val node = context.astVisitor.getNodeAt(context.uri, position)
 
-        println("Found node: ${node?.javaClass?.simpleName}")
-        println("Node details: $node")
+        logger.debug("Found node: {}", node?.javaClass?.simpleName)
+        logger.debug("Node details: $node")
         assertNotNull(node, "Should find AST node at position $position")
 
         val type = typeResolver.resolveType(node, context)
-        println("Resolved type: $type")
-        println("Type name: ${type?.name}")
+        logger.debug("Resolved type: {}", type)
+        logger.debug("Type name: {}", type?.name)
 
         // For now, let's see what we actually get instead of asserting
         if (type != null) {
-            println("✓ Successfully resolved to type: ${type.name}")
+            logger.debug("✓ Successfully resolved to type: {}", type.name)
         } else {
-            println("❌ Failed to resolve type for node: ${node.javaClass.simpleName}")
+            logger.warn("❌ Failed to resolve type for node: {}", node.javaClass.simpleName)
         }
     }
 
@@ -162,7 +161,7 @@ class TypeDefinitionIntegrationTest {
             class Service {
                 void process(String input) {
                             //^ cursor here
-                    println input
+                    logger.debug input
                 }
             }
         """.trimIndent()
