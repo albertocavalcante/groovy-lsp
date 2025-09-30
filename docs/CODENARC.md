@@ -425,7 +425,7 @@ Test the LSP server directly with real-world projects that had issues:
 
 ```bash
 # Test with JenkinsPipelineUnit workspace (had VirtualResults issues)
-echo '{"method":"initialize","params":{"rootUri":"file:///Users/albertocavalcante/dev/workspace/JenkinsPipelineUnit","capabilities":{}}}' | \
+echo '{"method":"initialize","params":{"rootUri":"file:///path/to/workspace/JenkinsPipelineUnit","capabilities":{}}}' | \
   timeout 10s java -jar build/libs/groovy-lsp-0.1.0-SNAPSHOT.jar 2>&1 | \
   grep -E "(VirtualResults|MockClosure\.groovy)" || echo "✅ No VirtualResults errors"
 
