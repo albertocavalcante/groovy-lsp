@@ -1,12 +1,11 @@
 package com.github.albertocavalcante.groovylsp
-
 import com.github.albertocavalcante.groovylsp.ast.ClassSymbol
 import com.github.albertocavalcante.groovylsp.ast.FieldSymbol
 import com.github.albertocavalcante.groovylsp.ast.ImportSymbol
 import com.github.albertocavalcante.groovylsp.ast.MethodSymbol
 import com.github.albertocavalcante.groovylsp.ast.SymbolExtractor
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.net.URI
@@ -24,11 +23,11 @@ class SymbolExtractionTest {
 
     @BeforeEach
     fun setup() {
-        compilationService = GroovyCompilationService()
+        compilationService = TestUtils.createCompilationService()
     }
 
     @Test
-    fun `extract class names from simple groovy file`() = runBlocking {
+    fun `extract class names from simple groovy file`() = runTest {
         val content = """
             package com.example
 
@@ -64,7 +63,7 @@ class SymbolExtractionTest {
     }
 
     @Test
-    fun `extract method signatures from class`() = runBlocking {
+    fun `extract method signatures from class`() = runTest {
         val content = """
             class Calculator {
                 int add(int a, int b) {
@@ -115,7 +114,7 @@ class SymbolExtractionTest {
     }
 
     @Test
-    fun `extract field declarations from class`() = runBlocking {
+    fun `extract field declarations from class`() = runTest {
         val content = """
             class DataModel {
                 private String id
@@ -159,7 +158,7 @@ class SymbolExtractionTest {
     }
 
     @Test
-    fun `extract symbols from import statements`() = runBlocking {
+    fun `extract symbols from import statements`() = runTest {
         val content = """
             package com.example.services
 

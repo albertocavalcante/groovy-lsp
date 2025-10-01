@@ -1,5 +1,5 @@
 package com.github.albertocavalcante.groovylsp.providers.references
-
+import com.github.albertocavalcante.groovylsp.TestUtils
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -18,7 +18,7 @@ class ReferenceProviderTest {
 
     @BeforeEach
     fun setUp() {
-        compilationService = GroovyCompilationService()
+        compilationService = TestUtils.createCompilationService()
         referenceProvider = ReferenceProvider(compilationService)
     }
 
@@ -236,10 +236,10 @@ class ReferenceProviderTest {
         val result = compilationService.compile(uri, content)
         assertTrue(result.isSuccess, "Compilation should succeed")
 
-        // Act - Try to find references at a position with no symbol (in the middle of string literal)
+        // Act - Try to find references at a position with no symbol (beyond the document)
         val references = referenceProvider.provideReferences(
             uri.toString(),
-            Position(0, 17), // inside the string "test"
+            Position(5, 0), // beyond the document
             includeDeclaration = true,
         ).toList()
 

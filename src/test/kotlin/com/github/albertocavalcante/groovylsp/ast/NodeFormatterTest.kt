@@ -1,6 +1,5 @@
 package com.github.albertocavalcante.groovylsp.ast
-
-import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
+import com.github.albertocavalcante.groovylsp.TestUtils
 import kotlinx.coroutines.test.runTest
 import org.codehaus.groovy.ast.ModuleNode
 import org.junit.jupiter.api.Test
@@ -15,7 +14,7 @@ import kotlin.test.assertTrue
  */
 class NodeFormatterTest {
 
-    private val compilationService = GroovyCompilationService()
+    private val compilationService = TestUtils.createCompilationService()
 
     @Test
     fun `MethodNode toHoverString formats method signature correctly`() = runTest {

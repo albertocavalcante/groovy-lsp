@@ -1,6 +1,5 @@
 package com.github.albertocavalcante.groovylsp.ast
-
-import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
+import com.github.albertocavalcante.groovylsp.TestUtils
 import kotlinx.coroutines.test.runTest
 import org.codehaus.groovy.ast.ModuleNode
 import org.codehaus.groovy.ast.expr.ConstantExpression
@@ -20,7 +19,7 @@ import kotlin.test.assertTrue
  */
 class AstPositionExtensionsTest {
 
-    private val compilationService = GroovyCompilationService()
+    private val compilationService = TestUtils.createCompilationService()
 
     @Test
     fun `containsPosition returns true for node containing position`() = runTest {

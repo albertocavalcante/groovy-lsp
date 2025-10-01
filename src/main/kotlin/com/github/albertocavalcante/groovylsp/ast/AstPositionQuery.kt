@@ -2,19 +2,45 @@ package com.github.albertocavalcante.groovylsp.ast
 
 import org.codehaus.groovy.ast.ASTNode
 import org.eclipse.lsp4j.Position
+import org.slf4j.LoggerFactory
 import java.net.URI
 
 /**
  * Handles position-based queries on AST nodes.
  * Extracted from AstVisitor to provide focused query functionality.
  *
- * NB: Coordinate Systems
- * - Groovy AST: 1-based line and column (line 1 = first line, column 1 = first character)
- * - LSP Protocol: 0-based line and column (line 0 = first line, column 0 = first character)
- * - Conversion: groovyPos = lspPos + 1, lspPos = groovyPos - 1
- * - Invalid positions: Groovy uses -1 for synthetic/invalid nodes
+ * All coordinate operations now use CoordinateSystem for consistency and correctness.
  */
 class AstPositionQuery(private val tracker: NodeRelationshipTracker) {
+
+    private val logger = LoggerFactory.getLogger(AstPositionQuery::class.java)
+
+    companion object {
+        // Debug output limits
+        private const val MAX_DEBUG_CANDIDATES_TO_SHOW = 3
+        private const val MAX_DEBUG_REJECTED_TO_SHOW = 5
+
+        // Text truncation for debug messages
+        private const val DEBUG_TEXT_PREVIEW_LENGTH = 30
+        private const val DEBUG_TEXT_MAX_LENGTH = 50
+
+        // Node type priorities for position selection (lower = higher priority)
+        private const val VARIABLE_EXPRESSION_PRIORITY = 0
+        private const val DECLARATION_EXPRESSION_PRIORITY = 1
+        private const val METHOD_CALL_EXPRESSION_PRIORITY = 2
+        private const val PROPERTY_EXPRESSION_PRIORITY = 3
+        private const val FIELD_EXPRESSION_PRIORITY = 4
+        private const val METHOD_NODE_PRIORITY = 5
+        private const val FIELD_NODE_PRIORITY = 6
+        private const val PROPERTY_NODE_PRIORITY = 7
+        private const val DEFAULT_NODE_PRIORITY = 500
+        private const val CLASS_NODE_PRIORITY = 1000
+        private const val ARGUMENT_LIST_EXPRESSION_PRIORITY = 2000
+        private const val EXPRESSION_STATEMENT_PRIORITY = 3000
+
+        // Priority calculation
+        private const val TYPE_PRIORITY_MULTIPLIER = 10
+    }
 
     /**
      * Find the AST node at a specific LSP position.
@@ -28,14 +54,21 @@ class AstPositionQuery(private val tracker: NodeRelationshipTracker) {
     fun getNodeAt(uri: URI, lspLine: Int, lspCharacter: Int): ASTNode? {
         val nodes = tracker.getNodes(uri)
 
-        // Convert LSP coordinates (0-based) to Groovy coordinates (1-based)
-        val groovyLine = lspLine + 1
-        val groovyCharacter = lspCharacter + 1
+        logger.debug("AstPositionQuery: Finding node at $uri, line: $lspLine, char: $lspCharacter")
+        logger.debug("AstPositionQuery: Total nodes for URI: ${nodes.size}")
 
-        // Filter nodes that contain the position and find the smallest one
-        return nodes.filter { node ->
-            node.hasValidPosition() && node.containsPosition(groovyLine, groovyCharacter)
-        }.minByOrNull { node ->
+        // Create LSP position for coordinate system
+        val lspPosition = CoordinateSystem.LspPosition(lspLine, lspCharacter)
+        logger.debug("AstPositionQuery: LSP position: $lspPosition, Groovy position: ${lspPosition.toGroovy()}")
+
+        // Filter nodes that contain the position using the definitive CoordinateSystem implementation
+        val candidateNodes = nodes.filter { node ->
+            CoordinateSystem.isValidNodePosition(node) && CoordinateSystem.nodeContainsPosition(node, lspPosition)
+        }
+
+        logCandidateNodes(candidateNodes, nodes, lspPosition)
+
+        val result = candidateNodes.minByOrNull { node ->
             // Calculate node size to find the smallest containing node - use Long to prevent overflow
             val lineSpan = node.lastLineNumber - node.lineNumber
             val charSpan = if (lineSpan == 0) {
@@ -43,41 +76,82 @@ class AstPositionQuery(private val tracker: NodeRelationshipTracker) {
             } else {
                 PositionConstants.MAX_RANGE_SIZE // Multi-line nodes are considered larger
             }
-            // CRITICAL FIX: Use Long to prevent integer overflow that was causing ClassNode to have negative size
-            lineSpan.toLong() * PositionConstants.LINE_WEIGHT + charSpan.toLong()
+            val baseSize = lineSpan.toLong() * PositionConstants.LINE_WEIGHT + charSpan.toLong()
+
+            val typePriority = calculateNodePriority(node)
+
+            // Combine base size with type priority (multiply by small factor to maintain size ordering)
+            baseSize + (typePriority * TYPE_PRIORITY_MULTIPLIER)
         }
+
+        if (result != null) {
+            logger.debug(
+                "AstPositionQuery: Selected node: ${result.javaClass.simpleName} - text: ${result.text?.take(
+                    DEBUG_TEXT_MAX_LENGTH,
+                )}",
+            )
+        } else {
+            logger.debug("AstPositionQuery: No node selected")
+        }
+
+        return result
     }
 
     /**
-     * Check if a node has valid position information.
+     * Calculates type-based priority for AST node selection.
+     * Lower values indicate higher priority for position queries.
      */
-    private fun ASTNode.hasValidPosition(): Boolean =
-        lineNumber > 0 && columnNumber > 0 && lastLineNumber > 0 && lastColumnNumber > 0
+    private fun calculateNodePriority(node: ASTNode): Int = when (node) {
+        is org.codehaus.groovy.ast.expr.VariableExpression -> VARIABLE_EXPRESSION_PRIORITY // Highest priority
+        is org.codehaus.groovy.ast.expr.DeclarationExpression -> DECLARATION_EXPRESSION_PRIORITY
+        is org.codehaus.groovy.ast.expr.MethodCallExpression -> METHOD_CALL_EXPRESSION_PRIORITY
+        is org.codehaus.groovy.ast.expr.PropertyExpression -> PROPERTY_EXPRESSION_PRIORITY
+        is org.codehaus.groovy.ast.expr.FieldExpression -> FIELD_EXPRESSION_PRIORITY
+        is org.codehaus.groovy.ast.MethodNode -> METHOD_NODE_PRIORITY
+        is org.codehaus.groovy.ast.FieldNode -> FIELD_NODE_PRIORITY
+        is org.codehaus.groovy.ast.PropertyNode -> PROPERTY_NODE_PRIORITY
+        is org.codehaus.groovy.ast.ClassNode -> CLASS_NODE_PRIORITY // Much lower priority
+        is org.codehaus.groovy.ast.expr.ArgumentListExpression -> ARGUMENT_LIST_EXPRESSION_PRIORITY
+        is org.codehaus.groovy.ast.stmt.ExpressionStatement -> EXPRESSION_STATEMENT_PRIORITY
+        else -> DEFAULT_NODE_PRIORITY
+    }
 
     /**
-     * Check if this node contains the given position using Groovy coordinates.
-     * NB: This expects 1-based Groovy coordinates, not 0-based LSP coordinates.
+     * Logs candidate nodes for debugging position queries.
+     * Extracted to reduce complexity of getNodeAt method.
      */
-    private fun ASTNode.containsPosition(line: Int, character: Int): Boolean {
-        // Check if position is within the node's bounds using Groovy 1-based coordinates
-        return when {
-            line < lineNumber || line > lastLineNumber -> false
-            line == lineNumber && line == lastLineNumber -> {
-                // Single line: check column bounds
-                character >= columnNumber && character <= lastColumnNumber
+    private fun logCandidateNodes(
+        candidateNodes: List<ASTNode>,
+        allNodes: List<ASTNode>,
+        lspPosition: CoordinateSystem.LspPosition,
+    ) {
+        logger.debug("AstPositionQuery: Found ${candidateNodes.size} candidate nodes")
+        if (candidateNodes.isNotEmpty()) {
+            candidateNodes.take(MAX_DEBUG_CANDIDATES_TO_SHOW).forEach { node ->
+                logger.debug(
+                    "  Candidate: ${node.javaClass.simpleName} at ${CoordinateSystem.getNodePositionDebugString(
+                        node,
+                    )} - text: ${node.text?.take(DEBUG_TEXT_PREVIEW_LENGTH)}",
+                )
             }
-            line == lineNumber -> {
-                // First line: check from column to end of line
-                character >= columnNumber
-            }
-            line == lastLineNumber -> {
-                // Last line: check from beginning to column
-                character <= lastColumnNumber
-            }
-            else -> {
-                // Middle lines: always valid
-                true
+        } else {
+            // Debug: Show why no nodes matched by examining first few nodes
+            logger.debug("AstPositionQuery: No candidates found, examining first $MAX_DEBUG_REJECTED_TO_SHOW nodes:")
+            allNodes.take(MAX_DEBUG_REJECTED_TO_SHOW).forEach { node ->
+                if (CoordinateSystem.isValidNodePosition(node)) {
+                    val contains = CoordinateSystem.nodeContainsPosition(node, lspPosition)
+                    logger.debug(
+                        "  Rejected: ${node.javaClass.simpleName} at ${CoordinateSystem.getNodePositionDebugString(
+                            node,
+                        )} - contains: $contains",
+                    )
+                } else {
+                    logger.debug("  Invalid: ${node.javaClass.simpleName} - invalid position")
+                }
             }
         }
     }
+
+    // Position validation and containment logic has been moved to CoordinateSystem
+    // This eliminates the duplicate implementations that were causing coordinate system bugs
 }
