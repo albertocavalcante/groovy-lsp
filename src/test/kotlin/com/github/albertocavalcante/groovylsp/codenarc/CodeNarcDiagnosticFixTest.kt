@@ -15,24 +15,47 @@ class CodeNarcDiagnosticFixTest {
 
     @Test
     fun `should not triplicate diagnostics when analyzing groovy code with violations`() = runTest {
-        // Given: A sample Groovy code with known violations
-        val groovyCodeWithViolations = """
-            class TestClass {
-                def method() {
-                    def x = 1   ; // Unnecessary semicolon
-                    return x
+        // Given: A sample Groovy code with known violations - use trailing whitespace which definitely exists
+        val groovyCodeWithViolations = "class TestClass {\n" +
+            "    def method() {   \n" + // Line with trailing whitespace
+            "        def x = 1\n" +
+            "        return x\n" +
+            "    }\n" +
+            "}"
+
+        // Create a test ruleset that includes TrailingWhitespace rule which definitely exists
+        val testRuleset = """
+            ruleset {
+                description 'Test ruleset for CodeNarc diagnostic fix verification'
+
+                // Include TrailingWhitespace rule which we know exists and will detect our test violations
+                TrailingWhitespace
+
+                // Include some basic rules that should definitely exist
+                ruleset('rulesets/basic.xml') {
+                    include 'EmptyClass'
+                    include 'EmptyMethod'
                 }
             }
         """.trimIndent()
 
-        // Mock configuration provider
+        // Mock configuration provider that returns our test ruleset
         val configProvider = object : ConfigurationProvider {
             override fun getServerConfiguration() = ServerConfiguration()
             override fun getWorkspaceRoot() = Paths.get(".")
         }
 
-        // When: We analyze the code
-        val analysisService = CodeAnalysisService(configProvider)
+        // Use a custom ruleset resolver for testing
+        val testRulesetResolver = object : RulesetResolver {
+            override fun resolve(context: WorkspaceConfiguration): RulesetConfiguration = RulesetConfiguration(
+                rulesetContent = testRuleset,
+                propertiesFile = null,
+                source = "test-ruleset",
+            )
+        }
+
+        // When: We analyze the code using our test ruleset
+        val analysisService = CodeAnalysisService(configProvider, testRulesetResolver)
         val diagnostics = analysisService.analyzeAndGetDiagnostics(groovyCodeWithViolations, "TestClass.groovy")
 
         // Then: Each violation should appear exactly once (no triplication)
