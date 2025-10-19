@@ -35,9 +35,9 @@ class GroovyLanguageServerFeatureMatrixTest {
     private lateinit var documentUri: String
 
     private val documentContent = """
-        class Greeter {
-            String message = "Hi"
-            void greet() {
+        class Greeter{
+            String message="Hi"
+            void greet(){
                 println message
             }
         }
@@ -89,7 +89,7 @@ class GroovyLanguageServerFeatureMatrixTest {
     fun `definition provider resolves class constructor reference`() = runBlocking {
         val params = DefinitionParams().apply {
             textDocument = TextDocumentIdentifier(documentUri)
-            position = Position(7, 20) // Inside "Greeter" on constructor call
+            position = Position(7, 25) // On "Greeter" constructor call
         }
 
         val result = server.textDocumentService.definition(params).get()
@@ -98,23 +98,21 @@ class GroovyLanguageServerFeatureMatrixTest {
         assertTrue(locations.isNotEmpty(), "Definition request should return at least one location.")
         assertTrue(
             locations.any { it.uri == documentUri },
-            "Definition should point to symbols within the current document.",
+            "Definition should resolve within the current document.",
         )
     }
 
     @Test
-    fun `references provider finds field usage`() = runBlocking {
+    fun `references provider finds variable usages`() = runBlocking {
         val params = ReferenceParams().apply {
             textDocument = TextDocumentIdentifier(documentUri)
-            position = Position(8, 9) // Over "message" access
+            position = Position(7, 4) // Over "greeter" variable declaration
             context = ReferenceContext(true)
         }
 
         val locations = server.textDocumentService.references(params).get()
-        assertTrue(
-            locations.isEmpty(),
-            "References provider is not yet wired through the LSP service; update when implemented.",
-        )
+        assertTrue(locations.isNotEmpty(), "Expected references for 'greeter'.")
+        assertTrue(locations.size >= 2, "Should include declaration and usages.")
     }
 
     @Test
@@ -130,33 +128,33 @@ class GroovyLanguageServerFeatureMatrixTest {
     }
 
     @Test
-    fun `type definition currently returns no results`() = runBlocking {
+    fun `type definition resolves to class declaration`() = runBlocking {
         val params = TypeDefinitionParams().apply {
             textDocument = TextDocumentIdentifier(documentUri)
-            position = Position(8, 2)
+            position = Position(7, 25)
         }
 
         val either = server.textDocumentService.typeDefinition(params).get()
         assertTrue(either.isLeft)
         val locations = either.left
-        assertTrue(locations.isNotEmpty(), "Type definition should resolve to the symbol declaration.")
+        assertTrue(locations.isNotEmpty(), "Type definition should return at least one location.")
     }
 
     @Test
-    fun `document symbols placeholder returns empty list`() = runBlocking {
+    fun `document symbols return symbols`() = runBlocking {
         val params = DocumentSymbolParams().apply {
             textDocument = TextDocumentIdentifier(documentUri)
         }
         val symbols = server.textDocumentService.documentSymbol(params).get()
-        assertTrue(symbols.isEmpty(), "Document symbol provider not implemented; ensure capability tracked.")
+        assertTrue(symbols.isNotEmpty(), "Document symbols should be provided for the file.")
     }
 
     @Test
-    fun `workspace symbol placeholder returns empty list`() = runBlocking {
+    fun `workspace symbol search returns matches`() = runBlocking {
         val result: Either<List<SymbolInformation>, List<WorkspaceSymbol>> =
             server.workspaceService.symbol(WorkspaceSymbolParams("Greeter")).get()
         assertTrue(result.isLeft)
-        assertTrue(result.left.isEmpty(), "Workspace symbol provider not implemented; ensure capability tracked.")
+        assertTrue(result.left.any { it.name.contains("Greeter") })
     }
 
     @Test
@@ -173,5 +171,16 @@ class GroovyLanguageServerFeatureMatrixTest {
             }
             assertNotNull(error)
         }
+    }
+
+    @Test
+    fun `formatting returns edits for unformatted document`() = runBlocking {
+        val params = org.eclipse.lsp4j.DocumentFormattingParams().apply {
+            textDocument = TextDocumentIdentifier(documentUri)
+            options = org.eclipse.lsp4j.FormattingOptions(4, true)
+        }
+
+        val edits = server.textDocumentService.formatting(params).get()
+        assertTrue(edits.isNotEmpty(), "Formatter should produce at least one edit for unformatted content.")
     }
 }

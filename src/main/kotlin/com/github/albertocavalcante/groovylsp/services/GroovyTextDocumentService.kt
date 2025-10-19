@@ -9,6 +9,9 @@ import com.github.albertocavalcante.groovylsp.providers.completion.CompletionPro
 import com.github.albertocavalcante.groovylsp.providers.definition.DefinitionProvider
 import com.github.albertocavalcante.groovylsp.providers.definition.DefinitionTelemetrySink
 import com.github.albertocavalcante.groovylsp.providers.references.ReferenceProvider
+import com.github.albertocavalcante.groovylsp.providers.symbols.SymbolStorage
+import com.github.albertocavalcante.groovylsp.providers.symbols.toDocumentSymbol
+import com.github.albertocavalcante.groovylsp.providers.symbols.toSymbolInformation
 import com.github.albertocavalcante.groovylsp.providers.typedefinition.TypeDefinitionProvider
 import com.github.albertocavalcante.groovylsp.types.GroovyTypeResolver
 import kotlinx.coroutines.CoroutineScope
@@ -335,8 +338,15 @@ class GroovyTextDocumentService(
 
     override fun documentSymbol(
         params: DocumentSymbolParams,
-    ): CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> =
-        CompletableFuture.completedFuture(emptyList())
+    ): CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> = coroutineScope.future {
+        val uri = java.net.URI.create(params.textDocument.uri)
+        val storage = ensureSymbolStorage(uri) ?: return@future emptyList()
+
+        storage.getSymbols(uri).mapNotNull { symbol ->
+            symbol.toDocumentSymbol()?.let { Either.forRight<SymbolInformation, DocumentSymbol>(it) }
+                ?: symbol.toSymbolInformation()?.let { Either.forLeft<SymbolInformation, DocumentSymbol>(it) }
+        }
+    }
 
     override fun formatting(params: DocumentFormattingParams): CompletableFuture<List<TextEdit>> =
         coroutineScope.future {
@@ -421,6 +431,18 @@ class GroovyTextDocumentService(
                 errorMessage = errorMessage,
             ),
         )
+    }
+
+    private suspend fun ensureSymbolStorage(uri: java.net.URI): SymbolStorage? {
+        var storage = compilationService.getSymbolStorage(uri)
+        if (storage != null) {
+            return storage
+        }
+
+        val content = documentProvider.get(uri) ?: return null
+        compilationService.compile(uri, content)
+        storage = compilationService.getSymbolStorage(uri)
+        return storage
     }
 }
 

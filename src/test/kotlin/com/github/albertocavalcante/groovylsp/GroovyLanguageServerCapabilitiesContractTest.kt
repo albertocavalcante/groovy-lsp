@@ -55,6 +55,7 @@ class GroovyLanguageServerCapabilitiesContractTest {
         assertTrue(capabilities.documentSymbolProvider?.left == true)
         assertTrue(capabilities.workspaceSymbolProvider?.left == true)
         assertTrue(capabilities.typeDefinitionProvider?.left == true)
+        assertTrue(capabilities.documentFormattingProvider?.left == true)
 
         // Features not yet implemented must remain disabled
         assertNull(capabilities.renameProvider, "Rename is not implemented and should not be advertised.")
@@ -63,6 +64,5 @@ class GroovyLanguageServerCapabilitiesContractTest {
             capabilities.signatureHelpProvider,
             "Signature help is not implemented and should not be advertised.",
         )
-        assertNull(capabilities.documentFormattingProvider, "Formatting capability is currently internal-only.")
     }
 }
