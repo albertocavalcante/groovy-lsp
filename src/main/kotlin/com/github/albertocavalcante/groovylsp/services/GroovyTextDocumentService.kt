@@ -371,7 +371,7 @@ class GroovyTextDocumentService(
                     FormatterStatus.ERROR,
                     durationMs = durationMs,
                     ignoredOptions = ignoredOptions,
-                    errorMessage = throwable.message,
+                    errorMessage = failureMessage,
                 )
                 return@future emptyList<TextEdit>()
             }

@@ -122,6 +122,27 @@ class GroovyTextDocumentServiceFormattingTest {
     }
 
     @Test
+    fun `formatting reports exception type when formatter throws without message`() {
+        client.telemetryEvents.clear()
+        val documentProvider = DocumentProvider().apply { put(uri, "println 'hi'") }
+        val formatter = TestFormatter { throw IllegalStateException() }
+        val service = GroovyTextDocumentService(
+            coroutineScope = coroutineScope,
+            compilationService = compilationService,
+            client = { client },
+            documentProvider = documentProvider,
+            formatter = formatter,
+        )
+
+        val edits = service.formatting(formattingParams()).get(1, TimeUnit.SECONDS)
+
+        assertTrue(edits.isEmpty())
+        val telemetry = client.telemetryEvents.single() as FormatterTelemetryEvent
+        assertEquals(FormatterStatus.ERROR, telemetry.status)
+        assertEquals("IllegalStateException", telemetry.errorMessage)
+    }
+
+    @Test
     fun `formatting telemetry indicates ignored options`() {
         client.telemetryEvents.clear()
         val documentProvider = DocumentProvider().apply { put(uri, "def z=3") }
