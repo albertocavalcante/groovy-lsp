@@ -167,10 +167,10 @@ style:
     excludes:
     - '**/test/**'
     ignoreNumbers:
-    - -1
-    - 0
-    - 1
-    - 2
+    - '-1'
+    - '0'
+    - '1'
+    - '2'
     ignoreHashCodeFunction: true
     ignorePropertyDeclaration: false
     ignoreLocalVariableDeclaration: false
