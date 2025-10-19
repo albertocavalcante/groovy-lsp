@@ -361,7 +361,11 @@ class GroovyTextDocumentService(
             val durationMs = (System.nanoTime() - startNanos) / NANOS_PER_MILLISECOND
 
             val formattedContent = formattedResult.getOrElse { throwable ->
-                logger.error("Formatter failed for {}", uriString, throwable)
+                val failureMessage = throwable.message ?: throwable.javaClass.simpleName
+                logger.warn("Formatter failed for {}: {}", uriString, failureMessage)
+                if (logger.isDebugEnabled) {
+                    logger.debug("Formatter failure details for {}", uriString, throwable)
+                }
                 publishTelemetry(
                     uriString,
                     FormatterStatus.ERROR,

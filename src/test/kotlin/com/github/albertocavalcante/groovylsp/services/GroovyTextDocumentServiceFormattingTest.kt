@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 
 class GroovyTextDocumentServiceFormattingTest {
@@ -146,8 +147,47 @@ class GroovyTextDocumentServiceFormattingTest {
         assertTrue(telemetry.ignoredOptions)
     }
 
-    private fun formattingParams(): DocumentFormattingParams = DocumentFormattingParams().apply {
-        textDocument = TextDocumentIdentifier(uri.toString())
+    @Test
+    fun `formatting handles concurrent requests without telemetry contamination`() {
+        val uriOne = URI.create("file:///formatter-test-1.groovy")
+        val uriTwo = URI.create("file:///formatter-test-2.groovy")
+        val localClient = RecordingLanguageClient()
+        val localScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+        val documentProvider = DocumentProvider().apply {
+            put(uriOne, "def a = 1")
+            put(uriTwo, "def b = 2")
+        }
+        val formatter = TestFormatter { it }
+        val service = GroovyTextDocumentService(
+            coroutineScope = localScope,
+            compilationService = compilationService,
+            client = { localClient },
+            documentProvider = documentProvider,
+            formatter = formatter,
+        )
+
+        try {
+            val futures = listOf(
+                service.formatting(formattingParams(uriOne)),
+                service.formatting(formattingParams(uriTwo)),
+            )
+            futures.forEach { future ->
+                val edits = future.get(1, TimeUnit.SECONDS)
+                assertTrue(edits.isEmpty())
+            }
+
+            val telemetryEvents = localClient.telemetryEvents.map { it as FormatterTelemetryEvent }
+            assertEquals(2, telemetryEvents.size)
+            val uris = telemetryEvents.map { it.uri }.toSet()
+            assertTrue(uris.contains(uriOne.toString()))
+            assertTrue(uris.contains(uriTwo.toString()))
+        } finally {
+            localScope.cancel()
+        }
+    }
+
+    private fun formattingParams(targetUri: URI = uri): DocumentFormattingParams = DocumentFormattingParams().apply {
+        textDocument = TextDocumentIdentifier(targetUri.toString())
         options = FormattingOptions(4, true)
     }
 
@@ -157,7 +197,7 @@ class GroovyTextDocumentServiceFormattingTest {
 
     @Suppress("EmptyFunctionBlock")
     private class RecordingLanguageClient : LanguageClient {
-        val telemetryEvents = mutableListOf<Any>()
+        val telemetryEvents = CopyOnWriteArrayList<Any>()
 
         override fun telemetryEvent(`object`: Any) {
             telemetryEvents.add(`object`)
