@@ -186,6 +186,23 @@ class GroovyTextDocumentServiceFormattingTest {
         }
     }
 
+    @Test
+    fun `formatting succeeds when client unavailable`() {
+        val documentProvider = DocumentProvider().apply { put(uri, "def x=1") }
+        val formatter = TestFormatter { "def x = 1" }
+        val service = GroovyTextDocumentService(
+            coroutineScope = coroutineScope,
+            compilationService = compilationService,
+            client = { null },
+            documentProvider = documentProvider,
+            formatter = formatter,
+        )
+
+        val edits = service.formatting(formattingParams()).get(1, TimeUnit.SECONDS)
+
+        assertEquals(1, edits.size)
+    }
+
     private fun formattingParams(targetUri: URI = uri): DocumentFormattingParams = DocumentFormattingParams().apply {
         textDocument = TextDocumentIdentifier(targetUri.toString())
         options = FormattingOptions(4, true)
