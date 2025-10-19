@@ -33,13 +33,13 @@ class GroovyWorkspaceService(private val compilationService: GroovyCompilationSe
         params: WorkspaceSymbolParams,
     ): CompletableFuture<Either<List<SymbolInformation>, List<WorkspaceSymbol>>> {
         val query = params.query
+        if (query.isNullOrBlank()) {
+            logger.debug("Workspace symbol query blank; returning empty result")
+            return CompletableFuture.completedFuture(Either.forLeft(emptyList()))
+        }
         val storages = compilationService.getAllSymbolStorages()
         val results = storages.flatMap { (uri, storage) ->
-            val symbols: List<Symbol> = if (query.isNullOrBlank()) {
-                storage.getSymbols(uri)
-            } else {
-                storage.findMatching(uri, query)
-            }
+            val symbols: List<Symbol> = storage.findMatching(uri, query)
 
             symbols.mapNotNull { it.toSymbolInformation() }
         }

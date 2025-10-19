@@ -21,24 +21,31 @@ fun <T> CoroutineScope.future(block: suspend () -> T): CompletableFuture<T> {
     val future = CompletableFuture<T>()
     val job = launch {
         try {
-            future.complete(block())
+            val result = block()
+            if (!future.isDone) {
+                future.complete(result)
+            }
+        } catch (e: CancellationException) {
+            future.cancel(true)
+            throw e
         } catch (e: Throwable) {
-            future.completeExceptionally(e)
+            if (!future.isDone) {
+                future.completeExceptionally(e)
+            }
         }
     }
     job.invokeOnCompletion { throwable ->
         if (throwable != null && !future.isDone) {
-            val cancellation = throwable as? CancellationException
-            if (cancellation != null) {
-                future.completeExceptionally(cancellation)
+            if (throwable is CancellationException) {
+                future.cancel(true)
             } else {
                 future.completeExceptionally(throwable)
             }
         }
     }
     future.whenComplete { _, throwable ->
-        if (throwable is CancellationException && job.isActive) {
-            job.cancel(throwable)
+        if ((future.isCancelled || throwable is CancellationException) && job.isActive) {
+            job.cancel(throwable as? CancellationException ?: CancellationException("Future cancelled"))
         }
     }
     return future

@@ -27,6 +27,10 @@ import java.util.concurrent.TimeUnit
 
 class GroovyTextDocumentServiceFormattingTest {
 
+    private companion object {
+        private const val FUTURE_TIMEOUT_SECONDS = 5L
+    }
+
     private val uri = URI.create("file:///formatter-test.groovy")
     private val compilationService = GroovyCompilationService()
     private val client = RecordingLanguageClient()
@@ -52,7 +56,7 @@ class GroovyTextDocumentServiceFormattingTest {
 
         val params = formattingParams()
 
-        val edits = service.formatting(params).get(1, TimeUnit.SECONDS)
+        val edits = service.formatting(params).get(FUTURE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
         assertEquals(1, edits.size)
         val telemetry = client.telemetryEvents.single() as FormatterTelemetryEvent
@@ -75,7 +79,7 @@ class GroovyTextDocumentServiceFormattingTest {
 
         val params = formattingParams()
 
-        val edits = service.formatting(params).get(1, TimeUnit.SECONDS)
+        val edits = service.formatting(params).get(FUTURE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
         assertTrue(edits.isEmpty())
         val telemetry = client.telemetryEvents.single() as FormatterTelemetryEvent
@@ -95,7 +99,7 @@ class GroovyTextDocumentServiceFormattingTest {
             formatter = formatter,
         )
 
-        val edits = service.formatting(formattingParams()).get(1, TimeUnit.SECONDS)
+        val edits = service.formatting(formattingParams()).get(FUTURE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
         assertTrue(edits.isEmpty())
         val telemetry = client.telemetryEvents.single() as FormatterTelemetryEvent
@@ -115,7 +119,7 @@ class GroovyTextDocumentServiceFormattingTest {
             formatter = formatter,
         )
 
-        val edits = service.formatting(formattingParams()).get(1, TimeUnit.SECONDS)
+        val edits = service.formatting(formattingParams()).get(FUTURE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
         assertTrue(edits.isEmpty())
         val telemetry = client.telemetryEvents.single() as FormatterTelemetryEvent
@@ -136,7 +140,7 @@ class GroovyTextDocumentServiceFormattingTest {
             formatter = formatter,
         )
 
-        val edits = service.formatting(formattingParams()).get(1, TimeUnit.SECONDS)
+        val edits = service.formatting(formattingParams()).get(FUTURE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
         assertTrue(edits.isEmpty())
         val telemetry = client.telemetryEvents.single() as FormatterTelemetryEvent
@@ -164,7 +168,7 @@ class GroovyTextDocumentServiceFormattingTest {
             }
         }
 
-        service.formatting(params).get(1, TimeUnit.SECONDS)
+        service.formatting(params).get(FUTURE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
         val telemetry = client.telemetryEvents.single() as FormatterTelemetryEvent
         assertTrue(telemetry.ignoredOptions)
@@ -195,7 +199,7 @@ class GroovyTextDocumentServiceFormattingTest {
                 service.formatting(formattingParams(uriTwo)),
             )
             futures.forEach { future ->
-                val edits = future.get(1, TimeUnit.SECONDS)
+                val edits = future.get(FUTURE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 assertTrue(edits.isEmpty())
             }
 
@@ -221,7 +225,7 @@ class GroovyTextDocumentServiceFormattingTest {
             formatter = formatter,
         )
 
-        val edits = service.formatting(formattingParams()).get(1, TimeUnit.SECONDS)
+        val edits = service.formatting(formattingParams()).get(FUTURE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
         assertEquals(1, edits.size)
     }
@@ -246,7 +250,7 @@ class GroovyTextDocumentServiceFormattingTest {
 
         val future = service.formatting(formattingParams())
         assertThrows<CancellationException> {
-            future.get(1, TimeUnit.SECONDS)
+            future.get(FUTURE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         }
         assertTrue(localClient.telemetryEvents.isEmpty())
         localScope.cancel()

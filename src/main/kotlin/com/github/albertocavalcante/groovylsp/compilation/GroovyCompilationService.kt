@@ -151,13 +151,7 @@ class GroovyCompilationService {
     /**
      * Returns all known symbol storages keyed by their URI.
      */
-    fun getAllSymbolStorages(): Map<URI, SymbolStorage> {
-        val uris = symbolStorageCache.keys()
-        return uris.mapNotNull { key ->
-            val storage = symbolStorageCache.get(key)
-            if (storage != null) key to storage else null
-        }.toMap()
-    }
+    fun getAllSymbolStorages(): Map<URI, SymbolStorage> = symbolStorageCache.snapshot()
 
     /**
      * Clears all caches.

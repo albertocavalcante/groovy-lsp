@@ -433,17 +433,11 @@ class GroovyTextDocumentService(
         )
     }
 
-    private suspend fun ensureSymbolStorage(uri: java.net.URI): SymbolStorage? {
-        var storage = compilationService.getSymbolStorage(uri)
-        if (storage != null) {
-            return storage
+    private suspend fun ensureSymbolStorage(uri: java.net.URI): SymbolStorage? =
+        compilationService.getSymbolStorage(uri) ?: documentProvider.get(uri)?.let { content ->
+            compilationService.compile(uri, content)
+            compilationService.getSymbolStorage(uri)
         }
-
-        val content = documentProvider.get(uri) ?: return null
-        compilationService.compile(uri, content)
-        storage = compilationService.getSymbolStorage(uri)
-        return storage
-    }
 }
 
 private fun shouldMarkOptionsIgnored(options: FormattingOptions?): Boolean {
