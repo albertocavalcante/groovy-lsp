@@ -1,6 +1,7 @@
 package com.github.albertocavalcante.groovylsp.services
 
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.net.URI
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
@@ -222,6 +224,32 @@ class GroovyTextDocumentServiceFormattingTest {
         val edits = service.formatting(formattingParams()).get(1, TimeUnit.SECONDS)
 
         assertEquals(1, edits.size)
+    }
+
+    @Test
+    fun `formatting propagates cancellation without telemetry`() {
+        client.telemetryEvents.clear()
+        val job = SupervisorJob()
+        val localScope = CoroutineScope(Dispatchers.Default + job)
+        val documentProvider = DocumentProvider().apply { put(uri, "def x=1") }
+        val formatter = TestFormatter { "def x = 1" }
+        val localClient = RecordingLanguageClient()
+        val service = GroovyTextDocumentService(
+            coroutineScope = localScope,
+            compilationService = compilationService,
+            client = { localClient },
+            documentProvider = documentProvider,
+            formatter = formatter,
+        )
+
+        job.cancel()
+
+        val future = service.formatting(formattingParams())
+        assertThrows<CancellationException> {
+            future.get(1, TimeUnit.SECONDS)
+        }
+        assertTrue(localClient.telemetryEvents.isEmpty())
+        localScope.cancel()
     }
 
     private fun formattingParams(targetUri: URI = uri): DocumentFormattingParams = DocumentFormattingParams().apply {
