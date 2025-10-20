@@ -24,11 +24,11 @@ steps:
   - assert:
       source: hoverResult
       checks:
-        - jsonPath: $.contents.value
+        - jsonPath: $.contents.right.value
           expect:
             type: CONTAINS
             value: "Method"
-        - jsonPath: $.contents.value
+        - jsonPath: $.contents.right.value
           expect:
             type: CONTAINS
             value: "println("

@@ -236,7 +236,10 @@ class GroovyTextDocumentService(
         )
 
         // Use the new HoverProvider for actual symbol information
-        val hoverProvider = com.github.albertocavalcante.groovylsp.providers.hover.HoverProvider(compilationService)
+        val hoverProvider = com.github.albertocavalcante.groovylsp.providers.hover.HoverProvider(
+            compilationService,
+            documentProvider,
+        )
         val hover = hoverProvider.provideHover(params.textDocument.uri, params.position)
 
         // Return the hover if found, otherwise return an empty hover
