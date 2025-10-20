@@ -1,4 +1,4 @@
-package com.github.albertocavalcante.groovylsp.e2e
+package com.github.albertocavalcante.groovylsp.testing.client
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper

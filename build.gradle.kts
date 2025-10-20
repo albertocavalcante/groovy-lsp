@@ -177,7 +177,12 @@ testing {
 
             sources {
                 kotlin {
-                    setSrcDirs(listOf("tests/e2e/kotlin"))
+                    setSrcDirs(
+                        listOf(
+                            "tests/e2e/kotlin",
+                            "tests/lsp-client/kotlin",
+                        ),
+                    )
                 }
                 resources {
                     setSrcDirs(listOf("tests/e2e/resources"))

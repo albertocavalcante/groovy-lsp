@@ -45,6 +45,13 @@ Each step is an object with a single key:
 Fixtures live under `tests/e2e/resources/workspaces`. They are copied into a temp workspace so tests can mutate state
 without affecting source files.
 
+## Shared Test Client
+
+The harness talks to the language server through the reusable client in
+`tests/lsp-client/kotlin/com/github/albertocavalcante/groovylsp/testing/client`. If you need to stub extra client
+behaviour (for example `workspace/configuration` responses), extend that module rather than the scenario runner so unit
+and e2e tests share the same LSP-facing surface.
+
 ## Logging
 
 `make e2e` runs Gradle with `--info --console=plain` and the harness ships a `logback-test.xml` (under

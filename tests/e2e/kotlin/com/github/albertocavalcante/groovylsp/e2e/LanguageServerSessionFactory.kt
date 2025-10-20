@@ -1,6 +1,7 @@
 package com.github.albertocavalcante.groovylsp.e2e
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.github.albertocavalcante.groovylsp.testing.client.HarnessLanguageClient
 import org.eclipse.lsp4j.jsonrpc.RemoteEndpoint
 import org.eclipse.lsp4j.launch.LSPLauncher
 import org.eclipse.lsp4j.services.LanguageServer
