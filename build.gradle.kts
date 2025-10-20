@@ -190,7 +190,8 @@ testing {
             }
 
             dependencies {
-                implementation(project())
+                implementation(sourceSets.main.get().output)
+                implementation(sourceSets.main.get().runtimeClasspath)
                 implementation(project(":groovy-formatter"))
                 implementation("org.eclipse.lsp4j:org.eclipse.lsp4j:0.24.0")
                 implementation(platform("com.fasterxml.jackson:jackson-bom:2.17.3"))
