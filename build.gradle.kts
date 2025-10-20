@@ -210,7 +210,6 @@ testing {
                         description = "Runs end-to-end LSP scenarios."
                         group = LifecycleBasePlugin.VERIFICATION_GROUP
                         shouldRunAfter(tasks.test)
-                        dependsOn(tasks.shadowJar)
                         systemProperty(
                             "groovy.lsp.e2e.scenarioDir",
                             e2eScenarioDir,

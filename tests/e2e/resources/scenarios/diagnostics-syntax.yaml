@@ -1,0 +1,47 @@
+name: diagnostics-syntax
+description: Detects syntax diagnostics and ensures they clear after fixing the source.
+workspace:
+  fixture: diagnostics-basic
+steps:
+  - initialize: {}
+  - initialized: {}
+  - openDocument:
+      path: src/Problem.groovy
+      languageId: groovy
+      version: 1
+      text: |
+        class Problem {
+            def run() {
+                println 'broken'
+        }
+  - waitNotification:
+      method: textDocument/publishDiagnostics
+      checks:
+        - jsonPath: $.uri
+          expect:
+            type: EQUALS
+            value: "{{workspace.uri}}src/Problem.groovy"
+        - jsonPath: $.diagnostics
+          expect:
+            type: NOT_EMPTY
+  - changeDocument:
+      path: src/Problem.groovy
+      version: 2
+      text: |
+        class Problem {
+            def run() {
+                println 'fixed'
+            }
+        }
+  - waitNotification:
+      method: textDocument/publishDiagnostics
+      checks:
+        - jsonPath: $.uri
+          expect:
+            type: EQUALS
+            value: "{{workspace.uri}}src/Problem.groovy"
+        - jsonPath: $.diagnostics
+          expect:
+            type: EMPTY
+  - shutdown: {}
+  - exit: {}
