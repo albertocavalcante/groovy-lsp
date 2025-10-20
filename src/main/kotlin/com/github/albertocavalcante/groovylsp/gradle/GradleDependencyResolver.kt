@@ -23,10 +23,10 @@ class GradleDependencyResolver : DependencyResolver {
      * @param projectDir The root directory of the Gradle project
      * @return List of paths to dependency JAR files
      */
-    override fun resolveDependencies(projectDir: Path): List<Path> {
+    override fun resolve(projectDir: Path): WorkspaceResolution {
         if (!isGradleProject(projectDir)) {
             logger.info("Not a Gradle project: $projectDir")
-            return emptyList()
+            return WorkspaceResolution(emptyList(), emptyList())
         }
 
         logger.info("Resolving Gradle dependencies for: $projectDir")
@@ -36,35 +36,48 @@ class GradleDependencyResolver : DependencyResolver {
             val connection = GradleConnectionPool.getConnection(projectDir)
             val ideaProject = connection.model(IdeaProject::class.java).get()
 
-            val dependencies = ideaProject.modules.flatMap { module ->
+            val dependencies = mutableSetOf<Path>()
+            val sourceDirectories = mutableSetOf<Path>()
+
+            ideaProject.modules.forEach { module ->
                 logger.debug("Processing module: ${module.name}")
 
                 module.dependencies
                     .filterIsInstance<IdeaSingleEntryLibraryDependency>()
-                    .mapNotNull { dependency ->
+                    .forEach { dependency ->
                         val jarPath = dependency.file.toPath()
-
                         if (jarPath.exists()) {
                             logger.debug("Found dependency: ${dependency.file.name}")
-                            jarPath
+                            dependencies.add(jarPath)
                         } else {
                             logger.warn("Dependency JAR not found: $jarPath")
-                            null
                         }
                     }
-            }.distinct()
 
-            logger.info("Resolved ${dependencies.size} dependencies")
-            dependencies
+                module.contentRoots?.forEach { root ->
+                    root.sourceDirectories?.forEach { dir ->
+                        dir.directory?.toPath()?.takeIf { it.exists() }?.let(sourceDirectories::add)
+                    }
+                    root.testDirectories?.forEach { dir ->
+                        dir.directory?.toPath()?.takeIf { it.exists() }?.let(sourceDirectories::add)
+                    }
+                }
+            }
+
+            logger.info("Resolved ${dependencies.size} dependencies and ${sourceDirectories.size} source directories")
+            WorkspaceResolution(
+                dependencies = dependencies.toList(),
+                sourceDirectories = sourceDirectories.toList(),
+            )
         } catch (e: org.gradle.tooling.GradleConnectionException) {
             logger.error("Failed to connect to Gradle: ${e.message}", e)
-            emptyList()
+            WorkspaceResolution(emptyList(), emptyList())
         } catch (e: org.gradle.tooling.BuildException) {
             logger.error("Gradle build failed during dependency resolution: ${e.message}", e)
-            emptyList()
+            WorkspaceResolution(emptyList(), emptyList())
         } catch (e: IllegalArgumentException) {
             logger.error("Invalid project directory or configuration: ${e.message}", e)
-            emptyList()
+            WorkspaceResolution(emptyList(), emptyList())
         }
     }
 

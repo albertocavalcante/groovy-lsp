@@ -149,25 +149,36 @@ class GroovyLanguageServer :
 
         val progressReporter = ProgressReporter(client)
 
+        compilationService.initializeWorkspace(workspaceRoot)
+
         dependencyManager.startAsyncResolution(
             workspaceRoot = workspaceRoot,
             onProgress = { percentage, message ->
                 progressReporter.updateProgress(message, percentage)
             },
-            onComplete = { dependencies ->
-                logger.info("Dependencies resolved: ${dependencies.size} JARs")
+            onComplete = { resolution ->
+                logger.info(
+                    "Dependencies resolved: ${resolution.dependencies.size} JARs, " +
+                        "${resolution.sourceDirectories.size} source directories",
+                )
 
                 // Update compilation service with resolved dependencies
-                compilationService.updateDependencies(dependencies)
+                compilationService.updateWorkspaceModel(
+                    workspaceRoot = workspaceRoot,
+                    dependencies = resolution.dependencies,
+                    sourceDirectories = resolution.sourceDirectories,
+                )
                 textDocumentService.refreshOpenDocuments()
 
-                progressReporter.complete("✅ Ready: ${dependencies.size} dependencies loaded")
+                progressReporter.complete(
+                    "✅ Ready: ${resolution.dependencies.size} dependencies loaded",
+                )
 
                 // Notify client of successful resolution
                 client?.showMessage(
                     MessageParams().apply {
                         type = MessageType.Info
-                        message = "Dependencies loaded: ${dependencies.size} JARs from Gradle cache"
+                        message = "Dependencies loaded: ${resolution.dependencies.size} JARs from Gradle cache"
                     },
                 )
             },

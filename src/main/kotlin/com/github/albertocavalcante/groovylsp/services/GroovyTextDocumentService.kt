@@ -130,7 +130,7 @@ class GroovyTextDocumentService(
                 moduleNode = ast,
                 compilationUnit = compilationUnit,
                 astVisitor = astVisitor,
-                workspaceRoot = null, // TODO: Get from compilation service
+                workspaceRoot = compilationService.getWorkspaceRoot(),
                 classpath = compilationService.getDependencyClasspath(),
             )
         }

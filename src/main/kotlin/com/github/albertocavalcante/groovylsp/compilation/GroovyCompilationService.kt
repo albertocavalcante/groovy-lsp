@@ -21,7 +21,11 @@ import org.codehaus.groovy.control.io.StringReaderSource
 import org.eclipse.lsp4j.Diagnostic
 import org.slf4j.LoggerFactory
 import java.net.URI
+import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.extension
+import kotlin.io.path.isDirectory
+import kotlin.streams.toList
 
 /**
  * Service for compiling Groovy source code and managing ASTs.
@@ -42,6 +46,8 @@ class GroovyCompilationService {
     // Dependency classpath management
     private val dependencyClasspath = mutableListOf<Path>()
     private var workspaceRoot: Path? = null
+    private val sourceRoots = mutableSetOf<Path>()
+    private var workspaceSources: List<Path> = emptyList()
 
     /**
      * Compiles Groovy source code and returns the result.
@@ -75,6 +81,10 @@ class GroovyCompilationService {
             dependencyClasspath.forEach { classLoader.addClasspath(it.toString()) }
             logger.debug("Added ${dependencyClasspath.size} dependencies to compiler classpath")
         }
+        if (sourceRoots.isNotEmpty()) {
+            sourceRoots.forEach { classLoader.addClasspath(it.toString()) }
+            logger.debug("Added ${sourceRoots.size} source roots to compiler classpath")
+        }
 
         // Create compilation unit
         val compilationUnit = CompilationUnit(config, null, classLoader)
@@ -84,6 +94,7 @@ class GroovyCompilationService {
         val source = StringReaderSource(content, config)
         val sourceUnit = SourceUnit(fileName, source, config, classLoader, compilationUnit.errorCollector)
         compilationUnit.addSource(sourceUnit)
+        addWorkspaceSources(compilationUnit, uri)
 
         // Compile to canonicalization phase (sufficient for most LSP features)
         try {
@@ -173,7 +184,8 @@ class GroovyCompilationService {
     fun initializeWorkspace(workspaceRoot: Path) {
         logger.info("Initializing workspace (non-blocking): $workspaceRoot")
         this.workspaceRoot = workspaceRoot
-        // No dependency resolution here - will be done asynchronously
+        refreshSourceRoots(workspaceRoot)
+        refreshWorkspaceSources()
     }
 
     /**
@@ -211,14 +223,76 @@ class GroovyCompilationService {
         }
 
         logger.info("Resolving dependencies for workspace: $root")
-        val newDependencies = dependencyResolver.resolveDependencies(root)
-        updateDependencies(newDependencies)
+        val resolution = dependencyResolver.resolve(root)
+        updateWorkspaceModel(root, resolution.dependencies, resolution.sourceDirectories)
     }
 
     /**
      * Gets the current dependency classpath.
      */
     fun getDependencyClasspath(): List<Path> = dependencyClasspath.toList()
+
+    fun getWorkspaceRoot(): Path? = workspaceRoot
+
+    fun updateWorkspaceModel(workspaceRoot: Path, dependencies: List<Path>, sourceDirectories: List<Path>) {
+        this.workspaceRoot = workspaceRoot
+
+        val depsChanged = dependencies.toSet() != dependencyClasspath.toSet()
+        val sourcesChanged = sourceDirectories.toSet() != sourceRoots
+        if (depsChanged) {
+            dependencyClasspath.clear()
+            dependencyClasspath.addAll(dependencies)
+            logger.info("Updated dependency classpath with ${dependencyClasspath.size} dependencies")
+        }
+
+        sourceRoots.clear()
+        if (sourceDirectories.isNotEmpty()) {
+            sourceDirectories.forEach(sourceRoots::add)
+            logger.info("Received ${sourceRoots.size} source roots from build model")
+        } else {
+            refreshSourceRoots(workspaceRoot)
+        }
+
+        refreshWorkspaceSources()
+
+        if (depsChanged || sourcesChanged) {
+            clearCaches()
+        }
+    }
+
+    private fun refreshSourceRoots(root: Path) {
+        if (sourceRoots.isEmpty()) {
+            val candidates = listOf(
+                root.resolve("src/main/groovy"),
+                root.resolve("src/main/java"),
+                root.resolve("src/main/kotlin"),
+                root.resolve("src/test/groovy"),
+            )
+
+            candidates.filter { Files.exists(it) && it.isDirectory() }.forEach(sourceRoots::add)
+
+            logger.info("Indexed ${sourceRoots.size} source roots: ${sourceRoots.joinToString { it.toString() }}")
+        }
+    }
+
+    private fun refreshWorkspaceSources() {
+        workspaceSources = sourceRoots.flatMap { sourceRoot ->
+            if (!Files.exists(sourceRoot)) return@flatMap emptyList<Path>()
+            Files.walk(sourceRoot).use { stream ->
+                stream.filter { Files.isRegularFile(it) && it.extension.equals("groovy", ignoreCase = true) }
+                    .toList()
+            }
+        }
+
+        logger.info("Indexed ${workspaceSources.size} Groovy sources from workspace roots")
+    }
+
+    private fun addWorkspaceSources(compilationUnit: CompilationUnit, currentUri: URI) {
+        workspaceSources.forEach { path ->
+            if (path.toUri() == currentUri) return@forEach
+            compilationUnit.addSource(path.toFile())
+        }
+    }
 
     /**
      * Creates a compiler configuration optimized for language server use.
