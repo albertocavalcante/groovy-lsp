@@ -3,7 +3,7 @@ package com.github.albertocavalcante.groovylsp
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
 import com.github.albertocavalcante.groovylsp.gradle.DependencyManager
 import com.github.albertocavalcante.groovylsp.gradle.GradleConnectionPool
-import com.github.albertocavalcante.groovylsp.gradle.SimpleDependencyResolver
+import com.github.albertocavalcante.groovylsp.gradle.GradleDependencyResolver
 import com.github.albertocavalcante.groovylsp.progress.ProgressReporter
 import com.github.albertocavalcante.groovylsp.services.GroovyTextDocumentService
 import com.github.albertocavalcante.groovylsp.services.GroovyWorkspaceService
@@ -43,7 +43,7 @@ class GroovyLanguageServer :
     private val compilationService = GroovyCompilationService()
 
     // Async dependency management
-    private val dependencyManager = DependencyManager(SimpleDependencyResolver(), coroutineScope)
+    private val dependencyManager = DependencyManager(GradleDependencyResolver(), coroutineScope)
     private var savedInitParams: InitializeParams? = null
 
     // Service instances - initialized immediately to prevent UninitializedPropertyAccessException in tests
@@ -159,6 +159,7 @@ class GroovyLanguageServer :
 
                 // Update compilation service with resolved dependencies
                 compilationService.updateDependencies(dependencies)
+                textDocumentService.refreshOpenDocuments()
 
                 progressReporter.complete("✅ Ready: ${dependencies.size} dependencies loaded")
 

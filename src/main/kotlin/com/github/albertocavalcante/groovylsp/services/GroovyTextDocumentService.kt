@@ -101,6 +101,7 @@ class GroovyTextDocumentService(
      * Helper function to publish diagnostics with better readability
      */
     private fun publishDiagnostics(uri: String, diagnostics: List<Diagnostic>) {
+        logger.debug("Publishing ${diagnostics.size} diagnostics for $uri")
         client()?.publishDiagnostics(
             PublishDiagnosticsParams().apply {
                 this.uri = uri
@@ -201,6 +202,20 @@ class GroovyTextDocumentService(
     override fun didSave(params: DidSaveTextDocumentParams) {
         logger.debug("Document saved: ${params.textDocument.uri}")
         // Could trigger additional processing if needed
+    }
+
+    fun refreshOpenDocuments() {
+        coroutineScope.launch {
+            documentProvider.snapshot().forEach { (uri, content) ->
+                runCatching {
+                    val result = compilationService.compile(uri, content)
+                    publishDiagnostics(uri.toString(), result.diagnostics)
+                    logger.info("Refreshed diagnostics for $uri after dependency update")
+                }.onFailure { throwable ->
+                    logger.warn("Failed to refresh $uri after dependency update", throwable)
+                }
+            }
+        }
     }
 
     override fun completion(params: CompletionParams): CompletableFuture<Either<List<CompletionItem>, CompletionList>> =

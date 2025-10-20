@@ -6,7 +6,8 @@ import com.github.albertocavalcante.groovylsp.cache.LRUCache
 import com.github.albertocavalcante.groovylsp.errors.CacheCorruptionException
 import com.github.albertocavalcante.groovylsp.errors.CircularReferenceException
 import com.github.albertocavalcante.groovylsp.errors.ResourceExhaustionException
-import com.github.albertocavalcante.groovylsp.gradle.SimpleDependencyResolver
+import com.github.albertocavalcante.groovylsp.gradle.DependencyResolver
+import com.github.albertocavalcante.groovylsp.gradle.GradleDependencyResolver
 import com.github.albertocavalcante.groovylsp.providers.symbols.SymbolStorage
 import com.github.albertocavalcante.groovylsp.providers.symbols.buildFromVisitor
 import groovy.lang.GroovyClassLoader
@@ -31,7 +32,7 @@ class GroovyCompilationService {
     private val logger = LoggerFactory.getLogger(GroovyCompilationService::class.java)
     private val cache = CompilationCache()
     private val errorHandler = CompilationErrorHandler()
-    private val dependencyResolver = SimpleDependencyResolver()
+    private val dependencyResolver: DependencyResolver = GradleDependencyResolver()
 
     // AST visitor and symbol table caches with LRU eviction
     private val astVisitorCache = LRUCache<URI, AstVisitor>(maxSize = 100)

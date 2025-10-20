@@ -22,6 +22,10 @@ object WorkspaceFixture {
                 "Fixture '$fixtureName' referenced by $scenarioSource not found at $fixturePath"
             }
             copyDirectory(fixturePath, tempDir)
+            logger.info("Materialized fixture '{}' into {}", fixtureName, tempDir)
+            Files.list(tempDir).use { stream ->
+                stream.forEach { logger.info("Fixture root entry: {}", it.fileName) }
+            }
         }
 
         return tempDir

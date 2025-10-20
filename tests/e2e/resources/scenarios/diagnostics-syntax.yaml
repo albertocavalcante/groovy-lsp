@@ -51,6 +51,14 @@ steps:
         }
   - waitNotification:
       method: textDocument/publishDiagnostics
+      saveAs: postChangeDiagnostics
+      checks:
+        - jsonPath: $.uri
+          expect:
+            type: EQUALS
+            value: "{{workspace.uri}}src/Problem.groovy"
+  - waitNotification:
+      method: textDocument/publishDiagnostics
       checks:
         - jsonPath: $.uri
           expect:

@@ -17,7 +17,7 @@ private const val PROGRESS_COMPLETE = 100
  * Manages asynchronous dependency resolution to prevent blocking LSP initialization.
  * Allows for non-blocking dependency discovery with state tracking and callback support.
  */
-class DependencyManager(private val resolver: SimpleDependencyResolver, private val scope: CoroutineScope) {
+class DependencyManager(private val resolver: DependencyResolver, private val scope: CoroutineScope) {
     /**
      * States of dependency resolution process.
      */

@@ -7,15 +7,15 @@ import java.nio.file.Path
 import kotlin.io.path.exists
 
 /**
- * Simple dependency resolver that uses Gradle Tooling API to extract
- * binary JAR dependencies from a Gradle project.
+ * Gradle dependency resolver that uses the Gradle Tooling API to extract
+ * binary JAR dependencies from a project.
  *
  * This is Phase 1 implementation - focuses on getting dependencies
  * on the classpath for compilation. Future phases will add source
  * JAR support and on-demand downloading.
  */
-class SimpleDependencyResolver {
-    private val logger = LoggerFactory.getLogger(SimpleDependencyResolver::class.java)
+class GradleDependencyResolver : DependencyResolver {
+    private val logger = LoggerFactory.getLogger(GradleDependencyResolver::class.java)
 
     /**
      * Resolves all binary JAR dependencies from a Gradle project.
@@ -23,7 +23,7 @@ class SimpleDependencyResolver {
      * @param projectDir The root directory of the Gradle project
      * @return List of paths to dependency JAR files
      */
-    fun resolveDependencies(projectDir: Path): List<Path> {
+    override fun resolveDependencies(projectDir: Path): List<Path> {
         if (!isGradleProject(projectDir)) {
             logger.info("Not a Gradle project: $projectDir")
             return emptyList()
@@ -80,7 +80,10 @@ class SimpleDependencyResolver {
         )
 
         return gradleFiles.any { fileName ->
-            projectDir.resolve(fileName).exists()
+            val candidate = projectDir.resolve(fileName)
+            val present = candidate.exists()
+            logger.debug("Gradle probe: {} present={}", candidate, present)
+            present
         }
     }
 }
