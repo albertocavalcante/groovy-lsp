@@ -16,6 +16,7 @@ steps:
         }
   - waitNotification:
       method: textDocument/publishDiagnostics
+      saveAs: initialDiagnostics
       checks:
         - jsonPath: $.uri
           expect:
@@ -24,6 +25,21 @@ steps:
         - jsonPath: $.diagnostics
           expect:
             type: NOT_EMPTY
+  - assert:
+      source: initialDiagnostics
+      checks:
+        - jsonPath: $.diagnostics[0].message
+          expect:
+            type: CONTAINS
+            value: "Unexpected input"
+        - jsonPath: $.diagnostics[0].severity
+          expect:
+            type: EQUALS
+            value: "Error"
+        - jsonPath: $.diagnostics[0].range.start.line
+          expect:
+            type: EQUALS
+            value: 4
   - changeDocument:
       path: src/Problem.groovy
       version: 2
