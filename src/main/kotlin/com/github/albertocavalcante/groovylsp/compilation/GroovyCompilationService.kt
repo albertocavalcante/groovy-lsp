@@ -90,9 +90,10 @@ class GroovyCompilationService {
         val compilationUnit = CompilationUnit(config, null, classLoader)
 
         // Add source
-        val fileName = uri.path.substringAfterLast('/')
+        val sourcePath = runCatching { Path.of(uri) }.getOrNull()
+        val sourceUnitName = sourcePath?.toAbsolutePath()?.toString() ?: uri.toString()
         val source = StringReaderSource(content, config)
-        val sourceUnit = SourceUnit(fileName, source, config, classLoader, compilationUnit.errorCollector)
+        val sourceUnit = SourceUnit(sourceUnitName, source, config, classLoader, compilationUnit.errorCollector)
         compilationUnit.addSource(sourceUnit)
         addWorkspaceSources(compilationUnit, uri)
 
@@ -105,7 +106,8 @@ class GroovyCompilationService {
         }
 
         // Extract diagnostics from error collector
-        val diagnostics = DiagnosticConverter.convertErrorCollector(compilationUnit.errorCollector)
+        val locatorCandidates = buildLocatorCandidates(uri, sourcePath)
+        val diagnostics = DiagnosticConverter.convertErrorCollector(compilationUnit.errorCollector, locatorCandidates)
 
         // Get the AST
         val ast = getAstFromCompilationUnit(compilationUnit)
@@ -292,6 +294,17 @@ class GroovyCompilationService {
             if (path.toUri() == currentUri) return@forEach
             compilationUnit.addSource(path.toFile())
         }
+    }
+
+    private fun buildLocatorCandidates(uri: URI, sourcePath: Path?): Set<String> {
+        val candidates = mutableSetOf<String>()
+        candidates += uri.toString()
+        candidates += uri.path
+        sourcePath?.let { path ->
+            candidates += path.toString()
+            candidates += path.toAbsolutePath().toString()
+        }
+        return candidates
     }
 
     /**
