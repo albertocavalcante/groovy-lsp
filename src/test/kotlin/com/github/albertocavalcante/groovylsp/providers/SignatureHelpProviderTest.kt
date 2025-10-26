@@ -70,6 +70,71 @@ class SignatureHelpProviderTest {
     }
 
     @Test
+    fun `cursor after comma selects next parameter`() = runTest {
+        val uri = URI.create("file:///SignatureHelpComma.groovy")
+        val source = """
+            class Sample {
+                def myMethod(String arg1, int arg2) {}
+                def run() {
+                    myMethod("text", 42)
+                }
+            }
+        """.trimIndent()
+
+        compile(uri, source)
+
+        val (lineIndex, line) = lineContaining(source, "myMethod(\"text\", 42)")
+        val commaColumn = line.indexOf(",") + 2 // after comma and space
+        val position = Position(lineIndex, commaColumn)
+
+        val result = signatureHelpProvider.provideSignatureHelp(uri.toString(), position)
+        assertEquals(1, result.activeParameter)
+    }
+
+    @Test
+    fun `cursor after last argument selects upcoming parameter`() = runTest {
+        val uri = URI.create("file:///SignatureHelpTrailingSlot.groovy")
+        val source = """
+            class Sample {
+                def myMethod(String arg1, int arg2, boolean enabled = false) {}
+                def run() {
+                    myMethod("text", 42, )
+                }
+            }
+        """.trimIndent()
+
+        compile(uri, source)
+
+        val (lineIndex, line) = lineContaining(source, "myMethod(\"text\", 42, )")
+        val beforeClosing = line.indexOf(")")
+        val position = Position(lineIndex, beforeClosing)
+
+        val result = signatureHelpProvider.provideSignatureHelp(uri.toString(), position)
+        assertEquals(2, result.activeParameter)
+    }
+
+    @Test
+    fun `cursor in empty argument list stays at first parameter`() = runTest {
+        val uri = URI.create("file:///SignatureHelpEmptyCall.groovy")
+        val source = """
+            class Sample {
+                def myMethod(String arg1, int arg2) {}
+                def run() {
+                    myMethod()
+                }
+            }
+        """.trimIndent()
+
+        compile(uri, source)
+
+        val (lineIndex, line) = lineContaining(source, "myMethod()")
+        val position = Position(lineIndex, line.indexOf("(") + 1)
+
+        val result = signatureHelpProvider.provideSignatureHelp(uri.toString(), position)
+        assertEquals(0, result.activeParameter)
+    }
+
+    @Test
     fun `returns empty signature help when no method call is found`() = runTest {
         val uri = URI.create("file:///SignatureHelpNoCall.groovy")
         val source = """

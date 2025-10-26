@@ -67,11 +67,17 @@ class SignatureHelpProvider(
 
         val signatures = declarations.map { it.toSignatureInformation() }.toMutableList()
         val activeParameter = determineActiveParameter(methodCall, nodeAtPosition, position, astVisitor)
+        val normalizedActiveParameter = signatures.firstOrNull()
+            ?.parameters
+            ?.lastIndex
+            ?.takeIf { it >= 0 }
+            ?.let { activeParameter.coerceIn(0, it) }
+            ?: 0
 
         return SignatureHelp().apply {
             this.signatures = signatures
             this.activeSignature = 0
-            this.activeParameter = activeParameter
+            this.activeParameter = normalizedActiveParameter
         }
     }
 
@@ -130,9 +136,6 @@ class SignatureHelpProvider(
         astVisitor: AstVisitor,
     ): Int {
         val arguments = methodCall.argumentExpressions()
-        if (arguments.isEmpty()) {
-            return 0
-        }
 
         arguments.forEachIndexed { index, argument ->
             if (argument == nodeAtPosition || astVisitor.contains(argument, nodeAtPosition)) {
@@ -143,8 +146,7 @@ class SignatureHelpProvider(
             }
         }
 
-        val fallbackIndex = estimateParameterIndex(arguments, position)
-        return fallbackIndex.coerceIn(0, arguments.lastIndex)
+        return estimateParameterIndex(arguments, position)
     }
 
     private fun estimateParameterIndex(arguments: List<Expression>, position: Position): Int {
@@ -154,7 +156,7 @@ class SignatureHelpProvider(
                 return index
             }
         }
-        return arguments.lastIndex
+        return arguments.size
     }
 
     private fun isBefore(position: Position, other: Position): Boolean {
@@ -206,7 +208,5 @@ class SignatureHelpProvider(
 
     private fun emptySignatureHelp(): SignatureHelp = SignatureHelp().apply {
         signatures = mutableListOf()
-        activeSignature = 0
-        activeParameter = 0
     }
 }
