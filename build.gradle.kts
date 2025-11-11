@@ -195,7 +195,7 @@ testing {
                 implementation(sourceSets.main.get().runtimeClasspath)
                 implementation(project(":groovy-formatter"))
                 implementation("org.eclipse.lsp4j:org.eclipse.lsp4j:0.24.0")
-                implementation(platform("com.fasterxml.jackson:jackson-bom:2.17.3"))
+                implementation(platform("com.fasterxml.jackson:jackson-bom:2.20.1"))
                 implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
                 implementation("com.fasterxml.jackson.core:jackson-databind")
                 implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
