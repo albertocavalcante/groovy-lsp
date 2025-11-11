@@ -73,7 +73,7 @@ dependencies {
     // Testing - Kotlin/Java
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.14.0")
-    testImplementation("org.assertj:assertj-core:3.26.3")
+    testImplementation("org.assertj:assertj-core:3.27.6")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     testImplementation("io.mockk:mockk:1.14.6")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -202,7 +202,7 @@ testing {
                 implementation("com.jayway.jsonpath:json-path:2.9.0")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
                 implementation("org.junit.jupiter:junit-jupiter:5.14.0")
-                implementation("org.assertj:assertj-core:3.26.3")
+                implementation("org.assertj:assertj-core:3.27.6")
                 implementation("org.slf4j:slf4j-api:2.0.17")
             }
 
