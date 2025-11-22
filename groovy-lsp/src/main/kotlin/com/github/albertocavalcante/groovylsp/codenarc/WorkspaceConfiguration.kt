@@ -24,15 +24,4 @@ data class WorkspaceConfiguration(val workspaceRoot: Path?, val serverConfig: Se
         override val autoDetectConfig: Boolean
             get() = serverConfig.codeNarcAutoDetect
     }
-
-    /**
-     * Returns true if there is an active workspace.
-     */
-    fun hasWorkspace(): Boolean = workspaceRoot != null
-
-    /**
-     * Gets the workspace root, throwing an exception if not available.
-     */
-    fun requireWorkspace(): Path = workspaceRoot
-        ?: error("Workspace root is required but not available")
 }

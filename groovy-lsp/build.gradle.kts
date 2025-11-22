@@ -113,8 +113,8 @@ tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>("compileTestKotlin"
 // Fix Kover task dependencies for Gradle 9
 afterEvaluate {
     tasks.findByName("koverGenerateArtifactJvm")?.dependsOn(tasks.compileGroovy)
-    // Debug version
-    println("Configured version for groovy-lsp: ${project.version}")
+    // Use lifecycle logging for build information
+    logger.lifecycle("Configured version for groovy-lsp: ${project.version}")
 }
 
 application {

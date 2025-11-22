@@ -17,6 +17,7 @@ import com.github.albertocavalcante.groovylsp.providers.typedefinition.TypeDefin
 import com.github.albertocavalcante.groovylsp.types.GroovyTypeResolver
 import com.github.albertocavalcante.groovyparser.ast.symbols.SymbolIndex
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -50,7 +51,9 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.services.LanguageClient
 import org.eclipse.lsp4j.services.TextDocumentService
 import org.slf4j.LoggerFactory
+import java.net.URI
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.coroutineContext
 import kotlin.math.max
@@ -89,6 +92,9 @@ class GroovyTextDocumentService(
 
     private val logger = LoggerFactory.getLogger(GroovyTextDocumentService::class.java)
     private val optionsWarningLogged = AtomicBoolean(false)
+
+    // Track active diagnostic jobs per URI to cancel stale ones (debouncing/throttling)
+    private val diagnosticJobs = ConcurrentHashMap<URI, Job>()
 
     // Initialize diagnostics service
     private val diagnosticsService by lazy {
@@ -158,24 +164,7 @@ class GroovyTextDocumentService(
         val content = params.textDocument.text
         documentProvider.put(uri, content)
 
-        // Compile the document and publish diagnostics
-        coroutineScope.launch {
-            try {
-                val result = compilationService.compile(uri, content)
-                val codenarcDiagnostics = diagnosticsService.getDiagnostics(uri, content)
-                val allDiagnostics = result.diagnostics + codenarcDiagnostics
-
-                publishDiagnostics(params.textDocument.uri, allDiagnostics)
-
-                logger.debug("Published ${allDiagnostics.size} diagnostics for ${params.textDocument.uri}")
-            } catch (e: org.codehaus.groovy.control.CompilationFailedException) {
-                logger.error("Compilation failed on file open: ${params.textDocument.uri}", e)
-            } catch (e: IllegalArgumentException) {
-                logger.error("Invalid arguments on file open: ${params.textDocument.uri}", e)
-            } catch (e: java.io.IOException) {
-                logger.error("I/O error on file open: ${params.textDocument.uri}", e)
-            }
-        }
+        triggerDiagnostics(uri, content)
     }
 
     override fun didChange(params: DidChangeTextDocumentParams) {
@@ -187,32 +176,19 @@ class GroovyTextDocumentService(
             val uri = java.net.URI.create(params.textDocument.uri)
             documentProvider.put(uri, newContent)
 
-            // Compile the document and publish diagnostics
-            coroutineScope.launch {
-                try {
-                    val result = compilationService.compile(uri, newContent)
-                    val codenarcDiagnostics = diagnosticsService.getDiagnostics(uri, newContent)
-                    val allDiagnostics = result.diagnostics + codenarcDiagnostics
-
-                    publishDiagnostics(params.textDocument.uri, allDiagnostics)
-
-                    logger.debug(
-                        "Published ${allDiagnostics.size} diagnostics after change for ${params.textDocument.uri}",
-                    )
-                } catch (e: org.codehaus.groovy.control.CompilationFailedException) {
-                    logger.error("Compilation failed on file change: ${params.textDocument.uri}", e)
-                } catch (e: IllegalArgumentException) {
-                    logger.error("Invalid arguments on file change: ${params.textDocument.uri}", e)
-                } catch (e: java.io.IOException) {
-                    logger.error("I/O error on file change: ${params.textDocument.uri}", e)
-                }
-            }
+            triggerDiagnostics(uri, newContent)
         }
     }
 
     override fun didClose(params: DidCloseTextDocumentParams) {
         logger.info("Document closed: ${params.textDocument.uri}")
-        documentProvider.remove(java.net.URI.create(params.textDocument.uri))
+        val uri = java.net.URI.create(params.textDocument.uri)
+        documentProvider.remove(uri)
+
+        // Cancel any running diagnostics for this file
+        diagnosticJobs[uri]?.cancel()
+        diagnosticJobs.remove(uri)
+
         // Clear diagnostics for closed document
         publishDiagnostics(params.textDocument.uri, emptyList())
     }
@@ -222,18 +198,47 @@ class GroovyTextDocumentService(
         // Could trigger additional processing if needed
     }
 
+    private fun triggerDiagnostics(uri: URI, content: String) {
+        // Cancel any existing diagnostic job for this URI
+        diagnosticJobs[uri]?.cancel()
+
+        // Launch a new diagnostic job
+        val job = coroutineScope.launch {
+            try {
+                // Compile the document and publish diagnostics
+                val result = compilationService.compile(uri, content)
+                val codenarcDiagnostics = diagnosticsService.getDiagnostics(uri, content)
+                val allDiagnostics = result.diagnostics + codenarcDiagnostics
+
+                ensureActive() // Ensure job wasn't cancelled before publishing
+                publishDiagnostics(uri.toString(), allDiagnostics)
+
+                logger.debug("Published ${allDiagnostics.size} diagnostics for $uri")
+            } catch (e: org.codehaus.groovy.control.CompilationFailedException) {
+                logger.error("Compilation failed for: $uri", e)
+            } catch (e: IllegalArgumentException) {
+                logger.error("Invalid arguments for: $uri", e)
+            } catch (e: java.io.IOException) {
+                logger.error("I/O error for: $uri", e)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                logger.debug("Diagnostics job cancelled for: $uri")
+                throw e
+            } catch (e: Exception) {
+                logger.error("Unexpected error during diagnostics for: $uri", e)
+            } finally {
+                // Remove job from map if it's the current one
+                diagnosticJobs.remove(uri, coroutineContext[Job])
+            }
+        }
+
+        diagnosticJobs[uri] = job
+    }
+
     fun refreshOpenDocuments() {
         coroutineScope.launch {
             documentProvider.snapshot().forEach { (uri, content) ->
-                runCatching {
-                    val result = compilationService.compile(uri, content)
-                    val codenarcDiagnostics = diagnosticsService.getDiagnostics(uri, content)
-                    val allDiagnostics = result.diagnostics + codenarcDiagnostics
-                    publishDiagnostics(uri.toString(), allDiagnostics)
-                    logger.info("Refreshed diagnostics for $uri after dependency update")
-                }.onFailure { throwable ->
-                    logger.warn("Failed to refresh $uri after dependency update", throwable)
-                }
+                triggerDiagnostics(uri, content)
+                logger.info("Triggered diagnostics refresh for $uri after dependency update")
             }
         }
     }

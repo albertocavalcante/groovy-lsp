@@ -1,7 +1,5 @@
 package com.github.albertocavalcante.diagnostics.codenarc
 
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import org.codenarc.CodeNarcRunner
 import org.codenarc.analyzer.FilesSourceAnalyzer
 import org.codenarc.results.Results
@@ -107,14 +105,12 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
             logger.error("Failed to execute CodeNarc analysis for $fileName", e)
             throw CodeAnalysisException("CodeNarc analysis failed for $fileName", e)
         } finally {
-            // Async cleanup - don't block the calling thread
-            GlobalScope.launch {
-                try {
-                    // Clean up the unique analysis directory recursively
-                    analysisDir.toFile().deleteRecursively()
-                } catch (e: Exception) {
-                    logger.debug("Temp file cleanup failed for $fileName: ${e.message}")
-                }
+            // Synchronous cleanup to prevent resource leaks
+            try {
+                // Clean up the unique analysis directory recursively
+                analysisDir.toFile().deleteRecursively()
+            } catch (e: Exception) {
+                logger.debug("Temp file cleanup failed for $fileName: ${e.message}")
             }
         }
     }
