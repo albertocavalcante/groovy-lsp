@@ -4,6 +4,7 @@ import com.github.albertocavalcante.groovyformatter.OpenRewriteFormatter
 import com.github.albertocavalcante.groovylsp.async.future
 import com.github.albertocavalcante.groovylsp.compilation.CompilationContext
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
+import com.github.albertocavalcante.groovylsp.config.ServerConfiguration
 import com.github.albertocavalcante.groovylsp.dsl.completion.GroovyCompletions
 import com.github.albertocavalcante.groovylsp.providers.SignatureHelpProvider
 import com.github.albertocavalcante.groovylsp.providers.completion.CompletionProvider
@@ -80,6 +81,7 @@ private val KNOWN_FORMATTING_OPTION_KEYS = setOf("tabSize", "insertSpaces")
 class GroovyTextDocumentService(
     private val coroutineScope: CoroutineScope,
     private val compilationService: GroovyCompilationService,
+    private val serverConfiguration: ServerConfiguration = ServerConfiguration(),
     private val client: () -> LanguageClient?,
     private val documentProvider: DocumentProvider = DocumentProvider(),
     private val formatter: Formatter = OpenRewriteFormatterAdapter(),
@@ -87,6 +89,11 @@ class GroovyTextDocumentService(
 
     private val logger = LoggerFactory.getLogger(GroovyTextDocumentService::class.java)
     private val optionsWarningLogged = AtomicBoolean(false)
+
+    // Initialize diagnostics service
+    private val diagnosticsService by lazy {
+        DiagnosticsService(compilationService.getWorkspaceRoot(), serverConfiguration)
+    }
 
     // Type definition provider - created lazily
     private val typeDefinitionProvider by lazy {
@@ -155,10 +162,12 @@ class GroovyTextDocumentService(
         coroutineScope.launch {
             try {
                 val result = compilationService.compile(uri, content)
+                val codenarcDiagnostics = diagnosticsService.getDiagnostics(uri, content)
+                val allDiagnostics = result.diagnostics + codenarcDiagnostics
 
-                publishDiagnostics(params.textDocument.uri, result.diagnostics)
+                publishDiagnostics(params.textDocument.uri, allDiagnostics)
 
-                logger.debug("Published ${result.diagnostics.size} diagnostics for ${params.textDocument.uri}")
+                logger.debug("Published ${allDiagnostics.size} diagnostics for ${params.textDocument.uri}")
             } catch (e: org.codehaus.groovy.control.CompilationFailedException) {
                 logger.error("Compilation failed on file open: ${params.textDocument.uri}", e)
             } catch (e: IllegalArgumentException) {
@@ -182,11 +191,13 @@ class GroovyTextDocumentService(
             coroutineScope.launch {
                 try {
                     val result = compilationService.compile(uri, newContent)
+                    val codenarcDiagnostics = diagnosticsService.getDiagnostics(uri, newContent)
+                    val allDiagnostics = result.diagnostics + codenarcDiagnostics
 
-                    publishDiagnostics(params.textDocument.uri, result.diagnostics)
+                    publishDiagnostics(params.textDocument.uri, allDiagnostics)
 
                     logger.debug(
-                        "Published ${result.diagnostics.size} diagnostics after change for ${params.textDocument.uri}",
+                        "Published ${allDiagnostics.size} diagnostics after change for ${params.textDocument.uri}",
                     )
                 } catch (e: org.codehaus.groovy.control.CompilationFailedException) {
                     logger.error("Compilation failed on file change: ${params.textDocument.uri}", e)
@@ -216,7 +227,9 @@ class GroovyTextDocumentService(
             documentProvider.snapshot().forEach { (uri, content) ->
                 runCatching {
                     val result = compilationService.compile(uri, content)
-                    publishDiagnostics(uri.toString(), result.diagnostics)
+                    val codenarcDiagnostics = diagnosticsService.getDiagnostics(uri, content)
+                    val allDiagnostics = result.diagnostics + codenarcDiagnostics
+                    publishDiagnostics(uri.toString(), allDiagnostics)
                     logger.info("Refreshed diagnostics for $uri after dependency update")
                 }.onFailure { throwable ->
                     logger.warn("Failed to refresh $uri after dependency update", throwable)

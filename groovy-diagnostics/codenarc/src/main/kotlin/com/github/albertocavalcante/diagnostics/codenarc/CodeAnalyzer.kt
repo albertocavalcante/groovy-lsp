@@ -1,4 +1,4 @@
-package com.github.albertocavalcante.groovylsp.codenarc
+package com.github.albertocavalcante.diagnostics.codenarc
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
+import java.util.UUID
 
 /**
  * Interface for executing CodeNarc analysis on Groovy source files.
@@ -36,8 +38,8 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
     companion object {
         private val logger = LoggerFactory.getLogger(DefaultCodeAnalyzer::class.java)
 
-        // Reusable temp directory per session (cleaned up on shutdown)
-        private val tempDir: Path = Files.createTempDirectory("codenarc-lsp-")
+        // Base temp directory
+        private val baseTempDir: Path = Files.createTempDirectory("codenarc-lsp-")
             .also { it.toFile().deleteOnExit() }
     }
 
@@ -49,9 +51,19 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
     ): Results {
         logger.debug("Starting CodeNarc analysis for file: $fileName")
 
-        // Use efficient NIO operations with reusable temp directory
-        val tempSourceFile = Files.createTempFile(tempDir, "source-", ".groovy")
-        val tempRulesetFile = Files.createTempFile(tempDir, "ruleset-", ".groovy")
+        // Create a unique temp directory for this analysis to avoid collisions
+        // and allow using the real filename
+        val analysisId = UUID.randomUUID().toString()
+        val analysisDir = Files.createDirectory(baseTempDir.resolve(analysisId))
+
+        // Use the actual filename if possible, or a safe default
+        val safeFileName = try {
+            Paths.get(fileName).fileName?.toString() ?: "script.groovy"
+        } catch (e: Exception) {
+            "script.groovy"
+        }
+        val tempSourceFile = analysisDir.resolve(safeFileName)
+        val tempRulesetFile = analysisDir.resolve("ruleset.groovy")
 
         return try {
             // Efficient write with NIO - direct UTF-8 bytes
@@ -64,7 +76,7 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
                     // Use reflection to set properties since Kotlin can't access Groovy property setters directly
                     analyzer.javaClass.getDeclaredField("baseDirectory").apply {
                         isAccessible = true
-                        set(analyzer, tempDir.toString())
+                        set(analyzer, analysisDir.toString())
                     }
                     analyzer.javaClass.getDeclaredField("sourceFiles").apply {
                         isAccessible = true
@@ -98,8 +110,8 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
             // Async cleanup - don't block the calling thread
             GlobalScope.launch {
                 try {
-                    Files.deleteIfExists(tempSourceFile)
-                    Files.deleteIfExists(tempRulesetFile)
+                    // Clean up the unique analysis directory recursively
+                    analysisDir.toFile().deleteRecursively()
                 } catch (e: Exception) {
                     logger.debug("Temp file cleanup failed for $fileName: ${e.message}")
                 }
