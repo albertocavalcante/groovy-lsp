@@ -1,6 +1,8 @@
 package com.github.albertocavalcante.groovylsp.providers.symbols
 
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
+import com.github.albertocavalcante.groovyparser.ast.symbols.SymbolIndex
+import com.github.albertocavalcante.groovyparser.ast.symbols.buildFromVisitor
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -43,7 +45,7 @@ class SymbolStorageTest {
         assertNotNull(visitor, "Should have AST visitor after compilation")
 
         // Act - Build symbols from visitor using extension function
-        val symbolStorage = SymbolStorage().buildFromVisitor(visitor!!)
+        val symbolStorage = SymbolIndex().buildFromVisitor(visitor!!)
 
         // Assert - Should have symbols in the new storage
         assertTrue(symbolStorage.symbols.isNotEmpty(), "Should have symbols after building from visitor")
@@ -75,7 +77,7 @@ class SymbolStorageTest {
         val visitor = compilationService.getAstVisitor(uri)
         assertNotNull(visitor, "Should have AST visitor")
 
-        val symbolStorage = SymbolStorage().buildFromVisitor(visitor!!)
+        val symbolStorage = SymbolIndex().buildFromVisitor(visitor!!)
 
         // Act - Search for symbols by name using the immutable API
         val allSymbols = symbolStorage.symbols[uri] ?: persistentListOf()
@@ -106,7 +108,7 @@ class SymbolStorageTest {
         val visitor = compilationService.getAstVisitor(uri)
         assertNotNull(visitor, "Should have AST visitor")
 
-        val symbolStorage = SymbolStorage().buildFromVisitor(visitor!!)
+        val symbolStorage = SymbolIndex().buildFromVisitor(visitor!!)
 
         // Act - Search for non-existent symbol
         val allSymbols = symbolStorage.symbols[uri] ?: persistentListOf()
@@ -132,7 +134,7 @@ class SymbolStorageTest {
         val visitor = compilationService.getAstVisitor(uri)
         assertNotNull(visitor, "Should have AST visitor")
 
-        val originalStorage = SymbolStorage()
+        val originalStorage = SymbolIndex()
         val newStorage = originalStorage.buildFromVisitor(visitor!!)
 
         // Assert - Original storage should be unchanged (immutability)
@@ -146,7 +148,7 @@ class SymbolStorageTest {
     @Test
     fun `test empty storage behavior`() = runTest {
         // Arrange
-        val emptyStorage = SymbolStorage()
+        val emptyStorage = SymbolIndex()
 
         // Assert - Empty storage characteristics
         assertTrue(emptyStorage.symbols.isEmpty(), "Empty storage should have no symbols")
