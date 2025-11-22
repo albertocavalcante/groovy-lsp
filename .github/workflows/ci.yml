@@ -99,6 +99,7 @@ jobs:
           path: |-
             **/build/test-results/
             **/build/reports/tests/
+            **/build/reports/problems/
           retention-days: 7
   validate:
     name: Validation Check
