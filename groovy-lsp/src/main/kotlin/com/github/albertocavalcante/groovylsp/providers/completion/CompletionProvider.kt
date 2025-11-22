@@ -78,6 +78,43 @@ object CompletionProvider {
                     doc = "Field: ${fieldSymbol.type} ${fieldSymbol.name}",
                 )
             }
+
+            // Add variable completions (parameters and local variables)
+            context.variables.forEach { varSymbol ->
+                val kind = varSymbol.kind.name.lowercase().replaceFirstChar { it.uppercase() }
+                val docString = "$kind: ${varSymbol.type} ${varSymbol.name}"
+                variable(
+                    name = varSymbol.name,
+                    type = varSymbol.type,
+                    doc = docString,
+                )
+            }
+
+            // Add imported classes
+            context.imports.forEach { importSymbol ->
+                if (!importSymbol.isStarImport) {
+                    val name = importSymbol.className
+                        ?: importSymbol.packageName.substringAfterLast('.')
+
+                    clazz(
+                        name = name,
+                        packageName = importSymbol.packageName,
+                        doc = "Imported: ${importSymbol.packageName}.$name",
+                    )
+                }
+            }
+
+            // Add common Groovy keywords/types
+            val keywords = listOf(
+                "def", "void", "int", "boolean", "char", "byte",
+                "short", "long", "float", "double", "String", "Object",
+            )
+            keywords.forEach { k ->
+                keyword(
+                    keyword = k,
+                    doc = "Keyword/Type: $k",
+                )
+            }
         }
     }
 }
