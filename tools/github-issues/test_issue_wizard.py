@@ -2,7 +2,7 @@ import unittest
 import json
 import tempfile
 import os
-from issue_wizard import LabelRegistry, LabelCategory, Label
+from issue_wizard import LabelRegistry, LabelCategory
 
 class TestLabelRegistry(unittest.TestCase):
     def setUp(self):
@@ -50,4 +50,3 @@ class TestLabelRegistry(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

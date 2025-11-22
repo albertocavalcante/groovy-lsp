@@ -4,7 +4,7 @@ import sys
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Any
+from typing import List, Dict
 from enum import Enum
 
 class LabelCategory(Enum):
@@ -106,14 +106,17 @@ class IssueWizard:
         
         while True:
             try:
-                choice = int(input(f"Choose (1-{len(options)}): "))
+                user_input = input(f"Choose (1-{len(options)}): ")
+                choice = int(user_input)
                 if 1 <= choice <= len(options):
                     selected = options[choice-1]
                     self.selected_labels.append(selected.name)
                     print(f"✅ Selected: {selected.name}")
                     break
+                else:
+                     print(f"❌ Invalid input. Please enter a number between 1 and {len(options)}.")
             except ValueError:
-                pass
+                print("❌ Invalid input, please enter a number.")
 
     def _select_multiple(self, name: str, category: LabelCategory):
         options = self.registry.get_by_category(category)
@@ -156,7 +159,22 @@ class IssueWizard:
             self.body_file = tf.name
 
         editor = os.environ.get('EDITOR', 'nano')
-        subprocess.call([editor, self.body_file])
+        try:
+            subprocess.run([editor, self.body_file], check=True)
+        except FileNotFoundError:
+            print(f"❌ Editor '{editor}' not found. Please set the EDITOR environment variable to a valid editor.")
+            try:
+                os.unlink(self.body_file)
+            except OSError:
+                pass
+            sys.exit(1)
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Editor '{editor}' exited with an error (exit code {e.returncode}).")
+            try:
+                 os.unlink(self.body_file)
+            except OSError:
+                pass
+            sys.exit(1)
 
     def _submit(self):
         print("\n📋 Issue Preview:")
@@ -172,12 +190,18 @@ class IssueWizard:
             try:
                 subprocess.run(cmd, check=True)
                 print("🚀 Issue created successfully!")
-                os.unlink(self.body_file)
+                try:
+                    os.unlink(self.body_file)
+                except OSError:
+                    pass
             except subprocess.CalledProcessError:
                 print("❌ Failed to create issue.")
         else:
             print("❌ Cancelled.")
-            os.unlink(self.body_file)
+            try:
+                os.unlink(self.body_file)
+            except OSError:
+                pass
 
 if __name__ == "__main__":
     # Determine path to github-labels.json relative to script location
@@ -187,4 +211,3 @@ if __name__ == "__main__":
     registry = LabelRegistry(labels_path)
     wizard = IssueWizard(registry)
     wizard.run()
-
