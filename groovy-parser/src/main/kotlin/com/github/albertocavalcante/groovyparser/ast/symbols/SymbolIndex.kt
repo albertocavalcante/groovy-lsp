@@ -6,6 +6,7 @@ import com.github.albertocavalcante.groovyparser.errors.symbolNotFoundError
 import com.github.albertocavalcante.groovyparser.errors.toGroovyParserResult
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.mutate
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
@@ -53,7 +54,31 @@ data class SymbolIndex(
     /**
      * Adds multiple symbols at once
      */
-    fun addAll(symbols: List<Symbol>): SymbolIndex = symbols.fold(this) { index, symbol -> index.add(symbol) }
+    fun addAll(symbolsToAdd: List<Symbol>): SymbolIndex {
+        if (symbolsToAdd.isEmpty()) return this
+
+        val newSymbolsByUri = symbolsToAdd.groupBy { it.uri }
+        val newSymbolsByName = symbolsToAdd.groupBy { it.uri to it.name }
+        val newSymbolsByCategory = symbolsToAdd.groupBy { it.uri to it.category() }
+
+        return copy(
+            symbols = symbols.mutate { mut ->
+                newSymbolsByUri.forEach { (uri, syms) ->
+                    mut[uri] = (mut[uri] ?: persistentListOf()).addAll(syms)
+                }
+            },
+            symbolsByName = symbolsByName.mutate { mut ->
+                newSymbolsByName.forEach { (key, syms) ->
+                    mut[key] = (mut[key] ?: persistentListOf()).addAll(syms)
+                }
+            },
+            symbolsByCategory = symbolsByCategory.mutate { mut ->
+                newSymbolsByCategory.forEach { (key, syms) ->
+                    mut[key] = (mut[key] ?: persistentListOf()).addAll(syms)
+                }
+            },
+        )
+    }
 
     /**
      * Type-safe symbol lookup by name and type
