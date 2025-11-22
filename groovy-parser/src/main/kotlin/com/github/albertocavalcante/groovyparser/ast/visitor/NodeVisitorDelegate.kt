@@ -355,4 +355,40 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
             popNode()
         }
     }
+
+    override fun visitSwitch(statement: org.codehaus.groovy.ast.stmt.SwitchStatement) {
+        pushNode(statement)
+        try {
+            super.visitSwitch(statement)
+        } finally {
+            popNode()
+        }
+    }
+
+    override fun visitCaseStatement(statement: org.codehaus.groovy.ast.stmt.CaseStatement) {
+        pushNode(statement)
+        try {
+            super.visitCaseStatement(statement)
+        } finally {
+            popNode()
+        }
+    }
+
+    override fun visitBreakStatement(statement: org.codehaus.groovy.ast.stmt.BreakStatement) {
+        pushNode(statement)
+        try {
+            super.visitBreakStatement(statement)
+        } finally {
+            popNode()
+        }
+    }
+
+    override fun visitContinueStatement(statement: org.codehaus.groovy.ast.stmt.ContinueStatement) {
+        pushNode(statement)
+        try {
+            super.visitContinueStatement(statement)
+        } finally {
+            popNode()
+        }
+    }
 }
