@@ -2,7 +2,10 @@ package com.github.albertocavalcante.groovylsp.test
 
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
 import com.github.albertocavalcante.groovylsp.providers.completion.CompletionProvider
+import com.github.albertocavalcante.groovylsp.providers.hover.HoverProvider
+import com.github.albertocavalcante.groovylsp.services.DocumentProvider
 import kotlinx.coroutines.runBlocking
+import org.eclipse.lsp4j.Position
 import org.junit.jupiter.api.Assertions.assertTrue
 import java.net.URI
 
@@ -13,7 +16,11 @@ class LspTestFixture {
     val compilationService = GroovyCompilationService()
     val uri = URI.create("file:///test.groovy")
 
+    // Real document provider
+    val documentProvider = DocumentProvider()
+
     fun compile(content: String) = runBlocking {
+        documentProvider.put(uri, content)
         val result = compilationService.compile(uri, content)
         if (!result.isSuccess) {
             throw RuntimeException("Compilation failed: ${result.diagnostics}")
@@ -46,5 +53,26 @@ class LspTestFixture {
         val present = unexpectedLabels.filter { it in labels }
 
         assertTrue(present.isEmpty(), "Unexpected completions at $line:$char. Found $present in $labels")
+    }
+
+    fun assertHoverContains(line: Int, char: Int, expectedText: String) = runBlocking {
+        val hoverProvider = HoverProvider(compilationService, documentProvider)
+        val hover = hoverProvider.provideHover(uri.toString(), Position(line, char))
+
+        assertTrue(hover != null, "Hover should not be null at $line:$char")
+
+        val content = if (hover!!.contents.isLeft) {
+            hover.contents.left.first().let {
+                // Handle LSP4J string unions safely
+                if (it is org.eclipse.lsp4j.MarkedString) it.value else (it as String)
+            }
+        } else {
+            hover.contents.right.value
+        }
+
+        assertTrue(
+            content.contains(expectedText),
+            "Hover at $line:$char should contain '$expectedText'. Actual:\n$content",
+        )
     }
 }

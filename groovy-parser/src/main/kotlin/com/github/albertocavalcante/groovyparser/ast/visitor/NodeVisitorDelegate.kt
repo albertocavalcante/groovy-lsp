@@ -93,13 +93,17 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
      * Push a node onto the stack and track relationships
      */
     private fun pushNode(node: ASTNode) {
-        // Skip synthetic nodes (following fork-groovy pattern)
+        // Check if node is synthetic but allow it if it has valid source coordinates
         val isSynthetic = when (node) {
             is AnnotatedNode -> node.isSynthetic
             else -> false
         }
 
-        if (!isSynthetic) {
+        // Critical fix: VariableExpression in implicit access (like 'println name')
+        // is often marked synthetic but has valid coordinates and should be hoverable.
+        val hasSource = node.lineNumber > 0
+
+        if (!isSynthetic || hasSource) {
             tracker.pushNode(node, currentUri)
         }
     }
@@ -188,6 +192,13 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
     override fun visitMethodCallExpression(call: MethodCallExpression) {
         pushNode(call)
         try {
+            // Manually visit arguments to ensure they are tracked, as standard visitor support seems flaky for ArgumentList
+            val args = call.arguments
+            if (args is org.codehaus.groovy.ast.expr.TupleExpression) {
+                args.expressions?.forEach { it.visit(this) }
+            } else {
+                args?.visit(this)
+            }
             super.visitMethodCallExpression(call)
         } finally {
             popNode()
@@ -234,6 +245,15 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
         pushNode(call)
         try {
             super.visitConstructorCallExpression(call)
+        } finally {
+            popNode()
+        }
+    }
+
+    override fun visitTupleExpression(expression: org.codehaus.groovy.ast.expr.TupleExpression) {
+        pushNode(expression)
+        try {
+            super.visitTupleExpression(expression)
         } finally {
             popNode()
         }
