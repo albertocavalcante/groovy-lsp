@@ -47,22 +47,6 @@ class SymbolQueryTest {
             visibility = Visibility.PRIVATE
         }
 
-        // Debug output if needed
-        if (privateFields.isEmpty() || !privateFields.any { it.name == "field2" }) {
-            val allSymbols = index.symbols.values.flatten()
-            println("DUMPING ALL SYMBOLS:")
-            allSymbols.forEach {
-                val vis = if (it is Symbol.Field) {
-                    it.visibility
-                } else if (it is Symbol.Method) {
-                    it.visibility
-                } else {
-                    "N/A"
-                }
-                println("Symbol: ${it.name} Category: ${it.category()} Visibility: $vis")
-            }
-        }
-
         assertTrue(privateFields.any { it.name == "field2" }, "Should find field2")
 
         // We don't enforce exactly 1 because synthetic fields might exist
