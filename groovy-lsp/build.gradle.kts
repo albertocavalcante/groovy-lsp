@@ -15,7 +15,7 @@ tasks.withType<org.gradle.api.tasks.compile.GroovyCompile>().configureEach {
 
 group = "com.github.albertocavalcante"
 version = rootProject.version
-val baseVersion = rootProject.extra["baseVersion"] as String
+val baseVersion: String by rootProject.extra
 
 java {
     toolchain {
