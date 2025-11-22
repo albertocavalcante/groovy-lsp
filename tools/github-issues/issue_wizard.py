@@ -7,12 +7,14 @@ from dataclasses import dataclass
 from typing import List, Dict
 from enum import Enum
 
+
 class LabelCategory(Enum):
     TYPE = "type"
     AREA = "area"
     PRIORITY = "priority"
     SIZE = "size"
     FLAG = "flag"
+
 
 @dataclass
 class Label:
@@ -21,6 +23,7 @@ class Label:
     description: str
     category: LabelCategory
 
+
 class LabelRegistry:
     def __init__(self, json_path: str):
         self.labels: List[Label] = []
@@ -28,7 +31,7 @@ class LabelRegistry:
 
     def _load_labels(self, json_path: str):
         try:
-            with open(json_path, 'r') as f:
+            with open(json_path, "r") as f:
                 data = json.load(f)
                 for item in data:
                     self.labels.append(self._classify_label(item))
@@ -40,27 +43,36 @@ class LabelRegistry:
             sys.exit(1)
 
     def _classify_label(self, item: Dict[str, str]) -> Label:
-        name = item['name']
-        if name.startswith('lsp/'):
+        name = item["name"]
+        if name.startswith("lsp/"):
             category = LabelCategory.AREA
-        elif name.startswith('size/'):
+        elif name.startswith("size/"):
             category = LabelCategory.SIZE
-        elif name.startswith('P') and any(p in name for p in ['-critical', '-must', '-should', '-nice']):
+        elif name.startswith("P") and any(
+            p in name for p in ["-critical", "-must", "-should", "-nice"]
+        ):
             category = LabelCategory.PRIORITY
-        elif name in ['bug', 'enhancement', 'documentation', 'architecture', 'tech-debt']:
+        elif name in [
+            "bug",
+            "enhancement",
+            "documentation",
+            "architecture",
+            "tech-debt",
+        ]:
             category = LabelCategory.TYPE
         else:
             category = LabelCategory.FLAG
-            
+
         return Label(
             name=name,
-            color=item['color'],
-            description=item['description'],
-            category=category
+            color=item["color"],
+            description=item["description"],
+            category=category,
         )
 
     def get_by_category(self, category: LabelCategory) -> List[Label]:
-        return [l for l in self.labels if l.category == category]
+        return [label for label in self.labels if label.category == category]
+
 
 class IssueWizard:
     def __init__(self, registry: LabelRegistry):
@@ -71,7 +83,7 @@ class IssueWizard:
 
     def run(self):
         print("\n🧙 Groovy LSP Issue Wizard 🧙\n")
-        
+
         # 1. Title
         while not self.title:
             self.title = input("📝 Issue Title: ").strip()
@@ -103,18 +115,20 @@ class IssueWizard:
         print(f"\n📂 Select {name}:")
         for i, label in enumerate(options, 1):
             print(f"  {i}. {label.name} ({label.description})")
-        
+
         while True:
             try:
                 user_input = input(f"Choose (1-{len(options)}): ")
                 choice = int(user_input)
                 if 1 <= choice <= len(options):
-                    selected = options[choice-1]
+                    selected = options[choice - 1]
                     self.selected_labels.append(selected.name)
                     print(f"✅ Selected: {selected.name}")
                     break
                 else:
-                     print(f"❌ Invalid input. Please enter a number between 1 and {len(options)}.")
+                    print(
+                        f"❌ Invalid input. Please enter a number between 1 and {len(options)}."
+                    )
             except ValueError:
                 print("❌ Invalid input, please enter a number.")
 
@@ -123,23 +137,23 @@ class IssueWizard:
         print(f"\n📂 Select {name} (comma-separated, e.g. '1,3'):")
         for i, label in enumerate(options, 1):
             print(f"  {i}. {label.name} ({label.description})")
-        
+
         while True:
             try:
                 choices = input("Choose (or Enter to skip): ").strip()
                 if not choices:
                     break
-                
-                indices = [int(c.strip()) for c in choices.split(',')]
+
+                indices = [int(c.strip()) for c in choices.split(",")]
                 valid = True
                 temp_selected = []
-                
+
                 for idx in indices:
                     if 1 <= idx <= len(options):
-                        temp_selected.append(options[idx-1].name)
+                        temp_selected.append(options[idx - 1].name)
                     else:
                         valid = False
-                
+
                 if valid:
                     self.selected_labels.extend(temp_selected)
                     print(f"✅ Selected: {', '.join(temp_selected)}")
@@ -150,28 +164,32 @@ class IssueWizard:
                 print("❌ Invalid format, use numbers separated by commas.")
 
     def _confirm(self, question: str) -> bool:
-        return input(f"\n❓ {question} (y/n): ").lower().startswith('y')
+        return input(f"\n❓ {question} (y/n): ").lower().startswith("y")
 
     def _create_body(self):
         print("\n📝 Opening editor for description...")
-        with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode='w') as tf:
+        with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w") as tf:
             tf.write("## Summary\n\n## Details\n\n## Acceptance Criteria\n\n")
             self.body_file = tf.name
 
-        editor = os.environ.get('EDITOR', 'nano')
+        editor = os.environ.get("EDITOR", "nano")
         try:
             subprocess.run([editor, self.body_file], check=True)
         except FileNotFoundError:
-            print(f"❌ Editor '{editor}' not found. Please set the EDITOR environment variable to a valid editor.")
+            print(
+                f"❌ Editor '{editor}' not found. Please set the EDITOR environment variable to a valid editor."
+            )
             try:
                 os.unlink(self.body_file)
             except OSError:
                 pass
             sys.exit(1)
         except subprocess.CalledProcessError as e:
-            print(f"❌ Editor '{editor}' exited with an error (exit code {e.returncode}).")
+            print(
+                f"❌ Editor '{editor}' exited with an error (exit code {e.returncode})."
+            )
             try:
-                 os.unlink(self.body_file)
+                os.unlink(self.body_file)
             except OSError:
                 pass
             sys.exit(1)
@@ -181,12 +199,20 @@ class IssueWizard:
         print(f"Title: {self.title}")
         print(f"Labels: {', '.join(self.selected_labels)}")
         print(f"Body: {self.body_file}")
-        
+
         if self._confirm("Create this issue on GitHub?"):
-            cmd = ["gh", "issue", "create", "--title", self.title, "--body-file", self.body_file]
+            cmd = [
+                "gh",
+                "issue",
+                "create",
+                "--title",
+                self.title,
+                "--body-file",
+                self.body_file,
+            ]
             for label in self.selected_labels:
                 cmd.extend(["--label", label])
-            
+
             try:
                 subprocess.run(cmd, check=True)
                 print("🚀 Issue created successfully!")
@@ -203,11 +229,12 @@ class IssueWizard:
             except OSError:
                 pass
 
+
 if __name__ == "__main__":
     # Determine path to github-labels.json relative to script location
     script_dir = os.path.dirname(os.path.abspath(__file__))
     labels_path = os.path.join(script_dir, "github-labels.json")
-    
+
     registry = LabelRegistry(labels_path)
     wizard = IssueWizard(registry)
     wizard.run()

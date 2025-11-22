@@ -4,17 +4,30 @@ import tempfile
 import os
 from issue_wizard import LabelRegistry, LabelCategory
 
+
 class TestLabelRegistry(unittest.TestCase):
     def setUp(self):
         # Create a temporary labels JSON file
         self.test_labels = [
-            {"name": "bug", "color": "d73a49", "description": "Something isn't working"},
-            {"name": "lsp/completion", "color": "c2e0c6", "description": "Completion features"},
+            {
+                "name": "bug",
+                "color": "d73a49",
+                "description": "Something isn't working",
+            },
+            {
+                "name": "lsp/completion",
+                "color": "c2e0c6",
+                "description": "Completion features",
+            },
             {"name": "P1-must", "color": "d93f0b", "description": "Must fix"},
             {"name": "size/S", "color": "bfd4f2", "description": "Small"},
-            {"name": "good-first-issue", "color": "7057ff", "description": "Good for newcomers"}
+            {
+                "name": "good-first-issue",
+                "color": "7057ff",
+                "description": "Good for newcomers",
+            },
         ]
-        self.tf = tempfile.NamedTemporaryFile(mode='w', delete=False)
+        self.tf = tempfile.NamedTemporaryFile(mode="w", delete=False)
         json.dump(self.test_labels, self.tf)
         self.tf.close()
         self.registry = LabelRegistry(self.tf.name)
@@ -48,5 +61,6 @@ class TestLabelRegistry(unittest.TestCase):
         self.assertEqual(len(flags), 1)
         self.assertEqual(flags[0].name, "good-first-issue")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
