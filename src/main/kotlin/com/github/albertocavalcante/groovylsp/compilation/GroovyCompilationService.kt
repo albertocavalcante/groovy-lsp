@@ -1,5 +1,6 @@
 package com.github.albertocavalcante.groovylsp.compilation
 
+import com.github.albertocavalcante.groovylsp.cache.LRUCache
 import com.github.albertocavalcante.groovylsp.gradle.DependencyResolver
 import com.github.albertocavalcante.groovylsp.gradle.GradleDependencyResolver
 import com.github.albertocavalcante.groovylsp.providers.symbols.SymbolStorage
@@ -14,7 +15,6 @@ import org.slf4j.LoggerFactory
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.extension
 import kotlin.io.path.isDirectory
 import kotlin.streams.toList
@@ -26,7 +26,7 @@ class GroovyCompilationService {
     private val errorHandler = CompilationErrorHandler()
     private val dependencyResolver: DependencyResolver = GradleDependencyResolver()
     private val parser = GroovyParserFacade()
-    private val symbolStorageCache = ConcurrentHashMap<URI, SymbolStorage>()
+    private val symbolStorageCache = LRUCache<URI, SymbolStorage>(maxSize = 100)
 
     // Dependency classpath management
     private val dependencyClasspath = mutableListOf<Path>()
@@ -76,7 +76,7 @@ class GroovyCompilationService {
 
         val result = if (ast != null) {
             cache.put(uri, content, parseResult)
-            symbolStorageCache[uri] = SymbolStorage().buildFromVisitor(parseResult.astVisitor)
+            symbolStorageCache.put(uri, SymbolStorage().buildFromVisitor(parseResult.astVisitor))
             val isSuccess = parseResult.isSuccessful
             CompilationResult(isSuccess, ast, diagnostics, content)
         } else {
@@ -100,10 +100,10 @@ class GroovyCompilationService {
     fun getSymbolTable(uri: URI): SymbolTable? = getParseResult(uri)?.symbolTable
 
     fun getSymbolStorage(uri: URI): SymbolStorage? {
-        symbolStorageCache[uri]?.let { return it }
+        symbolStorageCache.get(uri)?.let { return it }
         val visitor = getAstVisitor(uri) ?: return null
         val storage = SymbolStorage().buildFromVisitor(visitor)
-        symbolStorageCache[uri] = storage
+        symbolStorageCache.put(uri, storage)
         return storage
     }
 

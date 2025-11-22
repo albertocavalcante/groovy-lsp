@@ -133,10 +133,11 @@ class GroovyTextDocumentService(
      */
     private fun createCompilationContext(uri: java.net.URI): CompilationContext? {
         val parseResult = compilationService.getParseResult(uri) ?: return null
+        val ast = parseResult.ast ?: return null
 
         return CompilationContext(
             uri = uri,
-            moduleNode = parseResult.ast!!,
+            moduleNode = ast,
             compilationUnit = parseResult.compilationUnit,
             astVisitor = parseResult.astVisitor,
             workspaceRoot = compilationService.getWorkspaceRoot(),
