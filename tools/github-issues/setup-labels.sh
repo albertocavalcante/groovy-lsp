@@ -100,6 +100,13 @@ check_prerequisites() {
         exit 1
     fi
 
+    # Check if jq is installed
+    if ! command -v jq &> /dev/null; then
+        log_error "jq is not installed. Please install it first."
+        log_info "Visit: https://stedolan.github.io/jq/"
+        exit 1
+    fi
+
     # Check if authenticated
     if ! gh auth status &> /dev/null; then
         log_error "GitHub CLI is not authenticated. Please run 'gh auth login' first."
@@ -136,8 +143,11 @@ setup_labels_for_repo() {
     # Delete default labels
     log_info "Deleting default labels..."
     local labels_to_delete=("duplicate" "invalid" "wontfix" "question")
+    local existing_labels
+    existing_labels=$(gh label list --repo "$repo" --limit 500 --json name | jq -r '.[].name')
+
     for label in "${labels_to_delete[@]}"; do
-        if gh label list --repo "$repo" --search "$label" | grep -q "^$label"; then
+        if echo "$existing_labels" | grep -q -x "$label"; then
             if gh label delete "$label" --repo "$repo" --yes &> /dev/null; then
                 log_info "Deleted label: $label"
             else
@@ -150,23 +160,20 @@ setup_labels_for_repo() {
     local updated_count=0
     local skipped_count=0
 
+    # Pre-fetch existing labels for faster checking
+    local existing_labels
+    existing_labels=$(gh label list --repo "$repo" --limit 500 --json name | jq -r '.[].name')
+
     # Read and process each label from the JSON file
     while IFS= read -r label_json; do
-        # Extract label properties using jq (if available) or basic parsing
-        if command -v jq &> /dev/null; then
-            local name=$(echo "$label_json" | jq -r '.name')
-            local color=$(echo "$label_json" | jq -r '.color')
-            local description=$(echo "$label_json" | jq -r '.description')
-        else
-            # Basic parsing without jq
-            local name=$(echo "$label_json" | grep -o '"name":"[^"]*"' | cut -d'"' -f4)
-            local color=$(echo "$label_json" | grep -o '"color":"[^"]*"' | cut -d'"' -f4)
-            local description=$(echo "$label_json" | grep -o '"description":"[^"]*"' | cut -d'"' -f4)
-        fi
+        # Extract label properties using jq (REQUIRED)
+        local name=$(echo "$label_json" | jq -r '.name')
+        local color=$(echo "$label_json" | jq -r '.color')
+        local description=$(echo "$label_json" | jq -r '.description')
 
         if [[ -n "$name" && -n "$color" ]]; then
-            # Check if label already exists
-            if gh label list --repo "$repo" --limit 100 | grep -q "^$name"; then
+            # Check if label already exists using cached list
+            if echo "$existing_labels" | grep -q -x "$name"; then
                 # Update existing label
                 if gh label edit "$name" --repo "$repo" --color "$color" --description "$description" &> /dev/null; then
                     log_info "Updated label: $name"
@@ -186,7 +193,7 @@ setup_labels_for_repo() {
         else
             ((skipped_count++))
         fi
-    done < <(jq -c '.[]' "$LABELS_FILE" 2>/dev/null || cat "$LABELS_FILE" | grep -o '{[^}]*}')
+    done < <(jq -c '.[]' "$LABELS_FILE")
 
     log_info "=== $repo_name SUMMARY ==="
     log_success "Created: $created_count labels"
