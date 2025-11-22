@@ -199,7 +199,11 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
             } else {
                 args?.visit(this)
             }
-            super.visitMethodCallExpression(call)
+
+            // Manually visit the method expression (object and method name) instead of calling super
+            // to avoid potential duplicate visitation of arguments if super were to visit them.
+            call.objectExpression?.visit(this)
+            call.method?.visit(this)
         } finally {
             popNode()
         }
@@ -376,6 +380,10 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
         }
     }
 
+    /**
+     * Override visitSwitch to ensure SwitchStatement nodes are tracked.
+     * This fixes issues where switch statements were not hoverable or discoverable.
+     */
     override fun visitSwitch(statement: org.codehaus.groovy.ast.stmt.SwitchStatement) {
         pushNode(statement)
         try {
@@ -385,6 +393,9 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
         }
     }
 
+    /**
+     * Override visitCaseStatement to ensure CaseStatement nodes are tracked.
+     */
     override fun visitCaseStatement(statement: org.codehaus.groovy.ast.stmt.CaseStatement) {
         pushNode(statement)
         try {
@@ -394,6 +405,9 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
         }
     }
 
+    /**
+     * Override visitBreakStatement to ensure BreakStatement nodes are tracked.
+     */
     override fun visitBreakStatement(statement: org.codehaus.groovy.ast.stmt.BreakStatement) {
         pushNode(statement)
         try {
@@ -403,6 +417,9 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
         }
     }
 
+    /**
+     * Override visitContinueStatement to ensure ContinueStatement nodes are tracked.
+     */
     override fun visitContinueStatement(statement: org.codehaus.groovy.ast.stmt.ContinueStatement) {
         pushNode(statement)
         try {

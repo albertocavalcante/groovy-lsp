@@ -105,9 +105,21 @@ object CompletionProvider {
             }
 
             // Add common Groovy keywords/types
+            // List includes types, control flow, modifiers, and special values
             val keywords = listOf(
+                // Types
                 "def", "void", "int", "boolean", "char", "byte",
                 "short", "long", "float", "double", "String", "Object",
+                // Control flow
+                "if", "else", "for", "while", "do", "switch", "case", "default",
+                "break", "continue", "return", "try", "catch", "finally", "throw",
+                // Structure
+                "class", "interface", "trait", "enum", "package", "import",
+                // Modifiers
+                "public", "protected", "private", "static", "final", "abstract",
+                "synchronized", "transient", "volatile", "native",
+                // Values/Other
+                "true", "false", "null", "this", "super", "new", "in", "as", "assert",
             )
             keywords.forEach { k ->
                 keyword(
