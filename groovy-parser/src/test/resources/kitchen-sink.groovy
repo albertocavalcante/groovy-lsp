@@ -18,6 +18,9 @@ class KitchenSink implements Serializable {
     // Constructor
     KitchenSink(String initial) {
         this.secret = initial
+        // Use the import to avoid unused import warning
+        ConcurrentHashMap<String, String> map = new ConcurrentHashMap<>()
+        map.put("init", initial)
     }
 
     // Standard method

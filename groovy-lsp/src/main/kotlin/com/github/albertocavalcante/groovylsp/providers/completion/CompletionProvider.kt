@@ -81,7 +81,7 @@ object CompletionProvider {
 
             // Add variable completions (parameters and local variables)
             context.variables.forEach { varSymbol ->
-                val kind = varSymbol.kind.name.lowercase().replaceFirstChar { it.uppercase() }
+                val kind = varSymbol.kind.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
                 val docString = "$kind: ${varSymbol.type} ${varSymbol.name}"
                 variable(
                     name = varSymbol.name,
