@@ -32,7 +32,7 @@ ARG KOTLIN_LSP_VERSION=0.253.10629
 ARG KOTLIN_LSP_SHA256=638ec1552fde7e5158f8c7df06443cfb97c5c09957273790586cbd59115bf11c
 
 # Copy local cache if available (from .devcontainer/cache/)
-COPY cache/* /tmp/cache/
+COPY cache/. /tmp/cache/
 
 RUN if [ -f "/tmp/cache/kotlin-${KOTLIN_LSP_VERSION}.vsix" ]; then \
         echo "Using local cache for Kotlin LSP VSIX..."; \
