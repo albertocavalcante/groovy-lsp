@@ -33,7 +33,7 @@ kover {
     reports {
         verify {
             rule {
-                minBound(40) // Minimum line coverage: 40% for parser module
+                minBound(54) // Minimum line coverage: 54% for parser module
             }
         }
     }
