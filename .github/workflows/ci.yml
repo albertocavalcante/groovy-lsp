@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       runner_label:
-        description: 'Runner label to use (e.g., ubuntu-latest, self-hosted)'
+        description: 'Runner label: set to "self-hosted" to enable, anything else uses cloud runners'
         required: false
         type: string
         default: 'cloud'
@@ -46,6 +46,8 @@ jobs:
         java: ${{ fromJSON( (github.event.inputs.runner_label == 'self-hosted' || vars.CI_RUNNER_LABEL == 'self-hosted') && '[17]' || (github.event_name == 'pull_request' && '[17]' || '[17, 21]') ) }}
         exclude:
           - os: macos-latest
+            java: 21
+          - os: self-hosted
             java: 21
     steps:
       - name: Checkout code
@@ -122,11 +124,11 @@ jobs:
           
       # Heavy tasks (ShadowJar) run on main OR the specific job that creates the artifact (Ubuntu/Java17)
       - name: Build Shadow JAR
-        if: github.ref == 'refs/heads/main' || (matrix.os == 'ubuntu-latest' && matrix.java == 17) || matrix.os == 'self-hosted'
+        if: (matrix.os == 'ubuntu-latest' && matrix.java == 17) || matrix.os == 'self-hosted'
         run: ./gradlew shadowJar --stacktrace $GRADLE_SCAN_FLAG
         
       - name: Verify JAR
-        if: github.ref == 'refs/heads/main' || (matrix.os == 'ubuntu-latest' && matrix.java == 17) || matrix.os == 'self-hosted'
+        if: (matrix.os == 'ubuntu-latest' && matrix.java == 17) || matrix.os == 'self-hosted'
         run: |-
           echo "Testing JAR with --help flag..."
           java -jar groovy-lsp/build/libs/groovy-lsp-*-all.jar --help
@@ -135,7 +137,7 @@ jobs:
         if: (matrix.os == 'ubuntu-latest' && matrix.java == 17) || matrix.os == 'self-hosted'
         uses: actions/upload-artifact@v5
         with:
-          name: groovy-lsp-jar
+          name: groovy-lsp-jar-${{ matrix.os }}-java${{ matrix.java }}
           path: groovy-lsp/build/libs/groovy-lsp-*-all.jar
           retention-days: 7
           
