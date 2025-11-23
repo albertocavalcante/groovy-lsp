@@ -49,13 +49,22 @@ install_vsix() {
     local cmd=$1
     if command -v "$cmd" &> /dev/null; then
         echo "Found '$cmd', installing..."
-        if "$cmd" --install-extension "$VSIX_PATH"; then
-            echo "Successfully installed Kotlin VSIX using '$cmd'."
-            return 0
-        else
-            echo "Failed to install using '$cmd'."
-            return 1
-        fi
+        
+        # Retry loop for VS Code Server initialization
+        local retries=5
+        local count=0
+        while [ $count -lt $retries ]; do
+            if "$cmd" --install-extension "$VSIX_PATH"; then
+                echo "Successfully installed Kotlin VSIX using '$cmd'."
+                return 0
+            else
+                echo "Install attempt failed. Retrying in 5 seconds..."
+                sleep 5
+                count=$((count + 1))
+            fi
+        done
+        echo "Failed to install using '$cmd' after $retries attempts."
+        return 1
     fi
     return 1
 }
