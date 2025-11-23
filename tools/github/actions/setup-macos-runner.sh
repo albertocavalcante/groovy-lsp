@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-RUNNER_VERSION="2.320.0"
+RUNNER_VERSION="2.329.0"
 # Detect Architecture
 ARCH_NAME=$(uname -m)
 if [ "$ARCH_NAME" = "x86_64" ]; then
@@ -63,6 +63,9 @@ if [ ! -f "$TAR_FILE" ]; then
 else
     echo "✅ Runner tarball already present."
 fi
+
+# Validate hash
+echo "integrity-check: 50c0d409040cc52e701ac1d5afb4672cb7803a65c1292a30e96c42051dfa690f  $TAR_FILE" | shasum -a 256 -c
 
 # Extract
 echo "📦 Extracting..."
