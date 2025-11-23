@@ -35,7 +35,7 @@ fi
 TOKEN="$1"
 RUNNER_NAME="${2:-$(hostname)}"
 
-echo "🚀 Setting up GitHub Actions Runner for macOS ($RUNNER_ARCH)..."
+echo "⚙️  Setting up GitHub Actions Runner for macOS ($RUNNER_ARCH)..."
 echo "📂 Target Directory: $RUNNER_DIR"
 
 # Create directory
