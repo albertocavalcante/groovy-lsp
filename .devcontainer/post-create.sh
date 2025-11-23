@@ -4,7 +4,7 @@ set -e
 # -----------------------------------------------------------------------------
 # Environment Verification
 # -----------------------------------------------------------------------------
-echo "🛠️  Verifying Environment Tools..."
+echo "Verifying Environment Tools..."
 echo "  - Java:    $(java -version 2>&1 | head -n 1)"
 echo "  - Ripgrep: $(rg --version | head -n 1)"
 echo "  - fd:      $(fd --version | head -n 1)"
@@ -14,25 +14,20 @@ echo "  - gh:      $(gh --version | head -n 1 2>/dev/null || echo 'Not found')"
 echo "--------------------------------------------------"
 
 # -----------------------------------------------------------------------------
-# Starship Installation (Manual Fallback)
+# Starship Configuration
 # -----------------------------------------------------------------------------
-# We install manually because the 'devcontainers-extra' feature crashes on RHEL UBI9
-# due to a bug in its 'nanolayer' dependency when parsing /etc/os-release.
-if ! command -v starship &> /dev/null; then
-    echo "🚀 Installing Starship..."
-    # Install to /usr/local/bin requiring sudo, or fall back to user bin if no sudo
-    if command -v sudo &> /dev/null; then
-        sudo curl -sS https://starship.rs/install.sh | sudo sh -s -- -y
-    else
-        curl -sS https://starship.rs/install.sh | sh -s -- -y
+if command -v starship &> /dev/null; then
+    echo "Configuring Starship..."
+    # Configure shells if not already configured
+    if ! grep -q "starship init zsh" ~/.zshrc 2>/dev/null; then
+        echo 'eval "$(starship init zsh)"' >> ~/.zshrc
     fi
-    
-    # Configure shells
-    echo 'eval "$(starship init zsh)"' >> ~/.zshrc
-    echo 'eval "$(starship init bash)"' >> ~/.bashrc
-    echo "✅ Starship installed and configured."
+    if ! grep -q "starship init bash" ~/.bashrc 2>/dev/null; then
+        echo 'eval "$(starship init bash)"' >> ~/.bashrc
+    fi
+    echo "Starship configured."
 else
-    echo "✅ Starship is already installed."
+    echo "Warning: Starship not found. Shell prompt will be default."
 fi
 
 # -----------------------------------------------------------------------------
@@ -40,25 +35,25 @@ fi
 # -----------------------------------------------------------------------------
 VSIX_PATH="/usr/local/share/vscode-extensions/kotlin.vsix"
 
-echo "🔍 Checking for Kotlin VSIX at $VSIX_PATH..."
+echo "Checking for Kotlin VSIX at $VSIX_PATH..."
 
 if [ ! -f "$VSIX_PATH" ]; then
-    echo "❌ Error: VSIX file not found!"
+    echo "Error: VSIX file not found!"
     exit 1
 fi
 
-echo "🚀 Attempting to install Kotlin VSIX..."
+echo "Attempting to install Kotlin VSIX..."
 
 # Function to try installing
 install_vsix() {
     local cmd=$1
     if command -v "$cmd" &> /dev/null; then
-        echo "👉 Found '$cmd', installing..."
+        echo "Found '$cmd', installing..."
         if "$cmd" --install-extension "$VSIX_PATH"; then
-            echo "✅ Successfully installed Kotlin VSIX using '$cmd'."
+            echo "Successfully installed Kotlin VSIX using '$cmd'."
             return 0
         else
-            echo "⚠️  Failed to install using '$cmd'."
+            echo "Failed to install using '$cmd'."
             return 1
         fi
     fi
@@ -74,6 +69,6 @@ if install_vsix "cursor"; then exit 0; fi
 # Try 'code-server' (Web version)
 if install_vsix "code-server"; then exit 0; fi
 
-echo "❌ Could not find a compatible IDE binary (code/cursor) to install the extension."
-echo "ℹ️  Please install it manually: code --install-extension $VSIX_PATH"
+echo "Could not find a compatible IDE binary (code/cursor) to install the extension."
+echo "Please install it manually: code --install-extension $VSIX_PATH"
 exit 1

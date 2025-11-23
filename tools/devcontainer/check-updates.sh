@@ -147,3 +147,8 @@ check_tool "fzf" "FZF_VERSION" "junegunn/fzf" "fzf_VERSION_checksums.txt" \
     "fzf-VERSION-linux_amd64.tar.gz" \
     "fzf-VERSION-linux_arm64.tar.gz"
 
+# Starship
+check_tool "starship" "STARSHIP_VERSION" "starship/starship" "" \
+    "starship-x86_64-unknown-linux-musl.tar.gz" \
+    "starship-aarch64-unknown-linux-musl.tar.gz"
+
