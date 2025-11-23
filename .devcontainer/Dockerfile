@@ -121,26 +121,26 @@ RUN ARCH=$(uname -m) \
     esac \
     # JQ
     && curl -fL -o /usr/local/bin/jq https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-${JQ_ARCH} \
-    && echo "$JQ_SHA256 /usr/local/bin/jq" | sha256sum -c - \
+    && echo "$JQ_SHA256  /usr/local/bin/jq" | sha256sum -c - \
     && chmod +x /usr/local/bin/jq \
     # Ripgrep
     && curl -fL -o /tmp/rg.tar.gz https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-${RUST_ARCH}.tar.gz \
-    && echo "$RG_SHA256 /tmp/rg.tar.gz" | sha256sum -c - \
+    && echo "$RG_SHA256  /tmp/rg.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/rg.tar.gz -C /tmp \
     && mv /tmp/ripgrep-${RG_VERSION}-${RUST_ARCH}/rg /usr/local/bin/ \
     # FD
     && curl -fL -o /tmp/fd.tar.gz https://github.com/sharkdp/fd/releases/download/v${FD_VERSION}/fd-v${FD_VERSION}-${RUST_ARCH}.tar.gz \
-    && echo "$FD_SHA256 /tmp/fd.tar.gz" | sha256sum -c - \
+    && echo "$FD_SHA256  /tmp/fd.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/fd.tar.gz -C /tmp \
     && mv /tmp/fd-v${FD_VERSION}-${RUST_ARCH}/fd /usr/local/bin/ \
     # Bat
     && curl -fL -o /tmp/bat.tar.gz https://github.com/sharkdp/bat/releases/download/v${BAT_VERSION}/bat-v${BAT_VERSION}-${RUST_ARCH}.tar.gz \
-    && echo "$BAT_SHA256 /tmp/bat.tar.gz" | sha256sum -c - \
+    && echo "$BAT_SHA256  /tmp/bat.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/bat.tar.gz -C /tmp \
     && mv /tmp/bat-v${BAT_VERSION}-${RUST_ARCH}/bat /usr/local/bin/ \
     # FZF
     && curl -fL -o /tmp/fzf.tar.gz https://github.com/junegunn/fzf/releases/download/v${FZF_VERSION}/fzf-${FZF_VERSION}-${FZF_ARCH}.tar.gz \
-    && echo "$FZF_SHA256 /tmp/fzf.tar.gz" | sha256sum -c - \
+    && echo "$FZF_SHA256  /tmp/fzf.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/fzf.tar.gz -C /usr/local/bin/ \
     # Cleanup
     && rm -rf /tmp/*
