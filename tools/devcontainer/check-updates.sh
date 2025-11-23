@@ -123,7 +123,7 @@ check_tool() {
 
 # JQ
 check_tool "jq" "JQ_VERSION" "jqlang/jq" "sha256sum.txt" \
-    "jq-linux64" \
+    "jq-linux-amd64" \
     "jq-linux-arm64"
 
 # Ripgrep (No common checksum file, individual .sha256 files usually exist but easier to just calc or fetch specific .sha256? 
