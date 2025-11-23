@@ -37,6 +37,13 @@ private const val NANOS_PER_MILLISECOND = 1_000_000L
 private const val DEFAULT_TAB_SIZE = 4
 private val KNOWN_FORMATTING_OPTION_KEYS = setOf("tabSize", "insertSpaces")
 
+/**
+ * Service responsible for formatting Groovy documents.
+ *
+ * This service handles the actual formatting logic using a provided [Formatter],
+ * manages formatting options (currently supporting basic options and OpenRewrite defaults),
+ * and reports telemetry events regarding the formatting process (success, failure, no-op).
+ */
 class GroovyFormattingService(
     private val formatter: Formatter,
     private val documentProvider: DocumentProvider,

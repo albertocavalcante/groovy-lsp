@@ -6,6 +6,18 @@ import java.nio.file.Path
 import kotlin.io.path.extension
 import kotlin.io.path.isDirectory
 
+/**
+ * Manages the workspace environment for the compilation service.
+ *
+ * Responsibilities include:
+ * - Tracking the workspace root directory.
+ * - Managing the dependency classpath for compilation.
+ * - Indexing and maintaining source root directories.
+ * - Collecting and indexing Groovy source files within the workspace.
+ *
+ * This class serves as a central point for workspace state, allowing other components
+ * of the compilation service to query and update workspace-related information.
+ */
 class WorkspaceManager {
     private val logger = LoggerFactory.getLogger(WorkspaceManager::class.java)
 
