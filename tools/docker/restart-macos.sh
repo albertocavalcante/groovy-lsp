@@ -90,6 +90,11 @@ while [ $LAUNCH_COUNT -lt $MAX_LAUNCH_RETRIES ]; do
     LAUNCH_COUNT=$((LAUNCH_COUNT+1))
 done
 
+if [ $LAUNCH_COUNT -ge $MAX_LAUNCH_RETRIES ]; then
+    log_error "Failed to launch Docker after $MAX_LAUNCH_RETRIES attempts."
+    exit 1
+fi
+
 log_info "⏳ Waiting for Docker daemon to become available..."
 MAX_RETRIES=60
 COUNT=0

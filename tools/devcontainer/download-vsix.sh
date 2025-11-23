@@ -34,8 +34,8 @@ fi
 # Using -c to produce compact output, but we need to strip comments (//)
 # because standard JSON doesn't support them, but devcontainer.json does.
 # We use sed to strip lines starting with whitespace and //
-VERSION=$(grep -v '^\s*//' "$JSON_FILE" | jq -r '.build.args.KOTLIN_LSP_VERSION')
-CHECKSUM=$(grep -v '^\s*//' "$JSON_FILE" | jq -r '.build.args.KOTLIN_LSP_SHA256')
+VERSION=$(grep -v '^[[:space:]]*//' "$JSON_FILE" | jq -r '.build.args.KOTLIN_LSP_VERSION')
+CHECKSUM=$(grep -v '^[[:space:]]*//' "$JSON_FILE" | jq -r '.build.args.KOTLIN_LSP_SHA256')
 
 if [ "$VERSION" == "null" ] || [ "$CHECKSUM" == "null" ]; then
     echo "Error: Could not extract KOTLIN_LSP_VERSION or KOTLIN_LSP_SHA256 from $JSON_FILE"

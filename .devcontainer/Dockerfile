@@ -46,11 +46,7 @@ RUN if [ -f "/tmp/cache/kotlin-${KOTLIN_LSP_VERSION}.vsix" ]; then \
     # Verify it's a valid zip file (VSIX is a zip) to detect corruption early
     && unzip -t /tmp/kotlin.vsix \
     && mkdir -p /usr/local/share/vscode-extensions \
-    # NB: We intentionally write a timestamp here to force a cache bust for this layer
-    # if the Dockerfile instructions change. This does NOT bust the cache on every build
-    # (because the instruction string itself is static in the Dockerfile unless edited),
-    # but ensures that if we modify this block, it rebuilds.
-    # To force a rebuild on *every* run, we'd need a dynamic ARG passed at build time.
+    # NB: Record build timestamp for debugging purposes
     && date > /usr/local/share/vscode-extensions/.build_time \
     && mv /tmp/kotlin.vsix /usr/local/share/vscode-extensions/kotlin.vsix \
     && chmod 644 /usr/local/share/vscode-extensions/kotlin.vsix \
