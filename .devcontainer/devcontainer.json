@@ -12,7 +12,23 @@
 			"RG_VERSION": "15.1.0",
 			"FD_VERSION": "10.3.0",
 			"BAT_VERSION": "0.26.0",
-			"FZF_VERSION": "0.67.0"
+			"FZF_VERSION": "0.67.0",
+			// SHA256 Checksums (optional override, defaults in Dockerfile)
+			// JQ
+			"JQ_SHA256_X64": "020468de7539ce70ef1bceaf7cde2e8c4f2ca6c3afb84642aabc5c97d9fc2a0d",
+			"JQ_SHA256_ARM64": "6bc62f25981328edd3cfcfe6fe51b073f2d7e7710d7ef7fcdac28d4e384fc3d4",
+			// Ripgrep
+			"RG_SHA256_X64": "1c9297be4a084eea7ecaedf93eb03d058d6faae29bbc57ecdaf5063921491599",
+			"RG_SHA256_ARM64": "0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5",
+			// FD
+			"FD_SHA256_X64": "2b6bfaae8c48f12050813c2ffe1884c61ea26e750d803df9c9114550a314cd14",
+			"FD_SHA256_ARM64": "996b9b1366433b211cb3bbedba91c9dbce2431842144d925428ead0adf32020b",
+			// Bat
+			"BAT_SHA256_X64": "26a683b038fbc526c6df4166db693ddc9e431e5bdc285d45ccd6b72f3cff5ffd",
+			"BAT_SHA256_ARM64": "6ee11bd8a520c514e230669156d9298f0dd2b5afc788c0952a4b14fcec51eaee",
+			// FZF
+			"FZF_SHA256_X64": "4be08018ca37b32518c608741933ea335a406de3558242b60619e98f25be2be1",
+			"FZF_SHA256_ARM64": "7071f48c2ac0f2bc992d6d33cc36fd675a579a98cc976dda699eea07dd5e9c58"
 		}
 	},
 	"remoteUser": "vscode",

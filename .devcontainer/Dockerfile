@@ -83,35 +83,64 @@ RUN microdnf install -y --nodocs \
 # Layer 5: Modern CLI Tools (rg, fd, bat, fzf, jq)
 # High-performance replacements for standard tools.
 # -----------------------------------------------------------------------------
-ARG JQ_VERSION=1.7.1
-ARG RG_VERSION=14.1.0
-ARG FD_VERSION=10.2.0
-ARG BAT_VERSION=0.24.0
-ARG FZF_VERSION=0.54.0
+ARG JQ_VERSION=1.8.1
+ARG RG_VERSION=15.1.0
+ARG FD_VERSION=10.3.0
+ARG BAT_VERSION=0.26.0
+ARG FZF_VERSION=0.67.0
+
+# SHA256 Checksums (x86_64 / aarch64)
+ARG JQ_SHA256_X64=020468de7539ce70ef1bceaf7cde2e8c4f2ca6c3afb84642aabc5c97d9fc2a0d
+ARG JQ_SHA256_ARM64=6bc62f25981328edd3cfcfe6fe51b073f2d7e7710d7ef7fcdac28d4e384fc3d4
+
+ARG RG_SHA256_X64=1c9297be4a084eea7ecaedf93eb03d058d6faae29bbc57ecdaf5063921491599
+ARG RG_SHA256_ARM64=0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5
+
+ARG FD_SHA256_X64=2b6bfaae8c48f12050813c2ffe1884c61ea26e750d803df9c9114550a314cd14
+ARG FD_SHA256_ARM64=996b9b1366433b211cb3bbedba91c9dbce2431842144d925428ead0adf32020b
+
+ARG BAT_SHA256_X64=26a683b038fbc526c6df4166db693ddc9e431e5bdc285d45ccd6b72f3cff5ffd
+ARG BAT_SHA256_ARM64=6ee11bd8a520c514e230669156d9298f0dd2b5afc788c0952a4b14fcec51eaee
+
+ARG FZF_SHA256_X64=4be08018ca37b32518c608741933ea335a406de3558242b60619e98f25be2be1
+ARG FZF_SHA256_ARM64=7071f48c2ac0f2bc992d6d33cc36fd675a579a98cc976dda699eea07dd5e9c58
 
 RUN ARCH=$(uname -m) \
     && case $ARCH in \
-        x86_64) RUST_ARCH="x86_64-unknown-linux-musl"; JQ_ARCH="linux64"; FZF_ARCH="linux_amd64"; ;; \
-        aarch64) RUST_ARCH="aarch64-unknown-linux-musl"; JQ_ARCH="linux-arm64"; FZF_ARCH="linux_arm64"; ;; \
+        x86_64) \
+            RUST_ARCH="x86_64-unknown-linux-musl"; JQ_ARCH="linux64"; FZF_ARCH="linux_amd64"; \
+            JQ_SHA256=$JQ_SHA256_X64; RG_SHA256=$RG_SHA256_X64; FD_SHA256=$FD_SHA256_X64; \
+            BAT_SHA256=$BAT_SHA256_X64; FZF_SHA256=$FZF_SHA256_X64; \
+            ;; \
+        aarch64) \
+            RUST_ARCH="aarch64-unknown-linux-musl"; JQ_ARCH="linux-arm64"; FZF_ARCH="linux_arm64"; \
+            JQ_SHA256=$JQ_SHA256_ARM64; RG_SHA256=$RG_SHA256_ARM64; FD_SHA256=$FD_SHA256_ARM64; \
+            BAT_SHA256=$BAT_SHA256_ARM64; FZF_SHA256=$FZF_SHA256_ARM64; \
+            ;; \
         *) echo "Unsupported arch: $ARCH"; exit 1; ;; \
     esac \
     # JQ
     && curl -fL -o /usr/local/bin/jq https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-${JQ_ARCH} \
+    && echo "$JQ_SHA256 /usr/local/bin/jq" | sha256sum -c - \
     && chmod +x /usr/local/bin/jq \
     # Ripgrep
     && curl -fL -o /tmp/rg.tar.gz https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-${RUST_ARCH}.tar.gz \
+    && echo "$RG_SHA256 /tmp/rg.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/rg.tar.gz -C /tmp \
     && mv /tmp/ripgrep-${RG_VERSION}-${RUST_ARCH}/rg /usr/local/bin/ \
     # FD
     && curl -fL -o /tmp/fd.tar.gz https://github.com/sharkdp/fd/releases/download/v${FD_VERSION}/fd-v${FD_VERSION}-${RUST_ARCH}.tar.gz \
+    && echo "$FD_SHA256 /tmp/fd.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/fd.tar.gz -C /tmp \
     && mv /tmp/fd-v${FD_VERSION}-${RUST_ARCH}/fd /usr/local/bin/ \
     # Bat
     && curl -fL -o /tmp/bat.tar.gz https://github.com/sharkdp/bat/releases/download/v${BAT_VERSION}/bat-v${BAT_VERSION}-${RUST_ARCH}.tar.gz \
+    && echo "$BAT_SHA256 /tmp/bat.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/bat.tar.gz -C /tmp \
     && mv /tmp/bat-v${BAT_VERSION}-${RUST_ARCH}/bat /usr/local/bin/ \
     # FZF
     && curl -fL -o /tmp/fzf.tar.gz https://github.com/junegunn/fzf/releases/download/v${FZF_VERSION}/fzf-${FZF_VERSION}-${FZF_ARCH}.tar.gz \
+    && echo "$FZF_SHA256 /tmp/fzf.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/fzf.tar.gz -C /usr/local/bin/ \
     # Cleanup
     && rm -rf /tmp/*

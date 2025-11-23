@@ -20,7 +20,7 @@ echo -e "${BLUE}Checking for tool updates...${NC}"
 # Helper to get current version from devcontainer.json
 get_current_version() {
     local key=$1
-    grep "\"$key\"" "$DEVCONTAINER_JSON" | cut -d: -f2 | tr -d ' ",s'
+    grep "\"$key\"" "$DEVCONTAINER_JSON" | cut -d: -f2 | tr -d ' ",'
 }
 
 # Helper to get latest version from GitHub
