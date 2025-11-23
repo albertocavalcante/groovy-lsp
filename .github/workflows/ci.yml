@@ -65,9 +65,13 @@ jobs:
       - name: Run Quality Checks
         run: ./gradlew lint --stacktrace $GRADLE_SCAN_FLAG
 
-      - name: Run Tests
-        timeout-minutes: 45
+      - name: Run Unit Tests
+        timeout-minutes: 20
         run: ./gradlew test --stacktrace $GRADLE_SCAN_FLAG
+
+      - name: Run E2E Tests
+        timeout-minutes: 30
+        run: ./gradlew :tests:e2eTest --stacktrace $GRADLE_SCAN_FLAG
 
       - name: Run Code Coverage
         run: ./gradlew koverHtmlReport koverXmlReport --stacktrace $GRADLE_SCAN_FLAG
