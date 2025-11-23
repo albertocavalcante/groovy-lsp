@@ -12,7 +12,7 @@ on:
         description: 'Runner label: set to "self-hosted" to enable, anything else uses cloud runners'
         required: false
         type: string
-        default: 'cloud'
+        default: 'self-hosted'
       disable_scan:
         description: Disable Gradle build scan
         required: false
