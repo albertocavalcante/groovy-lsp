@@ -108,7 +108,7 @@ ARG FZF_SHA256_ARM64=7071f48c2ac0f2bc992d6d33cc36fd675a579a98cc976dda699eea07dd5
 RUN ARCH=$(uname -m) \
     && case $ARCH in \
         x86_64) \
-            RUST_ARCH="x86_64-unknown-linux-musl"; JQ_ARCH="linux64"; FZF_ARCH="linux_amd64"; \
+            RUST_ARCH="x86_64-unknown-linux-musl"; JQ_ARCH="linux-amd64"; FZF_ARCH="linux_amd64"; \
             JQ_SHA256=$JQ_SHA256_X64; RG_SHA256=$RG_SHA256_X64; FD_SHA256=$FD_SHA256_X64; \
             BAT_SHA256=$BAT_SHA256_X64; FZF_SHA256=$FZF_SHA256_X64; \
             ;; \
