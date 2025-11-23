@@ -13,8 +13,12 @@ echo -e "${BLUE}🧹 Cleaning up devcontainer resources for: ${WORKSPACE_NAME}${
 
 # 1. Remove Containers
 echo -e "${YELLOW}Removing containers...${NC}"
-# Filter by label matching devcontainer
-CONTAINERS=$(docker ps -a --filter "label=vsch.local.folder=$PWD" -q)
+# Filter by label matching devcontainer (try both standard CLI label and VS Code label)
+CONTAINERS=$(docker ps -a --filter "label=devcontainer.local_folder=$PWD" -q)
+if [ -z "$CONTAINERS" ]; then
+    CONTAINERS=$(docker ps -a --filter "label=vsch.local.folder=$PWD" -q)
+fi
+
 if [ -n "$CONTAINERS" ]; then
     docker rm -f $CONTAINERS
     echo -e "${GREEN}✔ Removed containers: $CONTAINERS${NC}"
