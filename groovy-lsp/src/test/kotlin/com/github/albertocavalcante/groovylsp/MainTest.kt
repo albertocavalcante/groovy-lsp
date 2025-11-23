@@ -47,4 +47,50 @@ class MainTest {
         // This will try to start the server and block, so we can't easily test it without mocking.
         // We need to refactor Main.kt to allow dependency injection or mocking of the runner.
     }
+
+    @Test
+    fun `test check command`() {
+        val outContent = ByteArrayOutputStream()
+        val originalOut = System.out
+        System.setOut(PrintStream(outContent))
+
+        // Create a temporary file to check
+        val tempFile = java.io.File.createTempFile("Test", ".groovy")
+        tempFile.writeText("class Test { void foo() { println 'bar' } }")
+        tempFile.deleteOnExit()
+
+        try {
+            main(arrayOf("check", tempFile.absolutePath))
+            // We expect some output, or at least no exception
+            // Since the file is valid, it might not print diagnostics if there are none,
+            // or it might print nothing.
+            // Let's write a file with an error to be sure.
+
+            val errorFile = java.io.File.createTempFile("Error", ".groovy")
+            errorFile.writeText("class Error { void foo() { println 'bar' ") // Missing closing braces
+            errorFile.deleteOnExit()
+
+            main(arrayOf("check", errorFile.absolutePath))
+            assertTrue(outContent.toString().contains("Error"))
+            assertTrue(
+                outContent.toString().contains("Syntax error") || outContent.toString().contains("Compilation failed"),
+            )
+        } finally {
+            System.setOut(originalOut)
+        }
+    }
+
+    @Test
+    fun `test execute command`() {
+        val outContent = ByteArrayOutputStream()
+        val originalOut = System.out
+        System.setOut(PrintStream(outContent))
+
+        try {
+            main(arrayOf("execute", "groovy.version"))
+            assertTrue(outContent.toString().contains("0.1.0"))
+        } finally {
+            System.setOut(originalOut)
+        }
+    }
 }
