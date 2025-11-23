@@ -17,7 +17,7 @@ dependencies {
     implementation("org.eclipse.lsp4j:org.eclipse.lsp4j:0.24.0")
 
     // CodeNarc
-    implementation("org.codenarc:CodeNarc:3.6.0-groovy-4.0")
+    implementation("org.codenarc:CodeNarc:3.6.0")
     implementation("org.gmetrics:GMetrics-Groovy4:2.1.0")
     implementation("org.apache.groovy:groovy:4.0.29")
     implementation("org.apache.groovy:groovy-json:4.0.29")

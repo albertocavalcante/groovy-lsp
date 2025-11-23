@@ -29,7 +29,7 @@ dependencies {
     // CodeNarc - Static analysis for Groovy (Groovy 4.x compatible version)
     // CodeNarc is now a transitive dependency of the diagnostics module, but kept here for
     // backward compatibility if any direct usages remain during refactoring
-    implementation("org.codenarc:CodeNarc:3.6.0-groovy-4.0")
+    implementation("org.codenarc:CodeNarc:3.6.0")
     implementation("org.gmetrics:GMetrics-Groovy4:2.1.0") // Required for complexity rules
 
     // Gradle Tooling API - For dependency resolution
