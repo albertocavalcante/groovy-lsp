@@ -54,6 +54,10 @@
 	},
 	"customizations": {
 		"vscode": {
+			"settings": {
+				"java.configuration.updateBuildConfiguration": "automatic",
+				"java.import.gradle.enabled": true
+			},
 			"extensions": [
 				"vscjava.vscode-java-pack",
 				"naco-siren.gradle-language",
@@ -63,11 +67,7 @@
 				"tamasfe.even-better-toml",
 				"redhat.vscode-yaml",
 				"ms-azuretools.vscode-docker"
-			],
-			"settings": {
-				"java.configuration.updateBuildConfiguration": "automatic",
-				"java.import.gradle.enabled": true
-			}
+			]
 		}
 	}
 }

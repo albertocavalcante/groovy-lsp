@@ -77,6 +77,7 @@ RUN microdnf install -y --nodocs \
         gzip \
         vim \
         util-linux-user \
+        glibc-langpack-en \
     && microdnf clean all \
     && rm -rf /var/cache/yum
 
