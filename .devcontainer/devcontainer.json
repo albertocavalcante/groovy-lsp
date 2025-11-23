@@ -25,8 +25,8 @@
 			"upgradePackages": "false"
 		},
 		"ghcr.io/devcontainers/features/github-cli:1": {},
-		// Installing Starship manually in post-create.sh to avoid dependency issues with devcontainers-contrib feature
-		// "ghcr.io/devcontainers-contrib/features/starship:1": {} 
+		// Use devcontainers-extra which is more reliable than contrib
+		"ghcr.io/devcontainers-extra/features/starship:1": {}
 	},
 	"customizations": {
 		"vscode": {

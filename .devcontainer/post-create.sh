@@ -14,19 +14,6 @@ echo "  - gh:      $(gh --version | head -n 1 2>/dev/null || echo 'Not found')"
 echo "--------------------------------------------------"
 
 # -----------------------------------------------------------------------------
-# Starship Installation
-# -----------------------------------------------------------------------------
-if ! command -v starship &> /dev/null; then
-    echo "🚀 Installing Starship..."
-    curl -sS https://starship.rs/install.sh | sh -s -- -y
-    echo 'eval "$(starship init zsh)"' >> ~/.zshrc
-    echo 'eval "$(starship init bash)"' >> ~/.bashrc
-    echo "✅ Starship installed and configured."
-else
-    echo "✅ Starship is already installed."
-fi
-
-# -----------------------------------------------------------------------------
 # Kotlin VSIX Installation
 # -----------------------------------------------------------------------------
 VSIX_PATH="/usr/local/share/vscode-extensions/kotlin.vsix"
