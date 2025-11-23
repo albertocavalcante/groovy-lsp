@@ -88,7 +88,9 @@ class ScenarioExecutor(private val sessionFactory: LanguageServerSessionFactory,
         val interpolatedOptions = step.initializationOptions?.let { context.interpolateNode(it) }
         val params = InitializeParams().apply {
             processId = ProcessHandle.current().pid().toInt()
+            @Suppress("DEPRECATION")
             rootUri = step.rootUri ?: context.workspace.rootUri
+            @Suppress("DEPRECATION")
             workspaceFolders = if (rootUri != null) {
                 listOf(WorkspaceFolder(rootUri, context.workspace.rootDir.name))
             } else {
@@ -160,7 +162,14 @@ class ScenarioExecutor(private val sessionFactory: LanguageServerSessionFactory,
                     Position(it.end.line, it.end.character),
                 )
             }
-            TextDocumentContentChangeEvent(range, change.rangeLength, text)
+            TextDocumentContentChangeEvent().apply {
+                this.range = range
+                if (change.rangeLength != null) {
+                    @Suppress("DEPRECATION")
+                    this.rangeLength = change.rangeLength
+                }
+                this.text = text
+            }
         }
 
         context.session.server.textDocumentService.didChange(
