@@ -126,11 +126,11 @@ check_tool "jq" "JQ_VERSION" "jqlang/jq" "sha256sum.txt" \
     "jq-linux-amd64" \
     "jq-linux-arm64"
 
-# Ripgrep (No common checksum file, individual .sha256 files usually exist but easier to just calc or fetch specific .sha256? 
-# Actually ripgrep has .sha256 files for each asset. We'll just calc for now to be generic/robust or improve logic later.)
+# Ripgrep
+# Note: aarch64 uses -gnu suffix instead of -musl
 check_tool "ripgrep" "RG_VERSION" "BurntSushi/ripgrep" "" \
     "ripgrep-VERSION-x86_64-unknown-linux-musl.tar.gz" \
-    "ripgrep-VERSION-aarch64-unknown-linux-musl.tar.gz"
+    "ripgrep-VERSION-aarch64-unknown-linux-gnu.tar.gz"
 
 # FD
 check_tool "fd" "FD_VERSION" "sharkdp/fd" "" \
