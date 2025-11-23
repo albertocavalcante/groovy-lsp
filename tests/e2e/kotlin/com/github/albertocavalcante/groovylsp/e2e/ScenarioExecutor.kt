@@ -242,7 +242,11 @@ class ScenarioExecutor(private val sessionFactory: LanguageServerSessionFactory,
         val envelope = context.session.client.awaitNotification(step.method, timeout) { payload ->
             step.checks.all { check ->
                 val result = runCatching { context.evaluateCheck(payload ?: NullNode.instance, check, quiet = true) }
-                result.getOrDefault(false)
+                val success = result.getOrDefault(false)
+                if (!success) {
+                    logger.debug("Notification check failed: {}", result.exceptionOrNull()?.message)
+                }
+                success
             }
         } ?: throw TimeoutException("Timeout waiting for notification '${step.method}'")
 
@@ -264,7 +268,13 @@ class ScenarioExecutor(private val sessionFactory: LanguageServerSessionFactory,
             else -> error("Unknown result or variable '${step.source}' referenced in assert step")
         }
         step.checks.forEach { check ->
-            context.evaluateCheck(sourceNode, check)
+            try {
+                context.evaluateCheck(sourceNode, check)
+            } catch (e: AssertionError) {
+                logger.error("Assertion failed in step: {}", step)
+                logger.error("Source node: {}", sourceNode)
+                throw e
+            }
         }
     }
 

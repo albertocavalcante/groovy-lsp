@@ -112,6 +112,13 @@ class GroovyCompilationService {
 
     fun getCacheStatistics() = cache.getStatistics()
 
+    fun updateWorkspaceModel(workspaceRoot: Path, dependencies: List<Path>, sourceDirectories: List<Path>) {
+        val changed = workspaceManager.updateWorkspaceModel(workspaceRoot, dependencies, sourceDirectories)
+        if (changed) {
+            clearCaches()
+        }
+    }
+
     fun createContext(uri: URI): CompilationContext? {
         val parseResult = getParseResult(uri) ?: return null
         val ast = parseResult.ast ?: return null

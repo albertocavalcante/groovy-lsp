@@ -169,7 +169,7 @@ class GroovyLanguageServer :
                 )
 
                 // Update compilation service with resolved dependencies
-                compilationService.workspaceManager.updateWorkspaceModel(
+                compilationService.updateWorkspaceModel(
                     workspaceRoot = workspaceRoot,
                     dependencies = resolution.dependencies,
                     sourceDirectories = resolution.sourceDirectories,
