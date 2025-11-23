@@ -44,14 +44,8 @@ if [ "$FORCE_MODE" = true ]; then
     killall -9 "Docker Desktop" 2>/dev/null || true
 else
     # Graceful attempt first
-    if command -v timeout &> /dev/null; then
-        timeout 10s osascript -e 'quit app "Docker"' 2>/dev/null || true
-    else
-        osascript -e 'quit app "Docker"' 2>/dev/null || true &
-        PID=$!
-        sleep 10
-        kill $PID 2>/dev/null || true
-    fi
+    osascript -e 'quit app "Docker"' 2>/dev/null || true
+    sleep 10
 
     # Standard cleanup after graceful quit attempt
     pkill -f Docker 2>/dev/null || true
