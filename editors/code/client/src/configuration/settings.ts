@@ -4,6 +4,7 @@ export interface GroovyConfiguration {
     javaHome: string | undefined;
     traceServer: 'off' | 'messages' | 'verbose';
     maxNumberOfProblems: number;
+    serverPath: string | undefined;
 }
 
 /**
@@ -15,7 +16,8 @@ export function getConfiguration(): GroovyConfiguration {
     return {
         javaHome: config.get<string>('java.home'),
         traceServer: config.get<'off' | 'messages' | 'verbose'>('trace.server', 'off'),
-        maxNumberOfProblems: config.get<number>('server.maxNumberOfProblems', 100)
+        maxNumberOfProblems: config.get<number>('server.maxNumberOfProblems', 100),
+        serverPath: config.get<string>('server.path')
     };
 }
 

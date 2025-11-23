@@ -337,6 +337,15 @@ async function prepareServer() {
         console.error('You can also manually copy a JAR file to:');
         console.error(`  ${JAR_PATH}`);
 
+        // In CI environments or if specifically requested, don't fail the build
+        // This allows npm install to succeed even if the server JAR cannot be downloaded
+        // GitHub Actions sets both CI=true and GITHUB_ACTIONS=true
+        if (process.env.CI || process.env.GITHUB_ACTIONS || process.env.IGNORE_DOWNLOAD_FAILURE === 'true') {
+            console.warn('\n⚠️ WARNING: Server JAR download failed, but ignoring failure (CI/GITHUB_ACTIONS/IGNORE_DOWNLOAD_FAILURE).');
+            console.warn('The extension will NOT work without the server JAR unless a custom path is configured.');
+            process.exit(0);
+        }
+
         process.exit(1);
     }
 }

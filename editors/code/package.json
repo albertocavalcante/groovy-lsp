@@ -103,6 +103,11 @@
           "type": "number",
           "default": 100,
           "description": "Controls the maximum number of problems produced by the server."
+        },
+        "groovy.server.path": {
+          "scope": "machine",
+          "type": "string",
+          "description": "Absolute path to a custom Groovy Language Server JAR. If not set, the embedded server is used."
         }
       }
     }
@@ -121,17 +126,26 @@
     "lint": "eslint client/src/**/*.ts",
     "package": "npm run prepare-server && vsce package",
     "clean": "rm -rf client/out/ server/*.jar",
-    "postinstall": "cd client && npm install && cd .. && npm run prepare-server"
+    "postinstall": "cd client && npm install && cd .. && npm run prepare-server",
+    "test": "mocha",
+    "test:watch": "mocha --watch"
   },
   "devDependencies": {
-    "@types/node": "^22",
     "@eslint/js": "^9.13.0",
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22",
+    "@types/sinon": "^21.0.0",
+    "@vscode/vsce": "^3.0.0",
+    "chai": "^6.2.1",
     "esbuild": "^0.25.0",
     "eslint": "^9.13.0",
+    "mocha": "^11.7.5",
     "npm-run-all": "^4.1.5",
+    "sinon": "^21.0.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.2",
-    "typescript-eslint": "^8.39.0",
-    "@vscode/vsce": "^3.0.0"
+    "typescript-eslint": "^8.39.0"
   },
   "repository": {
     "type": "git",
