@@ -3,6 +3,7 @@ set -e
 
 # Configuration
 RUNNER_VERSION="2.329.0"
+RUNNER_SHA256_HASH="50c0d409040cc52e701ac1d5afb4672cb7803a65c1292a30e96c42051dfa690f"
 # Detect Architecture
 ARCH_NAME=$(uname -m)
 if [ "$ARCH_NAME" = "x86_64" ]; then
@@ -65,7 +66,7 @@ else
 fi
 
 # Validate hash
-echo "integrity-check: 50c0d409040cc52e701ac1d5afb4672cb7803a65c1292a30e96c42051dfa690f  $TAR_FILE" | shasum -a 256 -c
+echo "${RUNNER_SHA256_HASH}  $TAR_FILE" | shasum -a 256 -c
 
 # Extract
 echo "📦 Extracting..."
