@@ -41,8 +41,9 @@
 			"upgradePackages": "false"
 		},
 		"ghcr.io/devcontainers/features/github-cli:1": {},
-		// Use devcontainers-extra which is more reliable than contrib
-		"ghcr.io/devcontainers-extra/features/starship:1": {}
+		// Reverting to manual installation because 'nanolayer' (used by devcontainers-extra) crashes on RHEL UBI9
+		// due to parsing errors in /etc/os-release (empty lines or unexpected format).
+		// "ghcr.io/devcontainers-extra/features/starship:1": {}
 	},
 	"customizations": {
 		"vscode": {

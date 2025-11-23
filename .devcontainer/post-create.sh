@@ -14,6 +14,28 @@ echo "  - gh:      $(gh --version | head -n 1 2>/dev/null || echo 'Not found')"
 echo "--------------------------------------------------"
 
 # -----------------------------------------------------------------------------
+# Starship Installation (Manual Fallback)
+# -----------------------------------------------------------------------------
+# We install manually because the 'devcontainers-extra' feature crashes on RHEL UBI9
+# due to a bug in its 'nanolayer' dependency when parsing /etc/os-release.
+if ! command -v starship &> /dev/null; then
+    echo "🚀 Installing Starship..."
+    # Install to /usr/local/bin requiring sudo, or fall back to user bin if no sudo
+    if command -v sudo &> /dev/null; then
+        sudo curl -sS https://starship.rs/install.sh | sudo sh -s -- -y
+    else
+        curl -sS https://starship.rs/install.sh | sh -s -- -y
+    fi
+    
+    # Configure shells
+    echo 'eval "$(starship init zsh)"' >> ~/.zshrc
+    echo 'eval "$(starship init bash)"' >> ~/.bashrc
+    echo "✅ Starship installed and configured."
+else
+    echo "✅ Starship is already installed."
+fi
+
+# -----------------------------------------------------------------------------
 # Kotlin VSIX Installation
 # -----------------------------------------------------------------------------
 VSIX_PATH="/usr/local/share/vscode-extensions/kotlin.vsix"
