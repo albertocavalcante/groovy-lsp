@@ -1,0 +1,43 @@
+{
+	"name": "Groovy LSP Dev Container",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"args": {
+			// Check for latest versions at: https://github.com/Kotlin/kotlin-lsp/releases
+			// Verify checksums from the release page (click "SHA-256 Checksum" for the VSIX)
+			"KOTLIN_LSP_VERSION": "0.253.10629",
+			"KOTLIN_LSP_SHA256": "638ec1552fde7e5158f8c7df06443cfb97c5c09957273790586cbd59115bf11c"
+		}
+	},
+	"remoteUser": "vscode",
+	"postCreateCommand": "chmod +x .devcontainer/post-create.sh && .devcontainer/post-create.sh",
+	"features": {
+		"ghcr.io/devcontainers/features/common-utils:2": {
+			"installZsh": "true",
+			"configureZshAsDefaultShell": "true",
+			"username": "vscode",
+			"upgradePackages": "false"
+		},
+		"ghcr.io/devcontainers/features/github-cli:1": {},
+		"ghcr.io/devcontainers/features/starship:1": {}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"vscjava.vscode-java-pack",
+				"naco-siren.gradle-language",
+				"esbenp.prettier-vscode",
+				"eamodio.gitlens",
+				"mhutchie.git-graph",
+				"tamasfe.even-better-toml",
+				"redhat.vscode-yaml",
+				"ms-azuretools.vscode-docker"
+			],
+			"settings": {
+				"java.configuration.updateBuildConfiguration": "automatic",
+				"java.import.gradle.enabled": true
+			}
+		}
+	}
+}
+

@@ -1,6 +1,21 @@
 #!/bin/bash
 set -e
 
+# -----------------------------------------------------------------------------
+# Environment Verification
+# -----------------------------------------------------------------------------
+echo "🛠️  Verifying Environment Tools..."
+echo "  - Java:    $(java -version 2>&1 | head -n 1)"
+echo "  - Ripgrep: $(rg --version | head -n 1)"
+echo "  - fd:      $(fd --version | head -n 1)"
+echo "  - bat:     $(bat --version | head -n 1)"
+echo "  - jq:      $(jq --version)"
+echo "  - gh:      $(gh --version | head -n 1 2>/dev/null || echo 'Not found')"
+echo "--------------------------------------------------"
+
+# -----------------------------------------------------------------------------
+# Kotlin VSIX Installation
+# -----------------------------------------------------------------------------
 VSIX_PATH="/usr/local/share/vscode-extensions/kotlin.vsix"
 
 echo "🔍 Checking for Kotlin VSIX at $VSIX_PATH..."
@@ -40,4 +55,3 @@ if install_vsix "code-server"; then exit 0; fi
 echo "❌ Could not find a compatible IDE binary (code/cursor) to install the extension."
 echo "ℹ️  Please install it manually: code --install-extension $VSIX_PATH"
 exit 1
-

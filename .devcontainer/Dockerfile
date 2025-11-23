@@ -80,7 +80,42 @@ RUN microdnf install -y --nodocs \
     && rm -rf /var/cache/yum
 
 # -----------------------------------------------------------------------------
-# Layer 5: User Setup
+# Layer 5: Modern CLI Tools (rg, fd, bat, fzf, jq)
+# High-performance replacements for standard tools.
+# -----------------------------------------------------------------------------
+RUN ARCH=$(uname -m) \
+    && case $ARCH in \
+        x86_64) RUST_ARCH="x86_64-unknown-linux-musl"; JQ_ARCH="linux64"; FZF_ARCH="linux_amd64"; ;; \
+        aarch64) RUST_ARCH="aarch64-unknown-linux-musl"; JQ_ARCH="linux-arm64"; FZF_ARCH="linux_arm64"; ;; \
+        *) echo "Unsupported arch: $ARCH"; exit 1; ;; \
+    esac \
+    # JQ 1.7.1
+    && curl -fL -o /usr/local/bin/jq https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-${JQ_ARCH} \
+    && chmod +x /usr/local/bin/jq \
+    # Ripgrep 14.1.0
+    && RG_VER=14.1.0 \
+    && curl -fL -o /tmp/rg.tar.gz https://github.com/BurntSushi/ripgrep/releases/download/${RG_VER}/ripgrep-${RG_VER}-${RUST_ARCH}.tar.gz \
+    && tar -xzf /tmp/rg.tar.gz -C /tmp \
+    && mv /tmp/ripgrep-${RG_VER}-${RUST_ARCH}/rg /usr/local/bin/ \
+    # FD 10.2.0
+    && FD_VER=10.2.0 \
+    && curl -fL -o /tmp/fd.tar.gz https://github.com/sharkdp/fd/releases/download/v${FD_VER}/fd-v${FD_VER}-${RUST_ARCH}.tar.gz \
+    && tar -xzf /tmp/fd.tar.gz -C /tmp \
+    && mv /tmp/fd-v${FD_VER}-${RUST_ARCH}/fd /usr/local/bin/ \
+    # Bat 0.24.0
+    && BAT_VER=0.24.0 \
+    && curl -fL -o /tmp/bat.tar.gz https://github.com/sharkdp/bat/releases/download/v${BAT_VER}/bat-v${BAT_VER}-${RUST_ARCH}.tar.gz \
+    && tar -xzf /tmp/bat.tar.gz -C /tmp \
+    && mv /tmp/bat-v${BAT_VER}-${RUST_ARCH}/bat /usr/local/bin/ \
+    # FZF 0.54.0
+    && FZF_VER=0.54.0 \
+    && curl -fL -o /tmp/fzf.tar.gz https://github.com/junegunn/fzf/releases/download/v${FZF_VER}/fzf-${FZF_VER}-${FZF_ARCH}.tar.gz \
+    && tar -xzf /tmp/fzf.tar.gz -C /usr/local/bin/ \
+    # Cleanup
+    && rm -rf /tmp/*
+
+# -----------------------------------------------------------------------------
+# Layer 6: User Setup
 # -----------------------------------------------------------------------------
 RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
