@@ -44,7 +44,7 @@ class SignatureHelpProvider(
         val methodCall: MethodCallExpression,
         val nodeAtPosition: ASTNode,
         val declarations: List<MethodNode>,
-        val astVisitor: AstVisitor
+        val astVisitor: AstVisitor,
     )
 
     @Suppress("ReturnCount")
@@ -90,7 +90,7 @@ class SignatureHelpProvider(
             context.methodCall,
             context.nodeAtPosition,
             position.toGroovyPosition(),
-            context.astVisitor
+            context.astVisitor,
         )
         val normalizedActiveParameter = signatures.firstOrNull()
             ?.parameters

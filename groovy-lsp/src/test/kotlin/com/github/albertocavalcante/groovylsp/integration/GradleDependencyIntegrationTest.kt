@@ -19,13 +19,13 @@ class GradleDependencyIntegrationTest {
         // Initialize the workspace and trigger dependency resolution for the test
         // Use our test project which has known dependencies
         compilationService.workspaceManager.initializeWorkspace(testProjectPath)
-        
+
         val resolver = GradleDependencyResolver()
         val resolution = resolver.resolve(testProjectPath)
         compilationService.workspaceManager.updateWorkspaceModel(
             testProjectPath,
             resolution.dependencies,
-            resolution.sourceDirectories
+            resolution.sourceDirectories,
         )
 
         // Check that dependencies were resolved
@@ -52,13 +52,13 @@ class GradleDependencyIntegrationTest {
 
         // Initialize workspace with dependencies using test project
         compilationService.workspaceManager.initializeWorkspace(testProjectPath)
-        
+
         val resolver = GradleDependencyResolver()
         val resolution = resolver.resolve(testProjectPath)
         compilationService.workspaceManager.updateWorkspaceModel(
             testProjectPath,
             resolution.dependencies,
-            resolution.sourceDirectories
+            resolution.sourceDirectories,
         )
 
         // Test compilation of Groovy code that uses dependencies our test project declares
