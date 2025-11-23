@@ -1,6 +1,7 @@
 package com.github.albertocavalcante.groovylsp.services
 
 import com.github.albertocavalcante.groovyformatter.OpenRewriteFormatter
+import kotlinx.coroutines.ensureActive
 import org.eclipse.lsp4j.DocumentFormattingParams
 import org.eclipse.lsp4j.FormattingOptions
 import org.eclipse.lsp4j.Position
@@ -10,6 +11,7 @@ import org.eclipse.lsp4j.services.LanguageClient
 import org.slf4j.LoggerFactory
 import java.net.URI
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.coroutineContext
 import kotlin.math.max
 
 fun interface Formatter {
@@ -59,6 +61,8 @@ class GroovyFormattingService(
             return emptyList()
         }
 
+        coroutineContext.ensureActive()
+
         val formattedResult = runCatching { formatter.format(currentContent) }
         val durationMs = (System.nanoTime() - startNanos) / NANOS_PER_MILLISECOND
 
@@ -77,6 +81,8 @@ class GroovyFormattingService(
             )
             return emptyList()
         }
+
+        coroutineContext.ensureActive()
 
         val (status, edits) = if (formattedContent == currentContent) {
             FormatterStatus.NO_OP to emptyList()

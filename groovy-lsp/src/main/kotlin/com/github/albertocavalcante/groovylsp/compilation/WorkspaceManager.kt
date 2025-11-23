@@ -48,11 +48,11 @@ class WorkspaceManager {
             logger.info("Updated dependency classpath with ${dependencyClasspath.size} dependencies")
         }
 
-        sourceRoots.clear()
         if (sourceDirectories.isNotEmpty()) {
+            sourceRoots.clear()
             sourceDirectories.forEach(sourceRoots::add)
             logger.info("Received ${sourceRoots.size} source roots from build model")
-        } else {
+        } else if (sourceRoots.isEmpty()) {
             refreshSourceRoots(workspaceRoot)
         }
 
