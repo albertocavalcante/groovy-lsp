@@ -108,6 +108,11 @@
           "scope": "machine",
           "type": "string",
           "description": "Absolute path to a custom Groovy Language Server JAR. If not set, the embedded server is used."
+        },
+        "groovy.format.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable code formatting for Groovy files"
         }
       }
     }

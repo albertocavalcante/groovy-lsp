@@ -8,6 +8,7 @@ import { initializeClient, startClient, stopClient } from './server/client';
 import { registerStatusBarItem } from './ui/statusBar';
 import { registerCommands } from './commands';
 import { setupConfigurationWatcher } from './configuration/watcher';
+import { registerFormatting } from './features/formatting/formatter';
 
 /**
  * Activates the extension
@@ -32,6 +33,9 @@ export async function activate(context: ExtensionContext) {
 
         // Start the Language Server
         await startClient();
+
+        // Register formatting provider
+        registerFormatting(context);
 
         console.log('Groovy Language Extension activated successfully');
 
