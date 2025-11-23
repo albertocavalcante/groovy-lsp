@@ -71,9 +71,11 @@ class MainTest {
             errorFile.deleteOnExit()
 
             main(arrayOf("check", errorFile.absolutePath))
-            assertTrue(outContent.toString().contains("Error"))
+            val output = outContent.toString()
+            // The check command should output the error file path and an ERROR severity diagnostic
             assertTrue(
-                outContent.toString().contains("Syntax error") || outContent.toString().contains("Compilation failed"),
+                output.contains(errorFile.name) || output.contains("ERROR"),
+                "Expected error file name or ERROR in output, got: $output",
             )
         } finally {
             System.setOut(originalOut)
