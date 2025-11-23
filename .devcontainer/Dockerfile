@@ -95,7 +95,7 @@ USER $USERNAME
 WORKDIR /home/$USERNAME
 
 # Set JAVA_HOME (path may vary slightly but this is standard for RHEL OpenJDK)
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk
-ENV PATH=$JAVA_HOME/bin:$PATH
+ENV JAVA_HOME=/usr/lib/jvm/java-${JAVA_VERSION}-openjdk
+ENV PATH=${JAVA_HOME}/bin:${PATH}
 
 CMD ["/bin/bash"]
