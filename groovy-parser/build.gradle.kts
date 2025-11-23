@@ -22,6 +22,7 @@ dependencies {
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlin.coroutines.test)
+    testImplementation(libs.jqwik)
 }
 
 tasks.test {
