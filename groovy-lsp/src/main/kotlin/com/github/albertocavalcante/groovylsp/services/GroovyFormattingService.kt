@@ -166,7 +166,7 @@ private fun String.toFullDocumentRange(): Range {
     )
 }
 
-class OpenRewriteFormatterAdapter : Formatter {
+internal class OpenRewriteFormatterAdapter : Formatter {
     private val delegate = OpenRewriteFormatter()
     override fun format(text: String): String = delegate.format(text)
 }

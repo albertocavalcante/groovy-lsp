@@ -180,7 +180,7 @@ class GroovyTextDocumentService(
             } catch (e: kotlinx.coroutines.CancellationException) {
                 logger.debug("Diagnostics job cancelled for: $uri")
                 throw e
-            } catch (e: Exception) { // @Suppress("TooGenericExceptionCaught")
+            } catch (e: Exception) {
                 logger.error("Unexpected error during diagnostics for: $uri", e)
             } finally {
                 // Remove job from map if it's the current one
