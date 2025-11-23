@@ -46,7 +46,7 @@ describe('GroovyFormatter', () => {
         mockClient.sendRequest.rejects(new Error('LSP Error'));
 
         try {
-            await formatter.formatDocument('file:///test.groovy', {});
+            await formatter.formatDocument('file:///test.groovy', { tabSize: 4, insertSpaces: true });
             expect.fail('Should have thrown an error');
         } catch (error: any) {
             expect(error.message).to.equal('LSP Error');

@@ -9,6 +9,7 @@ import { registerStatusBarItem } from './ui/statusBar';
 import { registerCommands } from './commands';
 import { setupConfigurationWatcher } from './configuration/watcher';
 import { registerFormatting } from './features/formatting/formatter';
+import { replService } from './features/repl';
 
 /**
  * Activates the extension
@@ -30,6 +31,9 @@ export async function activate(context: ExtensionContext) {
         // Setup configuration watchers
         const configWatcher = setupConfigurationWatcher();
         context.subscriptions.push(configWatcher);
+
+        // Initialize REPL
+        replService.initialize(context);
 
         // Start the Language Server
         await startClient();
