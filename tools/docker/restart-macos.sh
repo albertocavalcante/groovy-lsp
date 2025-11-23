@@ -73,6 +73,11 @@ sleep 3
 # 4. Start
 log_info "Starting Docker Desktop..."
 
+if [ ! -d "/Applications/Docker.app" ]; then
+    log_error "Docker.app not found in /Applications. Is Docker Desktop installed?"
+    exit 1
+fi
+
 # We use a loop to try 'open' because sometimes it times out (-1712) but succeeds on retry.
 MAX_LAUNCH_RETRIES=3
 LAUNCH_COUNT=0
