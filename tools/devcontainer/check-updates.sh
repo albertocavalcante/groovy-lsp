@@ -135,12 +135,12 @@ check_tool "ripgrep" "RG_VERSION" "BurntSushi/ripgrep" "" \
 # FD
 check_tool "fd" "FD_VERSION" "sharkdp/fd" "" \
     "fd-vVERSION-x86_64-unknown-linux-musl.tar.gz" \
-    "fd-vVERSION-aarch64-unknown-linux-musl.tar.gz"
+    "fd-vVERSION-aarch64-unknown-linux-gnu.tar.gz"
 
 # Bat
 check_tool "bat" "BAT_VERSION" "sharkdp/bat" "" \
     "bat-vVERSION-x86_64-unknown-linux-musl.tar.gz" \
-    "bat-vVERSION-aarch64-unknown-linux-musl.tar.gz"
+    "bat-vVERSION-aarch64-unknown-linux-gnu.tar.gz"
 
 # FZF
 check_tool "fzf" "FZF_VERSION" "junegunn/fzf" "fzf_VERSION_checksums.txt" \
