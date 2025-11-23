@@ -32,7 +32,11 @@
 			// Starship
 			"STARSHIP_VERSION": "1.24.1",
 			"STARSHIP_SHA256_X64": "44a729c34aea5b0451fba49108cdc5ef6b1ae68db65e7623cc244a52efcd23d1",
-			"STARSHIP_SHA256_ARM64": "a01ac37aa5993b78ecd6761c5ff4f805032b8ba566357ffbb2227980216f2216"
+			"STARSHIP_SHA256_ARM64": "a01ac37aa5993b78ecd6761c5ff4f805032b8ba566357ffbb2227980216f2216",
+			// GitHub CLI
+			"GH_VERSION": "2.83.1",
+			"GH_SHA256_X64": "1c5252d4ce3db07b51c01ff0b909583da6364ff3fdc06d0c2e75e62dc0380a34",
+			"GH_SHA256_ARM64": "36af472f8e96fd67253f813f71d9610624cc4e3c7a5b148459e42ffa1a933f64"
 		}
 	},
 	"remoteUser": "vscode",
@@ -43,11 +47,10 @@
 			"configureZshAsDefaultShell": "true",
 			"username": "vscode",
 			"upgradePackages": "false"
-		},
-		"ghcr.io/devcontainers/features/github-cli:1": {},
-		// Reverting to manual installation because 'nanolayer' (used by devcontainers-extra) crashes on RHEL UBI9
-		// due to parsing errors in /etc/os-release (empty lines or unexpected format).
-		// "ghcr.io/devcontainers-extra/features/starship:1": {}
+		}
+		// "ghcr.io/devcontainers/features/github-cli:1": {}
+		// The official feature is currently incompatible with RHEL UBI9 (uses apt-get).
+		// Installing manually in Dockerfile until upstream supports dnf/microdnf.
 	},
 	"customizations": {
 		"vscode": {

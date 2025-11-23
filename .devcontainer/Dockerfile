@@ -110,19 +110,25 @@ ARG STARSHIP_VERSION=1.24.1
 ARG STARSHIP_SHA256_X64=44a729c34aea5b0451fba49108cdc5ef6b1ae68db65e7623cc244a52efcd23d1
 ARG STARSHIP_SHA256_ARM64=a01ac37aa5993b78ecd6761c5ff4f805032b8ba566357ffbb2227980216f2216
 
+ARG GH_VERSION=2.83.1
+ARG GH_SHA256_X64=1c5252d4ce3db07b51c01ff0b909583da6364ff3fdc06d0c2e75e62dc0380a34
+ARG GH_SHA256_ARM64=36af472f8e96fd67253f813f71d9610624cc4e3c7a5b148459e42ffa1a933f64
+
 RUN ARCH=$(uname -m) \
     && case $ARCH in \
         x86_64) \
             RUST_ARCH="x86_64-unknown-linux-musl"; JQ_ARCH="linux-amd64"; FZF_ARCH="linux_amd64"; \
             JQ_SHA256=$JQ_SHA256_X64; RG_SHA256=$RG_SHA256_X64; FD_SHA256=$FD_SHA256_X64; \
             BAT_SHA256=$BAT_SHA256_X64; FZF_SHA256=$FZF_SHA256_X64; \
-            STARSHIP_SHA256=$STARSHIP_SHA256_X64; \
+            STARSHIP_SHA256=$STARSHIP_SHA256_X64; GH_SHA256=$GH_SHA256_X64; \
+            GH_ARCH="linux_amd64"; \
             ;; \
         aarch64) \
             RUST_ARCH="aarch64-unknown-linux-gnu"; JQ_ARCH="linux-arm64"; FZF_ARCH="linux_arm64"; \
             JQ_SHA256=$JQ_SHA256_ARM64; RG_SHA256=$RG_SHA256_ARM64; FD_SHA256=$FD_SHA256_ARM64; \
             BAT_SHA256=$BAT_SHA256_ARM64; FZF_SHA256=$FZF_SHA256_ARM64; \
-            STARSHIP_SHA256=$STARSHIP_SHA256_ARM64; \
+            STARSHIP_SHA256=$STARSHIP_SHA256_ARM64; GH_SHA256=$GH_SHA256_ARM64; \
+            GH_ARCH="linux_arm64"; \
             ;; \
         *) echo "Unsupported arch: $ARCH"; exit 1; ;; \
     esac \
@@ -156,6 +162,13 @@ RUN ARCH=$(uname -m) \
     && curl -fL -o /tmp/starship.tar.gz https://github.com/starship/starship/releases/download/v${STARSHIP_VERSION}/starship-${STARSHIP_ARCH}.tar.gz \
     && echo "$STARSHIP_SHA256  /tmp/starship.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/starship.tar.gz -C /usr/local/bin/ \
+    # GitHub CLI
+    && curl -fL -o /tmp/gh.tar.gz https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_${GH_ARCH}.tar.gz \
+    && echo "$GH_SHA256  /tmp/gh.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/gh.tar.gz -C /tmp \
+    && mv /tmp/gh_${GH_VERSION}_${GH_ARCH}/bin/gh /usr/local/bin/ \
+    && mkdir -p /usr/local/share/man/man1 \
+    && mv /tmp/gh_${GH_VERSION}_${GH_ARCH}/share/man/man1/gh.1 /usr/local/share/man/man1/ \
     # Cleanup
     && rm -rf /tmp/*
 

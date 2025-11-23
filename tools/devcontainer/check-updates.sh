@@ -152,3 +152,8 @@ check_tool "starship" "STARSHIP_VERSION" "starship/starship" "" \
     "starship-x86_64-unknown-linux-musl.tar.gz" \
     "starship-aarch64-unknown-linux-musl.tar.gz"
 
+# GitHub CLI
+check_tool "gh" "GH_VERSION" "cli/cli" "gh_VERSION_checksums.txt" \
+    "gh_VERSION_linux_amd64.tar.gz" \
+    "gh_VERSION_linux_arm64.tar.gz"
+

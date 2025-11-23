@@ -17,6 +17,8 @@ echo "--------------------------------------------------"
 # Starship Configuration
 # -----------------------------------------------------------------------------
 if command -v starship &> /dev/null; then
+# -----------------------------------------------------------------------------
+if command -v starship &> /dev/null; then
     echo "Configuring Starship..."
     # Configure shells if not already configured
     if ! grep -q "starship init zsh" ~/.zshrc 2>/dev/null; then
