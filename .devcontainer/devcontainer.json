@@ -6,7 +6,13 @@
 			// Check for latest versions at: https://github.com/Kotlin/kotlin-lsp/releases
 			// Verify checksums from the release page (click "SHA-256 Checksum" for the VSIX)
 			"KOTLIN_LSP_VERSION": "0.253.10629",
-			"KOTLIN_LSP_SHA256": "638ec1552fde7e5158f8c7df06443cfb97c5c09957273790586cbd59115bf11c"
+			"KOTLIN_LSP_SHA256": "638ec1552fde7e5158f8c7df06443cfb97c5c09957273790586cbd59115bf11c",
+			// Tool versions
+			"JQ_VERSION": "1.7.1",
+			"RG_VERSION": "14.1.0",
+			"FD_VERSION": "10.2.0",
+			"BAT_VERSION": "0.24.0",
+			"FZF_VERSION": "0.54.0"
 		}
 	},
 	"remoteUser": "vscode",
