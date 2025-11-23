@@ -1,5 +1,6 @@
 package com.github.albertocavalcante.groovylsp.services
 
+import com.github.albertocavalcante.groovylsp.Version
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
 import com.github.albertocavalcante.groovylsp.providers.symbols.toSymbolInformation
 import com.github.albertocavalcante.groovyparser.ast.symbols.Symbol
@@ -24,7 +25,7 @@ class GroovyWorkspaceService(private val compilationService: GroovyCompilationSe
     override fun executeCommand(params: ExecuteCommandParams): CompletableFuture<Any> {
         logger.info("Executing command: ${params.command}")
         return when (params.command) {
-            "groovy.version" -> CompletableFuture.completedFuture("0.1.0")
+            "groovy.version" -> CompletableFuture.completedFuture(Version.current)
             else -> {
                 logger.warn("Unknown command: ${params.command}")
                 CompletableFuture.completedFuture(null)

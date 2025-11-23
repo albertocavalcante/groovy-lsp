@@ -192,7 +192,7 @@ class GroovyTextDocumentService(
      * Public method to get diagnostics for a file, useful for CLI "check" command.
      */
     suspend fun diagnose(uri: URI, content: String): List<Diagnostic> {
-        // Compile the document and publish diagnostics
+        // Compile the document and return diagnostics (does not publish them)
         val result = compilationService.compile(uri, content)
         val codenarcDiagnostics = diagnosticsService.getDiagnostics(uri, content)
         return result.diagnostics + codenarcDiagnostics
