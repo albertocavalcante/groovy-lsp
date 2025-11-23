@@ -25,7 +25,7 @@
 			"upgradePackages": "false"
 		},
 		"ghcr.io/devcontainers/features/github-cli:1": {},
-		"ghcr.io/devcontainers/features/starship:1": {}
+		"ghcr.io/devcontainers-contrib/features/starship:1": {}
 	},
 	"customizations": {
 		"vscode": {
