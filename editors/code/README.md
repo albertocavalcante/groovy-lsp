@@ -55,6 +55,10 @@ npm install
 npm run compile
 ```
 
+## Copilot coding agent
+
+See [COPILOT.md](COPILOT.md) for agent-specific setup and the `copilot-setup-steps` workflow.
+
 ## Troubleshooting
 
 **Extension not working?**
