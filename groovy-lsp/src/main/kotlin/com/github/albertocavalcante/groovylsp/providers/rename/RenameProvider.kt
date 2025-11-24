@@ -117,7 +117,6 @@ class RenameProvider(private val compilationService: GroovyCompilationService) {
         // Build workspace edit
         return buildWorkspaceEdit(
             definition,
-            oldName,
             newName,
             workspaceLocations,
             definitionLocation,
@@ -181,7 +180,6 @@ class RenameProvider(private val compilationService: GroovyCompilationService) {
      */
     private fun buildWorkspaceEdit(
         definition: ASTNode,
-        oldName: String,
         newName: String,
         locations: List<Location>,
         definitionLocation: Location,
