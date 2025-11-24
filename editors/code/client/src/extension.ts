@@ -10,6 +10,7 @@ import { registerCommands } from './commands';
 import { setupConfigurationWatcher } from './configuration/watcher';
 import { registerFormatting } from './features/formatting/formatter';
 import { replService } from './features/repl';
+import { registerGradleFeatures } from './features/gradle';
 
 /**
  * Activates the extension
@@ -38,8 +39,9 @@ export async function activate(context: ExtensionContext) {
         // Start the Language Server
         await startClient();
 
-        // Register formatting provider
+        // Register features that depend on the client
         registerFormatting(context);
+        registerGradleFeatures(context);
 
         console.log('Groovy Language Extension activated successfully');
 

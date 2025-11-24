@@ -33,6 +33,34 @@
       {
         "command": "groovy.restartServer",
         "title": "Groovy: Restart Language Server"
+      },
+      {
+        "command": "groovy.gradle.build",
+        "title": "Gradle: Build"
+      },
+      {
+        "command": "groovy.gradle.test",
+        "title": "Gradle: Test"
+      },
+      {
+        "command": "groovy.gradle.clean",
+        "title": "Gradle: Clean"
+      },
+      {
+        "command": "groovy.gradle.selectTask",
+        "title": "Gradle: Select and Run Task"
+      },
+      {
+        "command": "groovy.gradle.dependencies",
+        "title": "Gradle: Show Dependencies"
+      },
+      {
+        "command": "groovy.gradle.refresh",
+        "title": "Gradle: Refresh Project"
+      },
+      {
+        "command": "groovy.gradle.projectInfo",
+        "title": "Gradle: Show Project Info"
       }
     ],
     "languages": [
