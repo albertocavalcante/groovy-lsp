@@ -29,6 +29,9 @@ object DocExtractor {
     // Regex to extract @see tag
     private val seeRegex = Regex("""@see\s+(.+?)(?=@\w+|$)""", RegexOption.DOT_MATCHES_ALL)
 
+    // Regex for whitespace normalization
+    private val whitespaceRegex = Regex("""\s+""")
+
     /**
      * Extract documentation from source code at a specific line.
      * Looks for groovydoc/javadoc comment preceding the given line.
@@ -130,35 +133,35 @@ object DocExtractor {
         // Extract @param tags
         val params = paramRegex.findAll(cleanedComment).associate { match ->
             val paramName = match.groupValues[1]
-            val paramDesc = match.groupValues[2].trim().replace(Regex("""\s+"""), " ")
+            val paramDesc = match.groupValues[2].trim().replace(whitespaceRegex, " ")
             paramName to paramDesc
         }
 
         // Extract @return tag
-        val returnDoc = returnRegex.find(cleanedComment)?.groupValues?.get(1)?.trim()?.replace(Regex("""\s+"""), " ")
+        val returnDoc = returnRegex.find(cleanedComment)?.groupValues?.get(1)?.trim()?.replace(whitespaceRegex, " ")
             ?: ""
 
         // Extract @throws tags
         val throws = throwsRegex.findAll(cleanedComment).associate { match ->
             val exceptionType = match.groupValues[1]
-            val exceptionDesc = match.groupValues[2].trim().replace(Regex("""\s+"""), " ")
+            val exceptionDesc = match.groupValues[2].trim().replace(whitespaceRegex, " ")
             exceptionType to exceptionDesc
         }
 
         // Extract @since tag
-        val since = sinceRegex.find(cleanedComment)?.groupValues?.get(1)?.trim()?.replace(Regex("""\s+"""), " ") ?: ""
+        val since = sinceRegex.find(cleanedComment)?.groupValues?.get(1)?.trim()?.replace(whitespaceRegex, " ") ?: ""
 
         // Extract @author tag
-        val author = authorRegex.find(cleanedComment)?.groupValues?.get(1)?.trim()?.replace(Regex("""\s+"""), " ")
+        val author = authorRegex.find(cleanedComment)?.groupValues?.get(1)?.trim()?.replace(whitespaceRegex, " ")
             ?: ""
 
         // Extract @deprecated tag
         val deprecated =
-            deprecatedRegex.find(cleanedComment)?.groupValues?.get(1)?.trim()?.replace(Regex("""\s+"""), " ") ?: ""
+            deprecatedRegex.find(cleanedComment)?.groupValues?.get(1)?.trim()?.replace(whitespaceRegex, " ") ?: ""
 
         // Extract @see tags
         val see = seeRegex.findAll(cleanedComment).map { match ->
-            match.groupValues[1].trim().replace(Regex("""\s+"""), " ")
+            match.groupValues[1].trim().replace(whitespaceRegex, " ")
         }.toList()
 
         return Documentation(

@@ -68,6 +68,6 @@ class DocumentationProvider(private val documentProvider: DocumentProvider) {
      * Clear cached documentation for a specific document.
      */
     fun clearCache(documentUri: URI) {
-        cache.keys.removeIf { it.startsWith("$documentUri:") }
+        cache.entries.removeIf { it.key.startsWith("$documentUri:") }
     }
 }
