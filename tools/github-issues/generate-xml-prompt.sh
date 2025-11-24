@@ -12,6 +12,7 @@ agents, and either prints it or posts it as a comment on the issue.
 Requirements:
   - gh (logged in and authorized for the repo)
   - codex CLI (with access to the chosen model)
+  - jq (for parsing JSON output)
 
 Options:
   --comment       Post the generated XML as a GitHub comment (default: print to stdout)

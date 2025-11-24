@@ -89,7 +89,7 @@ Generate a fenced `xml` prompt for a GitHub issue using the Codex CLI:
 ./tools/github-issues/generate-xml-prompt.sh ISSUE_NUMBER [--comment] [--model MODEL]
 ```
 
-Requirements: `gh` (authenticated for the repo) and `codex` CLI. The tool asks Codex to return a pretty-printed XML block inside triple-backtick xml code fences; use `--comment` to post the output back to the GitHub issue instead of printing it locally. The default model is `gpt-5-codex`.
+Requirements: `gh` (authenticated for the repo), `codex` CLI, and `jq` for parsing issue metadata. The tool asks Codex to return a pretty-printed XML block inside triple-backtick xml code fences; use `--comment` to post the output back to the GitHub issue instead of printing it locally. The default model is `gpt-5-codex`.
 
 ### Project Structure
 
