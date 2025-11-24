@@ -9,7 +9,9 @@ permissions:
   pull-requests: write
 jobs:
   release-please:
-    runs-on: ubuntu-latest
+    # FIXME: Temporary self-hosted only; original runs-on preserved below
+    # runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - uses: googleapis/release-please-action@c2a5a2bd6a758a0937f1ddb1e8950609867ed15c
       with:
