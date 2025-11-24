@@ -9,7 +9,6 @@ import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.WorkspaceEdit
 import org.slf4j.LoggerFactory
-import java.net.URI
 
 /**
  * Provides import actions for missing symbols.
@@ -24,7 +23,6 @@ class ImportAction(private val compilationService: GroovyCompilationService) {
      */
     fun createImportActions(uriString: String, diagnostics: List<Diagnostic>, content: String): List<CodeAction> {
         val actions = mutableListOf<CodeAction>()
-        val uri = URI.create(uriString)
 
         // Find diagnostics that indicate missing symbols
         val missingSymbolDiagnostics = diagnostics.filter { isMissingSymbolDiagnostic(it) }

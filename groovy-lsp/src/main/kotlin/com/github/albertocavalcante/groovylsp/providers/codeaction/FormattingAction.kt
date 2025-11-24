@@ -20,6 +20,7 @@ class FormattingAction(private val formatter: Formatter) {
      * Creates a formatting action if the document needs formatting.
      * Returns null if document is already formatted or formatting fails.
      */
+    @Suppress("ReturnCount") // Multiple exit points for clarity in failure cases
     fun createFormattingAction(uriString: String, content: String): CodeAction? {
         logger.debug("Checking if formatting action is needed for $uriString")
 
