@@ -40,13 +40,13 @@ while [[ $# -gt 0 ]]; do
       ;;
     -*)
       echo "Unknown option: $1" >&2
-      usage
+      usage >&2
       exit 1
       ;;
     *)
       if [[ -n "$ISSUE_NUMBER" ]]; then
         echo "Error: More than one issue number provided." >&2
-        usage
+        usage >&2
         exit 1
       fi
       ISSUE_NUMBER="$1"
@@ -57,7 +57,7 @@ done
 
 if [[ -z "$ISSUE_NUMBER" ]]; then
   echo "Error: ISSUE_NUMBER is required." >&2
-  usage
+  usage >&2
   exit 1
 fi
 
