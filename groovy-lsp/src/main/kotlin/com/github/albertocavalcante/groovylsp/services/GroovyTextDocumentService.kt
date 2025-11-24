@@ -377,9 +377,9 @@ class GroovyTextDocumentService(
                 params.position,
                 params.newName,
             )
-        } catch (e: org.eclipse.lsp4j.jsonrpc.messages.ResponseError) {
+        } catch (e: org.eclipse.lsp4j.jsonrpc.ResponseErrorException) {
             logger.error("Rename failed: ${e.message}")
-            throw org.eclipse.lsp4j.jsonrpc.ResponseErrorException(e)
+            throw e
         } catch (e: IllegalArgumentException) {
             logger.error("Invalid arguments for rename", e)
             throw org.eclipse.lsp4j.jsonrpc.ResponseErrorException(

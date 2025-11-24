@@ -4,7 +4,7 @@ import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationServi
 import com.github.albertocavalcante.groovylsp.services.DocumentProvider
 import kotlinx.coroutines.runBlocking
 import org.eclipse.lsp4j.Position
-import org.eclipse.lsp4j.jsonrpc.messages.ResponseError
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -72,11 +72,11 @@ class RenameProviderTest {
         documentProvider.put(javaUri, content)
         compilationService.compile(javaUri, content)
 
-        val exception = assertThrows<ResponseError> {
+        val exception = assertThrows<ResponseErrorException> {
             renameProvider.provideRename(uri, Position(0, 8), "class")
         }
 
-        assertTrue(exception.message.contains("keyword"))
+        assertTrue(exception.responseError.message.contains("keyword"))
     }
 
     @Test
@@ -91,11 +91,11 @@ class RenameProviderTest {
         documentProvider.put(javaUri, content)
         compilationService.compile(javaUri, content)
 
-        val exception = assertThrows<ResponseError> {
+        val exception = assertThrows<ResponseErrorException> {
             renameProvider.provideRename(uri, Position(0, 8), "myVar")
         }
 
-        assertTrue(exception.message.contains("same as the current name"))
+        assertTrue(exception.responseError.message.contains("same as the current name"))
     }
 
     @Test
@@ -110,11 +110,11 @@ class RenameProviderTest {
         documentProvider.put(javaUri, content)
         compilationService.compile(javaUri, content)
 
-        val exception = assertThrows<ResponseError> {
+        val exception = assertThrows<ResponseErrorException> {
             renameProvider.provideRename(uri, Position(0, 8), "")
         }
 
-        assertTrue(exception.message.contains("empty"))
+        assertTrue(exception.responseError.message.contains("empty"))
     }
 
     @Test
@@ -129,11 +129,11 @@ class RenameProviderTest {
         documentProvider.put(javaUri, content)
         compilationService.compile(javaUri, content)
 
-        val exception = assertThrows<ResponseError> {
+        val exception = assertThrows<ResponseErrorException> {
             renameProvider.provideRename(uri, Position(0, 8), "123invalid")
         }
 
-        assertTrue(exception.message.contains("not a valid identifier"))
+        assertTrue(exception.responseError.message.contains("not a valid identifier"))
     }
 
     @Test

@@ -21,6 +21,7 @@ import org.eclipse.lsp4j.TextDocumentEdit
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier
 import org.eclipse.lsp4j.WorkspaceEdit
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode
@@ -265,8 +266,8 @@ class RenameProvider(private val compilationService: GroovyCompilationService) {
     }
 
     /**
-     * Create a ResponseError for error handling.
+     * Create and throw a ResponseErrorException for error handling.
      */
-    private fun createError(code: ResponseErrorCode, message: String): ResponseError =
-        ResponseError(code, message, null)
+    private fun createError(code: ResponseErrorCode, message: String): Nothing =
+        throw ResponseErrorException(ResponseError(code, message, null))
 }
