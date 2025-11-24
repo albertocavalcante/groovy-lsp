@@ -71,6 +71,11 @@ if ! command -v codex >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v jq >/dev/null 2>&1; then
+  echo "Error: jq not found in PATH" >&2
+  exit 1
+fi
+
 ISSUE_JSON="$(gh issue view "$ISSUE_NUMBER" --json number,title,body,labels,url \
   --jq '{number:.number,title:.title,body:.body,url:.url,labels:(.labels | map(.name) | join(", "))}')"
 
