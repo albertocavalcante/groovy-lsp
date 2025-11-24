@@ -107,6 +107,9 @@ class GroovyLanguageServer :
                 triggerCharacters = listOf("(", ",")
             }
 
+            // Rename support
+            renameProvider = Either.forLeft(true)
+
             // Diagnostics will be pushed
         }
 
