@@ -44,6 +44,7 @@ class LibraryParser {
         return sourceUnit.ast
     }
 
+    @Suppress("CyclomaticComplexMethod", "NestedBlockDepth")
     private fun extractLibraries(ast: ModuleNode): List<LibraryReference> {
         val libraries = mutableListOf<LibraryReference>()
 
@@ -116,6 +117,7 @@ class LibraryParser {
     private fun isLibraryAnnotation(annotation: AnnotationNode): Boolean = annotation.classNode.name == "Library" ||
         annotation.classNode.name.endsWith(".Library")
 
+    @Suppress("NestedBlockDepth")
     private fun extractFromAnnotation(annotation: AnnotationNode): List<LibraryReference> {
         val libraries = mutableListOf<LibraryReference>()
 
