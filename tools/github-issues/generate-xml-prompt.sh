@@ -19,16 +19,9 @@ Options:
 EOF
 }
 
-if [[ $# -lt 1 ]]; then
-  usage
-  exit 1
-fi
-
-ISSUE_NUMBER="$1"
-shift
-
 POST_COMMENT=false
 MODEL="gpt-5-codex"
+ISSUE_NUMBER=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -44,13 +37,28 @@ while [[ $# -gt 0 ]]; do
       usage
       exit 0
       ;;
-    *)
+    -*)
       echo "Unknown option: $1" >&2
       usage
       exit 1
       ;;
+    *)
+      if [[ -n "$ISSUE_NUMBER" ]]; then
+        echo "Error: More than one issue number provided." >&2
+        usage
+        exit 1
+      fi
+      ISSUE_NUMBER="$1"
+      shift
+      ;;
   esac
 done
+
+if [[ -z "$ISSUE_NUMBER" ]]; then
+  echo "Error: ISSUE_NUMBER is required." >&2
+  usage
+  exit 1
+fi
 
 if ! command -v gh >/dev/null 2>&1; then
   echo "Error: gh not found in PATH" >&2
