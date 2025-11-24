@@ -100,7 +100,7 @@ $ISSUE_BODY
       </children>
     </format>
     <rules>
-      <rule>Return exactly ONE fenced code block: start with \`\`\`xml, then a pretty-printed XML document with root &lt;prompt&gt; and the children above, end with \`\`\`.</rule>
+      <rule>Return exactly ONE fenced code block: start with ```xml, then a pretty-printed XML document with root &lt;prompt&gt; and the children above, end with ```.</rule>
       <rule>Indent and line-break the XML for readability; no extra prose before or after the fence.</rule>
       <rule>Be succinct but specific so an agent can act without further clarification.</rule>
       <rule>Do not invent external requirements; stay grounded in the issue and repo context.</rule>
