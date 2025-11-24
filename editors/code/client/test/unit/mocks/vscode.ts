@@ -27,9 +27,23 @@ export class MockTask {
     }
 }
 
+export class MockThemeColor {
+    constructor(public id: string) {}
+}
+
 export const vscode = {
     tasks: mockTasks,
     Task: MockTask,
     ShellExecution: MockShellExecution,
-    // Add other vscode mocks here as needed
+    ThemeColor: MockThemeColor,
+    // Stubs for other vscode APIs can be added here
+    window: {
+        createStatusBarItem: sinon.stub().returns({
+            show: sinon.stub(),
+            dispose: sinon.stub()
+        })
+    },
+    StatusBarAlignment: {
+        Right: 2
+    }
 };

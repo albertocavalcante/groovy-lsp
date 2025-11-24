@@ -71,6 +71,30 @@
         "command": "groovy.test.runCurrentFile",
         "title": "Groovy: Run Tests in Current File",
         "icon": "$(testing-run-icon)"
+      },
+      {
+        "command": "groovy.repl.sendFile",
+        "title": "Groovy: Send File to REPL"
+      },
+      {
+        "command": "groovy.repl.restart",
+        "title": "Groovy: Restart REPL",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "groovy.repl.stop",
+        "title": "Groovy: Stop REPL",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "groovy.repl.clear",
+        "title": "Groovy: Clear REPL",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "groovy.repl.show",
+        "title": "Groovy: Show REPL",
+        "icon": "$(terminal)"
       }
     ],
     "languages": [
