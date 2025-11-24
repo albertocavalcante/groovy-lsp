@@ -39,7 +39,8 @@ subprojects {
     repositories {
         mavenCentral()
         mavenLocal()
-        maven { url = uri("https://repo.gradle.org/gradle/libs-releases") }
+        maven { url = uri("https://repo.maven.apache.org/maven2") }
+        gradlePluginPortal()
     }
 
     // Code Quality Configuration
