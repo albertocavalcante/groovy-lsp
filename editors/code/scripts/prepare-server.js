@@ -6,9 +6,9 @@
  * 3. Download from GitHub releases
  */
 
-const fs = require('fs');
-const path = require('path');
-const https = require('https');
+const fs = require('node:fs');
+const path = require('node:path');
+const https = require('node:https');
 
 const SERVER_DIR = path.join(__dirname, '..', 'server');
 const CANONICAL_JAR_NAME = 'groovy-lsp.jar';
@@ -247,6 +247,10 @@ async function downloadLatestRelease() {
     try {
         const releaseInfo = await getLatestReleaseInfo();
 
+        if (!releaseInfo || !releaseInfo.tag_name) {
+            throw new Error('Could not determine latest release');
+        }
+
         if (!releaseInfo.assets || releaseInfo.assets.length === 0) {
             throw new Error('No assets found in release');
         }
@@ -271,6 +275,11 @@ async function downloadLatestRelease() {
  */
 async function prepareServer() {
     try {
+        if (process.env.SKIP_PREPARE_SERVER === 'true') {
+            console.log('SKIP_PREPARE_SERVER=true, skipping server preparation.');
+            return;
+        }
+
         // Ensure server directory exists
         if (!fs.existsSync(SERVER_DIR)) {
             fs.mkdirSync(SERVER_DIR, { recursive: true });
@@ -352,8 +361,31 @@ async function prepareServer() {
 
 // Run the script
 if (require.main === module) {
-    console.log('Preparing Groovy Language Server...');
-    prepareServer().then(() => {
+    const args = new Set(process.argv.slice(2));
+
+    async function run() {
+        if (args.has('--print-release-tag')) {
+            try {
+                const info = await getLatestReleaseInfo();
+                process.stdout.write(info?.tag_name || 'unknown');
+            } catch (error) {
+                console.error(`Failed to fetch latest release tag: ${error.message}`);
+                process.stdout.write('unknown');
+            }
+            return;
+        }
+
+        console.log('Preparing Groovy Language Server...');
+        await prepareServer();
         console.log('✅ Server preparation complete!');
-    });
+    }
+
+    run().catch(error => {
+        console.error('Failed to prepare Groovy Language Server:', error);
+        process.exit(1);
+    }); // NOSONAR: top-level await is not available in this CommonJS entrypoint
 }
+
+module.exports = {
+    getLatestReleaseInfo
+};
