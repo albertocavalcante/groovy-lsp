@@ -109,7 +109,7 @@ export class ReplService implements vscode.Disposable {
                 // This is called when the terminal is closed by the user (e.g. clicking the trash icon)
                 this.stop();
             },
-            handleInput: (data: string) => {
+            handleInput: (_data: string) => {
                 // Basic input handling if we wanted an interactive shell, 
                 // but for now we rely on editor commands.
             }

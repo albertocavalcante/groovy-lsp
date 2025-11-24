@@ -4,7 +4,7 @@ import { GradleService } from './GradleService';
 export class GradleTaskProvider implements vscode.TaskProvider {
     constructor(private readonly gradleService: GradleService) {}
 
-    async provideTasks(token: vscode.CancellationToken): Promise<vscode.Task[]> {
+    async provideTasks(_token: vscode.CancellationToken): Promise<vscode.Task[]> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) {
             return [];
@@ -36,7 +36,7 @@ export class GradleTaskProvider implements vscode.TaskProvider {
 
     // This method is called when a task is executed that this provider is supposed to handle.
     // We can return the same task definition.
-    resolveTask(task: vscode.Task, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Task> {
+    resolveTask(task: vscode.Task, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.Task> {
         // We need to ensure the task has a definition and that the definition is for 'gradle'
         if (task.definition.type === 'gradle' && task.definition.task) {
             return new vscode.Task(
