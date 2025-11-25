@@ -22,6 +22,11 @@ class CodeActionProvider(
 ) {
     private val logger = LoggerFactory.getLogger(CodeActionProvider::class.java)
 
+    // Reuse action provider instances to reduce object allocation
+    private val formattingAction = FormattingAction(formatter)
+    private val importAction = ImportAction(compilationService)
+    private val lintFixAction = LintFixAction()
+
     /**
      * Provides code actions for the given context.
      * Only returns deterministic, safe actions; ambiguous or risky fixes are declined.
@@ -40,20 +45,25 @@ class CodeActionProvider(
         }
 
         // Add formatting action if available
-        val formattingAction = FormattingAction(formatter)
-            .createFormattingAction(params.textDocument.uri, content)
-        if (formattingAction != null) {
-            actions.add(formattingAction)
+        val formattingResult = formattingAction.createFormattingAction(params.textDocument.uri, content)
+        if (formattingResult != null) {
+            actions.add(formattingResult)
         }
 
         // Add import actions for missing symbols
-        val importActions = ImportAction(compilationService)
-            .createImportActions(params.textDocument.uri, params.context.diagnostics, content)
+        val importActions = importAction.createImportActions(
+            params.textDocument.uri,
+            params.context.diagnostics,
+            content,
+        )
         actions.addAll(importActions)
 
         // Add lint fix actions for deterministic CodeNarc fixes
-        val lintActions = LintFixAction()
-            .createLintFixActions(params.textDocument.uri, params.context.diagnostics, content)
+        val lintActions = lintFixAction.createLintFixActions(
+            params.textDocument.uri,
+            params.context.diagnostics,
+            content,
+        )
         actions.addAll(lintActions)
 
         logger.debug("Returning ${actions.size} code actions for ${params.textDocument.uri}")

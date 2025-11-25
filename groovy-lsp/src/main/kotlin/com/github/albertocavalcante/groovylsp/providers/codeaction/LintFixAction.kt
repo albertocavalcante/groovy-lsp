@@ -40,9 +40,9 @@ class LintFixAction {
      */
     @Suppress("UnusedParameter") // Parameters kept for future enhancement
     private fun createFixForDiagnostic(
-        @Suppress("UNUSED_PARAMETER") uriString: String,
+        uriString: String,
         diagnostic: Diagnostic,
-        @Suppress("UNUSED_PARAMETER") content: String,
+        content: String,
     ): CodeAction? {
         val source = diagnostic.source ?: return null
 
