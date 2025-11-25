@@ -75,7 +75,7 @@ class CodeActionProviderTest {
 
         val formattingAction = actions.find { it.title == "Format document" }
         // Formatter may or may not change this, but we check it doesn't crash
-        assertTrue(actions.isNotEmpty() || actions.isEmpty()) // Just ensure no crash
+        assertNull(formattingAction, "Should not provide formatting action for an already formatted document")
     }
 
     @Test
