@@ -84,8 +84,8 @@ class GroovyTextDocumentServiceCodeActionTest {
 
         val result = service.codeAction(params).get(FUTURE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
-        // May or may not have formatting actions, but should not crash
-        assertTrue(result.isNotEmpty() || result.isEmpty())
+        // Assuming no actions are expected for a formatted document with no diagnostics.
+        assertTrue(result.isEmpty(), "No code actions should be provided for a formatted document with no diagnostics.")
     }
 
     @Test
