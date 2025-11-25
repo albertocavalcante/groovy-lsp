@@ -230,9 +230,9 @@ class RenameProviderTest {
         val resourceOperations = workspaceEdit.documentChanges.filter { it.isRight }
         assertEquals(1, resourceOperations.size, "Should have exactly one file rename operation")
 
-        val renameFile = resourceOperations.first().right
-        assertTrue(renameFile.oldUri.endsWith("MyOldClass.groovy"))
-        assertTrue(renameFile.newUri.endsWith("MyNewClass.groovy"))
+        val renameFileOp = resourceOperations.first().right as org.eclipse.lsp4j.RenameFile
+        assertTrue(renameFileOp.oldUri.endsWith("MyOldClass.groovy"))
+        assertTrue(renameFileOp.newUri.endsWith("MyNewClass.groovy"))
     }
 
     @Test
