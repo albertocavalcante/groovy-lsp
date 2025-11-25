@@ -13,6 +13,8 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
     private val logger = LoggerFactory.getLogger(JenkinsContext::class.java)
     private val libraryResolver = SharedLibraryResolver(configuration)
     private val gdslLoader = GdslLoader()
+    private val fileDetector = JenkinsFileDetector(configuration.filePatterns)
+    private val libraryParser = LibraryParser()
 
     /**
      * Builds the classpath for Jenkins pipeline files based on library references.
@@ -82,16 +84,10 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
     /**
      * Checks if a URI is a Jenkins pipeline file based on configured patterns.
      */
-    fun isJenkinsFile(uri: java.net.URI): Boolean {
-        val detector = JenkinsFileDetector(configuration.filePatterns)
-        return detector.isJenkinsFile(uri)
-    }
+    fun isJenkinsFile(uri: java.net.URI): Boolean = fileDetector.isJenkinsFile(uri)
 
     /**
      * Parses library references from Jenkinsfile source.
      */
-    fun parseLibraries(source: String): List<LibraryReference> {
-        val parser = LibraryParser()
-        return parser.parseLibraries(source)
-    }
+    fun parseLibraries(source: String): List<LibraryReference> = libraryParser.parseLibraries(source)
 }

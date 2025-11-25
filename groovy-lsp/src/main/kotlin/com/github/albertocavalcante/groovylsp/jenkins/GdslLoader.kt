@@ -27,6 +27,7 @@ class GdslLoader {
     /**
      * Loads a single GDSL file from the given path.
      */
+    @Suppress("TooGenericExceptionCaught")
     fun loadGdslFile(pathString: String): GdslLoadResult {
         return try {
             val path = Paths.get(pathString)
@@ -70,6 +71,7 @@ class GdslLoader {
         return loadAllGdslFiles(expandedPaths)
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun expandGlobPattern(pattern: String, workspaceRoot: Path): List<String> = try {
         val path = Paths.get(pattern)
         if (path.isAbsolute) {

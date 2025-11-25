@@ -1,12 +1,12 @@
 package com.github.albertocavalcante.groovylsp.jenkins
 
 import com.github.albertocavalcante.groovylsp.config.ServerConfiguration
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -44,11 +44,11 @@ class JenkinsContextIsolationTest {
 
         val manager = JenkinsWorkspaceManager(config.jenkinsConfig, tempDir)
 
-        assertTrue(!manager.isJenkinsFile(groovyUri))
+        assertFalse(manager.isJenkinsFile(groovyUri))
     }
 
     @Test
-    fun `should build separate classpath for Jenkins files`() = runBlocking {
+    fun `should build separate classpath for Jenkins files`() {
         val lib1 = tempDir.resolve("jenkins-lib.jar")
         Files.createFile(lib1)
 
@@ -81,7 +81,7 @@ class JenkinsContextIsolationTest {
     }
 
     @Test
-    fun `should return empty classpath for non-Jenkins files`() = runBlocking {
+    fun `should return empty classpath for non-Jenkins files`() {
         val config = ServerConfiguration(
             jenkinsConfig = JenkinsConfiguration(
                 filePatterns = listOf("Jenkinsfile"),

@@ -76,7 +76,7 @@ class JenkinsFileDetector(private val patterns: List<String> = listOf("Jenkinsfi
             // Try matching relative path segments from the end
             // For pattern "pipelines/*.groovy" to match "/workspace/pipelines/deploy.groovy"
             val pathString = path.toString()
-            val segments = pathString.split("/", "\\")
+            val segments = pathString.split("[/\\\\]".toRegex())
 
             // Try different tail segments
             for (i in segments.indices) {
