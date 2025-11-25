@@ -1,7 +1,7 @@
 package com.github.albertocavalcante.groovylsp.compilation
 
+import com.github.albertocavalcante.groovyjenkins.JenkinsWorkspaceManager
 import com.github.albertocavalcante.groovylsp.config.ServerConfiguration
-import com.github.albertocavalcante.groovylsp.jenkins.JenkinsWorkspaceManager
 import org.slf4j.LoggerFactory
 import java.net.URI
 import java.nio.file.Files
@@ -147,6 +147,11 @@ class WorkspaceManager {
     fun isJenkinsFile(uri: URI): Boolean = jenkinsWorkspaceManager?.isJenkinsFile(uri) ?: false
 
     /**
+     * Checks if the given URI is a GDSL file.
+     */
+    fun isGdslFile(uri: URI): Boolean = jenkinsWorkspaceManager?.isGdslFile(uri) ?: false
+
+    /**
      * Updates Jenkins configuration and rebuilds Jenkins context.
      */
     fun updateJenkinsConfiguration(config: ServerConfiguration) {
@@ -155,6 +160,16 @@ class WorkspaceManager {
             jenkinsWorkspaceManager = jenkinsWorkspaceManager?.updateConfiguration(config.jenkinsConfig)
                 ?: JenkinsWorkspaceManager(config.jenkinsConfig, root)
             logger.info("Updated Jenkins workspace configuration")
+        }
+    }
+
+    /**
+     * Reloads GDSL metadata for Jenkins workspace.
+     */
+    fun reloadJenkinsGdsl() {
+        jenkinsWorkspaceManager?.let { manager ->
+            val results = manager.reloadGdslMetadata()
+            logger.info("Reloaded ${results.successful.size} Jenkins GDSL files")
         }
     }
 }

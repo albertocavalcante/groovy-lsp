@@ -1,6 +1,6 @@
 package com.github.albertocavalcante.groovylsp.config
 
-import com.github.albertocavalcante.groovylsp.jenkins.JenkinsConfiguration
+import com.github.albertocavalcante.groovyjenkins.JenkinsConfiguration
 import org.eclipse.lsp4j.DiagnosticSeverity
 import org.slf4j.LoggerFactory
 

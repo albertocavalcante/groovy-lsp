@@ -57,6 +57,21 @@ class GroovyWorkspaceService(private val compilationService: GroovyCompilationSe
 
     override fun didChangeWatchedFiles(params: DidChangeWatchedFilesParams) {
         logger.debug("Watched files changed: ${params.changes?.size ?: 0} changes")
+
+        val shouldReloadGdsl = params.changes.any { change ->
+            try {
+                val uri = java.net.URI.create(change.uri)
+                compilationService.workspaceManager.isGdslFile(uri)
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+        if (shouldReloadGdsl) {
+            logger.info("GDSL file changed, reloading metadata")
+            compilationService.workspaceManager.reloadJenkinsGdsl()
+        }
+
         // Could trigger re-compilation of affected files
     }
 
