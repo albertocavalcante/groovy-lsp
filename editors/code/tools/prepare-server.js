@@ -1,9 +1,10 @@
 /**
  * Prepares the Groovy Language Server JAR
  * Priority order:
- * 1. Use existing server/groovy-lsp.jar if present (unless FORCE_DOWNLOAD=true)
- * 2. Copy from local groovy-lsp build if available and PREFER_LOCAL=true
- * 3. Download from GitHub releases
+ * 1. Use explicitly provided local JAR (--local/GROOVY_LSP_LOCAL_JAR)
+ * 2. Use existing server/groovy-lsp.jar if present (unless FORCE_DOWNLOAD=true)
+ * 3. Copy from local groovy-lsp build if available and PREFER_LOCAL=true
+ * 4. Download from GitHub releases (pinned, latest, nightly, or explicit tag)
  */
 
 const fs = require('node:fs');
@@ -11,6 +12,7 @@ const path = require('node:path');
 const https = require('node:https');
 const crypto = require('node:crypto');
 
+const GITHUB_API_BASE = 'https://api.github.com/repos/albertocavalcante/groovy-lsp';
 const SERVER_DIR = path.join(__dirname, '..', 'server');
 const CANONICAL_JAR_NAME = 'groovy-lsp.jar';
 const JAR_PATH = path.join(SERVER_DIR, CANONICAL_JAR_NAME);
@@ -22,7 +24,72 @@ const PINNED_JAR_ASSET = 'groovy-lsp-0.2.0-linux-amd64.jar';
 // v0.2.0 ships a single universal JAR; reuse the linux-amd64 artifact for all platforms
 const PINNED_DOWNLOAD_URL = `https://github.com/albertocavalcante/groovy-lsp/releases/download/${PINNED_RELEASE_TAG}/${PINNED_JAR_ASSET}`;
 const PINNED_JAR_SHA256 = '0ec247be16c0cce5217a1bd4b6242f67c9ed002e486b749479d50c980a328601';
-const GITHUB_RELEASE_API = 'https://api.github.com/repos/albertocavalcante/groovy-lsp/releases/latest';
+const GITHUB_RELEASE_API = `${GITHUB_API_BASE}/releases/latest`;
+const GITHUB_RELEASES_API = `${GITHUB_API_BASE}/releases?per_page=30`;
+const GITHUB_RELEASE_TAG_API = `${GITHUB_API_BASE}/releases/tags`;
+
+function expectValue(argv, index, flag) {
+    if (index >= argv.length || argv[index].startsWith('--')) {
+        throw new Error(`Missing value for ${flag} option.`);
+    }
+    return argv[index];
+}
+
+function parseArgs(argv = []) {
+    const parsed = {
+        printReleaseTag: false,
+        nightly: false,
+        latest: false,
+        tag: null,
+        local: null,
+        forceDownload: false,
+        channel: null,
+        preferLocal: false,
+        help: false,
+        unknown: []
+    };
+
+    for (let i = 0; i < argv.length; i += 1) {
+        const arg = argv[i];
+        switch (arg) {
+        case '--print-release-tag':
+            parsed.printReleaseTag = true;
+            break;
+        case '--nightly':
+            parsed.nightly = true;
+            break;
+        case '--latest':
+            parsed.latest = true;
+            break;
+        case '--tag':
+            parsed.tag = expectValue(argv, i + 1, '--tag');
+            i += 1;
+            break;
+        case '--channel':
+            parsed.channel = expectValue(argv, i + 1, '--channel');
+            i += 1;
+            break;
+        case '--local':
+            parsed.local = expectValue(argv, i + 1, '--local');
+            i += 1;
+            break;
+        case '--force-download':
+            parsed.forceDownload = true;
+            break;
+        case '--prefer-local':
+            parsed.preferLocal = true;
+            break;
+        case '--help':
+        case '-h':
+            parsed.help = true;
+            break;
+        default:
+            parsed.unknown.push(arg);
+        }
+    }
+
+    return parsed;
+}
 
 /**
  * Finds local Groovy LSP JAR file in common development locations
@@ -72,6 +139,105 @@ function findLocalGroovyLspJar() {
 
     console.log('No local Groovy LSP JAR found in common locations');
     return null;
+}
+
+function copyLocalJar(localJarPath, { forceDownload }) {
+    let shouldCopy = true;
+
+    if (!forceDownload && fs.existsSync(JAR_PATH)) {
+        const localStat = fs.statSync(localJarPath);
+        const existingStat = fs.statSync(JAR_PATH);
+
+        if (localStat.mtime <= existingStat.mtime) {
+            console.log(`✓ Using existing ${CANONICAL_JAR_NAME} (up to date)`);
+            writeInstalledVersion('local');
+            shouldCopy = false;
+        }
+    }
+
+    if (shouldCopy) {
+        console.log(`Copying from local build: ${localJarPath}`);
+        fs.copyFileSync(localJarPath, JAR_PATH);
+        writeInstalledVersion('local');
+        console.log(`✓ Copied to ${CANONICAL_JAR_NAME}`);
+    }
+}
+
+function deriveSelection(cliOptions) {
+    const explicitTag = cliOptions.tag || process.env.GROOVY_LSP_TAG || null;
+    const channel = (cliOptions.channel || process.env.GROOVY_LSP_CHANNEL || '').toLowerCase();
+    const useNightly = cliOptions.nightly || channel === 'nightly';
+    const useLatestRelease = !useNightly && (cliOptions.latest || channel === 'release' || process.env.USE_LATEST_GROOVY_LSP === 'true');
+
+    if (explicitTag) {
+        return { type: 'tag', tag: explicitTag };
+    }
+
+    if (useNightly) {
+        return { type: 'nightly' };
+    }
+
+    if (useLatestRelease) {
+        return { type: 'latest' };
+    }
+
+    return { type: 'pinned' };
+}
+
+async function resolveTarget(selection) {
+    const buildTargetFromReleaseInfo = async (info, { noJarError, logMessage }) => {
+        if (!info) {
+            throw new Error('Release information not found.');
+        }
+        const jarAsset = selectJarAsset(info.assets);
+        if (!jarAsset) {
+            throw new Error(noJarError(info));
+        }
+        const checksum = await fetchChecksumForAsset(info.assets, jarAsset.name);
+        console.log(`${logMessage}: ${info.tag_name}`);
+        return {
+            tag: info.tag_name,
+            assetName: jarAsset.name,
+            downloadUrl: jarAsset.browser_download_url,
+            checksum
+        };
+    };
+
+    if (selection.type === 'tag') {
+        const info = await getReleaseByTag(selection.tag);
+        return await buildTargetFromReleaseInfo(info, {
+            noJarError: i => `No JAR file found in release ${i.tag_name}`,
+            logMessage: 'Selected Groovy LSP release tag'
+        });
+    }
+
+    if (selection.type === 'nightly') {
+        const info = await getLatestNightlyRelease();
+        if (!info) {
+            throw new Error('No nightly Groovy LSP release found');
+        }
+        return await buildTargetFromReleaseInfo(info, {
+            noJarError: i => `No JAR file found in nightly release ${i.tag_name}`,
+            logMessage: 'Selected latest nightly Groovy LSP'
+        });
+    }
+
+    if (selection.type === 'latest') {
+        const info = await getLatestReleaseInfo();
+        return await buildTargetFromReleaseInfo(info, {
+            noJarError: () => 'No JAR file found in the latest release',
+            logMessage: 'Selected latest Groovy LSP release'
+        });
+    }
+
+    // Pinned release fallback
+    console.log(`Selected pinned Groovy LSP release: ${PINNED_RELEASE_TAG}`);
+    return {
+        tag: PINNED_RELEASE_TAG,
+        assetName: PINNED_JAR_ASSET,
+        downloadUrl: PINNED_DOWNLOAD_URL,
+        checksum: PINNED_JAR_SHA256
+    };
 }
 
 /**
@@ -192,7 +358,7 @@ async function downloadRelease(target) {
 /**
  * Main function to prepare the server JAR
  */
-async function prepareServer() {
+async function prepareServer(runtimeOptions = {}) {
     try {
         if (process.env.SKIP_PREPARE_SERVER === 'true') {
             console.log('SKIP_PREPARE_SERVER=true, skipping server preparation.');
@@ -205,101 +371,99 @@ async function prepareServer() {
             console.log('Created server directory');
         }
 
-        const forceDownload = process.env.FORCE_DOWNLOAD === 'true';
-        const preferLocal = process.env.PREFER_LOCAL === 'true';
+        const cliOptions = parseArgs(runtimeOptions.argv || []);
+        if (cliOptions.help) {
+            printHelp();
+            return;
+        }
+
+        const forceDownload = runtimeOptions.forceDownload ?? (cliOptions.forceDownload || process.env.FORCE_DOWNLOAD === 'true');
+        const preferLocal = runtimeOptions.preferLocal ?? (cliOptions.preferLocal || process.env.PREFER_LOCAL === 'true');
+        const explicitLocalJar = runtimeOptions.local ?? cliOptions.local ?? process.env.GROOVY_LSP_LOCAL_JAR ?? null;
         const installedVersion = readInstalledVersion();
+
+        // Hard local override (highest precedence)
+        if (explicitLocalJar) {
+            const resolvedLocal = path.resolve(explicitLocalJar);
+            if (!fs.existsSync(resolvedLocal)) {
+                throw new Error(`Local JAR not found: ${resolvedLocal}`);
+            }
+            console.log(`Using explicitly provided local JAR: ${resolvedLocal}`);
+            copyLocalJar(resolvedLocal, { forceDownload });
+            return;
+        }
 
         // Try local build first if preferred
         if (preferLocal) {
             const localJarPath = findLocalGroovyLspJar();
 
             if (localJarPath) {
-                let shouldCopy = true;
-
-                if (!forceDownload && fs.existsSync(JAR_PATH)) {
-                    // Compare timestamps to see if local build is newer
-                    const localStat = fs.statSync(localJarPath);
-                    const existingStat = fs.statSync(JAR_PATH);
-
-                    if (localStat.mtime <= existingStat.mtime) {
-                        console.log(`✓ Using existing ${CANONICAL_JAR_NAME} (up to date)`);
-                        writeInstalledVersion('local');
-                        shouldCopy = false;
-                    }
-                }
-
-                if (shouldCopy) {
-                    console.log(`Copying from local build: ${localJarPath}`);
-                    fs.copyFileSync(localJarPath, JAR_PATH);
-                    writeInstalledVersion('local');
-                    console.log(`✓ Copied to ${CANONICAL_JAR_NAME}`);
-                }
+                copyLocalJar(localJarPath, { forceDownload });
                 return;
             } else {
                 console.log('PREFER_LOCAL=true but no local JAR found, falling back to download...');
             }
         }
 
-        const useLatest = process.env.USE_LATEST_GROOVY_LSP === 'true';
-        const target = useLatest
-            ? await (async () => {
-                const info = await getLatestReleaseInfo();
-                const jarAsset = selectJarAsset(info.assets);
-                if (!jarAsset) {
-                    throw new Error('No JAR file found in the latest release');
-                }
-                const checksum = await fetchChecksumForAsset(info.assets, jarAsset.name);
-                return {
-                    tag: info.tag_name,
-                    assetName: jarAsset.name,
-                    downloadUrl: jarAsset.browser_download_url,
-                    checksum
-                };
-            })()
-            : {
-                tag: PINNED_RELEASE_TAG,
-                assetName: PINNED_JAR_ASSET,
-                downloadUrl: PINNED_DOWNLOAD_URL,
-                checksum: PINNED_JAR_SHA256
-            };
+        const selection = deriveSelection({
+            ...cliOptions,
+            tag: runtimeOptions.tag ?? cliOptions.tag,
+            nightly: runtimeOptions.nightly ?? cliOptions.nightly,
+            latest: runtimeOptions.latest ?? cliOptions.latest,
+            channel: runtimeOptions.channel ?? cliOptions.channel
+        });
+        const target = await resolveTarget(selection);
+        if (!target.checksum) {
+            console.warn(`⚠️  No checksum available for ${target.assetName}; proceeding without verification.`);
+        }
 
         const jarExists = fs.existsSync(JAR_PATH);
+        const canVerify = !!target.checksum;
 
         if (!forceDownload && jarExists) {
             if (installedVersion === target.tag) {
-                try {
-                    await verifyChecksum(JAR_PATH, target.checksum);
-                    console.log(`✓ Using existing ${CANONICAL_JAR_NAME} for ${target.tag}`);
-                    return;
-                } catch (checksumError) {
-                    console.warn(`Checksum mismatch for existing ${CANONICAL_JAR_NAME}: ${checksumError.message}`);
-                    console.warn('Re-downloading Groovy LSP...');
+                if (canVerify) {
                     try {
-                        fs.unlinkSync(JAR_PATH);
-                    } catch (cleanupError) {
-                        console.warn(`Warning: Failed to remove corrupted JAR ${JAR_PATH}: ${cleanupError.message}`);
+                        await verifyChecksum(JAR_PATH, target.checksum);
+                        console.log(`✓ Using existing ${CANONICAL_JAR_NAME} for ${target.tag}`);
+                        return;
+                    } catch (checksumError) {
+                        console.warn(`Checksum mismatch for existing ${CANONICAL_JAR_NAME}: ${checksumError.message}`);
+                        console.warn('Re-downloading Groovy LSP...');
+                        try {
+                            fs.unlinkSync(JAR_PATH);
+                        } catch (cleanupError) {
+                            console.warn(`Warning: Failed to remove corrupted JAR ${JAR_PATH}: ${cleanupError.message}`);
+                        }
                     }
+                } else {
+                    console.log(`✓ Using existing ${CANONICAL_JAR_NAME} for ${target.tag} (checksum unavailable)`);
+                    return;
                 }
             } else {
-                try {
-                    await verifyChecksum(JAR_PATH, target.checksum);
-                    writeInstalledVersion(target.tag);
-                    console.log(`✓ Using existing ${CANONICAL_JAR_NAME} for ${target.tag} (version marker refreshed)`);
-                    return;
-                } catch (checksumError) {
-                    console.warn(`Existing ${CANONICAL_JAR_NAME} failed checksum: ${checksumError.message}`);
-                    console.warn('Re-downloading Groovy LSP...');
+                if (canVerify) {
                     try {
-                        fs.unlinkSync(JAR_PATH);
-                    } catch (cleanupError) {
-                        console.warn(`Warning: Failed to remove corrupted JAR ${JAR_PATH}: ${cleanupError.message}`);
+                        await verifyChecksum(JAR_PATH, target.checksum);
+                        writeInstalledVersion(target.tag);
+                        console.log(`✓ Using existing ${CANONICAL_JAR_NAME} for ${target.tag} (version marker refreshed)`);
+                        return;
+                    } catch (checksumError) {
+                        console.warn(`Existing ${CANONICAL_JAR_NAME} failed checksum: ${checksumError.message}`);
+                        console.warn('Re-downloading Groovy LSP...');
+                        try {
+                            fs.unlinkSync(JAR_PATH);
+                        } catch (cleanupError) {
+                            console.warn(`Warning: Failed to remove corrupted JAR ${JAR_PATH}: ${cleanupError.message}`);
+                        }
                     }
+                } else {
+                    console.log(`Existing ${CANONICAL_JAR_NAME} does not match requested version (${target.tag}); downloading fresh copy...`);
                 }
             }
         }
 
         // Download from GitHub releases
-        console.log(`Downloading Groovy LSP release (${useLatest ? 'latest' : target.tag})...`);
+        console.log(`Downloading Groovy LSP release (${target.tag})...`);
         await downloadRelease(target);
 
     } catch (error) {
@@ -317,6 +481,7 @@ async function prepareServer() {
         console.error(`Pinned asset: ${PINNED_JAR_ASSET}`);
         console.error(`Release page: https://github.com/albertocavalcante/groovy-lsp/releases/tag/${PINNED_RELEASE_TAG}`);
         console.error('To try the latest available release instead, set USE_LATEST_GROOVY_LSP=true.');
+        console.error('To try the latest nightly, set GROOVY_LSP_CHANNEL=nightly or pass --nightly.');
         console.error('');
         console.error('You can also manually copy a JAR file to:');
         console.error(`  ${JAR_PATH}`);
@@ -338,16 +503,25 @@ async function prepareServer() {
 
 // Run the script
 if (require.main === module) {
-    const args = new Set(process.argv.slice(2));
-
     async function run() {
-        if (args.has('--print-release-tag')) {
+        const cliOptions = parseArgs(process.argv.slice(2));
+
+        if (cliOptions.printReleaseTag) {
             process.stdout.write(PINNED_RELEASE_TAG);
             return;
         }
 
+        if (cliOptions.unknown.length > 0) {
+            console.warn(`Ignoring unknown options: ${cliOptions.unknown.join(', ')}`);
+        }
+
+        if (cliOptions.help) {
+            printHelp();
+            return;
+        }
+
         console.log('Preparing Groovy Language Server...');
-        await prepareServer();
+        await prepareServer({ argv: process.argv.slice(2) });
         console.log('✅ Server preparation complete!');
     }
 
@@ -437,6 +611,27 @@ async function getLatestReleaseInfo() {
 }
 
 /**
+ * Gets release info for a specific tag (includes prereleases/nightlies)
+ */
+async function getReleaseByTag(tag) {
+    return await fetchJson(`${GITHUB_RELEASE_TAG_API}/${encodeURIComponent(tag)}`);
+}
+
+/**
+ * Gets the latest nightly (prerelease) release
+ */
+async function getLatestNightlyRelease() {
+    const releases = await fetchJson(GITHUB_RELEASES_API);
+    if (!Array.isArray(releases) || releases.length === 0) return null;
+
+    const candidates = releases
+        .filter(r => !r.draft && /nightly/i.test(r.tag_name || ''))
+        .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
+
+    return candidates[0] || null;
+}
+
+/**
  * Picks a JAR asset; prefer linux-amd64/universal
  */
 function selectJarAsset(assets) {
@@ -465,4 +660,27 @@ async function fetchChecksumForAsset(assets, assetName) {
         console.warn(`Warning: Unable to read checksums.txt: ${error.message}`);
         return null;
     }
+}
+
+function printHelp() {
+    const help = `
+Usage: node tools/prepare-server.js [options]
+
+Options:
+  --tag <tag>            Download a specific Groovy LSP release tag (e.g. v0.2.0, nightly-*)
+  --nightly              Download the latest nightly/prerelease build
+  --latest               Download the latest stable release (same as USE_LATEST_GROOVY_LSP=true)
+  --channel <name>       Select channel: nightly | release
+  --local <path>         Use a specific local groovy-lsp JAR (skips download)
+  --prefer-local         Prefer local groovy-lsp builds from common paths
+  --force-download       Always download/copy even if a JAR already exists
+  --print-release-tag    Print the pinned release tag and exit
+  -h, --help             Show this help message
+
+Environment:
+  GROOVY_LSP_TAG, GROOVY_LSP_CHANNEL=nightly|release, GROOVY_LSP_LOCAL_JAR,
+  PREFER_LOCAL, USE_LATEST_GROOVY_LSP, FORCE_DOWNLOAD, SKIP_PREPARE_SERVER.
+`.trim();
+
+    console.log(help);
 }
