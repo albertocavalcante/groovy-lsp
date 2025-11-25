@@ -44,46 +44,84 @@ class LibraryParser {
         return sourceUnit.ast
     }
 
-    @Suppress("CyclomaticComplexMethod", "NestedBlockDepth")
+    @Suppress("CyclomaticComplexMethod")
     private fun extractLibraries(ast: ModuleNode): List<LibraryReference> {
         val libraries = mutableListOf<LibraryReference>()
 
         // Extract from @Library annotations on classes (including script class)
         ast.classes?.forEach { classNode ->
-            // Check class-level annotations
-            classNode.annotations?.forEach { annotation ->
+            libraries.addAll(extractClassAnnotations(classNode))
+            libraries.addAll(extractFieldAnnotations(classNode))
+            libraries.addAll(extractMethodDeclarationAnnotations(classNode))
+        }
+
+        // Extract from @Library annotations on import statements
+        libraries.addAll(extractImportAnnotations(ast))
+
+        // Extract from library() method calls in script
+        libraries.addAll(extractLibraryMethodCalls(ast))
+
+        return libraries
+    }
+
+    /**
+     * Extracts @Library annotations from class-level annotations.
+     */
+    private fun extractClassAnnotations(classNode: org.codehaus.groovy.ast.ClassNode): List<LibraryReference> {
+        val libraries = mutableListOf<LibraryReference>()
+        classNode.annotations?.forEach { annotation ->
+            if (isLibraryAnnotation(annotation)) {
+                libraries.addAll(extractFromAnnotation(annotation))
+            }
+        }
+        return libraries
+    }
+
+    /**
+     * Extracts @Library annotations from field declarations (e.g., @Library('utils') _ syntax).
+     */
+    private fun extractFieldAnnotations(classNode: org.codehaus.groovy.ast.ClassNode): List<LibraryReference> {
+        val libraries = mutableListOf<LibraryReference>()
+        classNode.fields?.forEach { field ->
+            field.annotations?.forEach { annotation ->
                 if (isLibraryAnnotation(annotation)) {
                     libraries.addAll(extractFromAnnotation(annotation))
                 }
             }
-
-            // Check field-level annotations (for @Library('utils') _ syntax)
-            classNode.fields?.forEach { field ->
-                field.annotations?.forEach { annotation ->
-                    if (isLibraryAnnotation(annotation)) {
-                        libraries.addAll(extractFromAnnotation(annotation))
-                    }
-                }
-            }
-
-            // Check method-level statements for variable declarations with annotations
-            classNode.methods?.forEach { method ->
-                method.code?.visit(object : org.codehaus.groovy.ast.CodeVisitorSupport() {
-                    override fun visitDeclarationExpression(
-                        expression: org.codehaus.groovy.ast.expr.DeclarationExpression,
-                    ) {
-                        expression.annotations?.forEach { annotation ->
-                            if (isLibraryAnnotation(annotation)) {
-                                libraries.addAll(extractFromAnnotation(annotation))
-                            }
-                        }
-                        super.visitDeclarationExpression(expression)
-                    }
-                })
-            }
         }
+        return libraries
+    }
 
-        // Extract from @Library annotations on import statements
+    /**
+     * Extracts @Library annotations from variable declarations within methods.
+     */
+    private fun extractMethodDeclarationAnnotations(
+        classNode: org.codehaus.groovy.ast.ClassNode,
+    ): List<LibraryReference> {
+        val libraries = mutableListOf<LibraryReference>()
+        classNode.methods?.forEach { method ->
+            method.code?.visit(object : org.codehaus.groovy.ast.CodeVisitorSupport() {
+                override fun visitDeclarationExpression(
+                    expression: org.codehaus.groovy.ast.expr.DeclarationExpression,
+                ) {
+                    expression.annotations?.forEach { annotation ->
+                        if (isLibraryAnnotation(annotation)) {
+                            libraries.addAll(extractFromAnnotation(annotation))
+                        }
+                    }
+                    super.visitDeclarationExpression(expression)
+                }
+            })
+        }
+        return libraries
+    }
+
+    /**
+     * Extracts @Library annotations from import statements.
+     */
+    private fun extractImportAnnotations(ast: ModuleNode): List<LibraryReference> {
+        val libraries = mutableListOf<LibraryReference>()
+
         ast.imports?.forEach { importNode ->
             importNode.annotations?.forEach { annotation ->
                 if (isLibraryAnnotation(annotation)) {
@@ -92,7 +130,6 @@ class LibraryParser {
             }
         }
 
-        // Also check star imports
         ast.starImports?.forEach { importNode ->
             importNode.annotations?.forEach { annotation ->
                 if (isLibraryAnnotation(annotation)) {
@@ -101,7 +138,14 @@ class LibraryParser {
             }
         }
 
-        // Extract from library() method calls in script
+        return libraries
+    }
+
+    /**
+     * Extracts library references from library() method calls in script.
+     */
+    private fun extractLibraryMethodCalls(ast: ModuleNode): List<LibraryReference> {
+        val libraries = mutableListOf<LibraryReference>()
         ast.statementBlock?.statements?.forEach { statement ->
             if (statement is ExpressionStatement) {
                 val expr = statement.expression
@@ -110,7 +154,6 @@ class LibraryParser {
                 }
             }
         }
-
         return libraries
     }
 

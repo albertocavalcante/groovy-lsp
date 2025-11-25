@@ -3,6 +3,7 @@ package com.github.albertocavalcante.groovylsp.jenkins
 import org.slf4j.LoggerFactory
 import java.net.URI
 import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Manages Jenkins workspace context separately from regular Groovy sources.
@@ -12,6 +13,10 @@ class JenkinsWorkspaceManager(private val configuration: JenkinsConfiguration, p
     private val logger = LoggerFactory.getLogger(JenkinsWorkspaceManager::class.java)
     private val jenkinsContext = JenkinsContext(configuration, workspaceRoot)
 
+    // Cache for parsed library references to avoid redundant AST parsing
+    private data class CacheEntry(val contentHash: Int, val libraries: List<LibraryReference>)
+    private val libraryCache = ConcurrentHashMap<URI, CacheEntry>()
+
     /**
      * Checks if the given URI represents a Jenkins pipeline file.
      */
@@ -20,14 +25,25 @@ class JenkinsWorkspaceManager(private val configuration: JenkinsConfiguration, p
     /**
      * Gets the classpath for a specific file.
      * Returns Jenkins classpath if it's a Jenkinsfile, empty otherwise.
+     * Uses caching to avoid redundant AST parsing when content hasn't changed.
      */
     fun getClasspathForFile(uri: URI, content: String): List<Path> {
         if (!isJenkinsFile(uri)) {
             return emptyList()
         }
 
-        // Parse library references from the Jenkinsfile
-        val libraries = jenkinsContext.parseLibraries(content)
+        // Check cache first - only re-parse if content changed
+        val contentHash = content.hashCode()
+        val cached = libraryCache[uri]
+        val libraries = if (cached != null && cached.contentHash == contentHash) {
+            logger.debug("Using cached library references for $uri")
+            cached.libraries
+        } else {
+            // Parse library references from the Jenkinsfile
+            val parsed = jenkinsContext.parseLibraries(content)
+            libraryCache[uri] = CacheEntry(contentHash, parsed)
+            parsed
+        }
 
         // Build classpath from referenced libraries
         val classpath = jenkinsContext.buildClasspath(libraries)
