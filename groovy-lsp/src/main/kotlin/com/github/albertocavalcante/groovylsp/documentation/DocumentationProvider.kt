@@ -51,7 +51,7 @@ class DocumentationProvider(private val documentProvider: DocumentProvider) {
         }
 
         // Extract documentation
-        val doc = DocExtractor.extractDocumentation(sourceText, lineNumber)
+        val doc = DocExtractor.extractDocumentation(sourceText, node)
 
         // Cache the result
         cache[cacheKey] = doc

@@ -1,5 +1,10 @@
 package com.github.albertocavalcante.groovylsp.documentation
 
+import org.codehaus.groovy.ast.ClassHelper
+import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.ast.MethodNode
+import org.codehaus.groovy.ast.Parameter
+import org.codehaus.groovy.ast.stmt.BlockStatement
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -18,7 +23,9 @@ class DocExtractorTest {
             }
         """.trimIndent()
 
-        val doc = DocExtractor.extractDocumentation(source, 6) // Line with "class SimpleClass"
+        // Create a dummy node to match the class name
+        val node = ClassNode("SimpleClass", 0, null)
+        val doc = DocExtractor.extractDocumentation(source, node)
 
         assertEquals("This is a simple class.", doc.summary)
         assertTrue(doc.isNotEmpty())
@@ -40,7 +47,16 @@ class DocExtractorTest {
             }
         """.trimIndent()
 
-        val doc = DocExtractor.extractDocumentation(source, 9) // Line with "def add"
+        // Create a dummy method node
+        val params = arrayOf(
+            Parameter(ClassHelper.int_TYPE, "a"),
+            Parameter(ClassHelper.int_TYPE, "b"),
+        )
+        val classNode = ClassNode("Script", 0, null)
+        val node = MethodNode("add", 0, ClassHelper.DYNAMIC_TYPE, params, null, BlockStatement())
+        node.declaringClass = classNode
+
+        val doc = DocExtractor.extractDocumentation(source, node)
 
         assertEquals("Calculates the sum of two numbers", doc.summary)
         assertTrue(doc.description.contains("This method adds a and b together"))
@@ -65,7 +81,12 @@ class DocExtractorTest {
             }
         """.trimIndent()
 
-        val doc = DocExtractor.extractDocumentation(source, 9) // Line with "void oldMethod"
+        val params = arrayOf(Parameter(ClassHelper.STRING_TYPE, "input"))
+        val classNode = ClassNode("Script", 0, null)
+        val node = MethodNode("oldMethod", 0, ClassHelper.VOID_TYPE, params, null, BlockStatement())
+        node.declaringClass = classNode
+
+        val doc = DocExtractor.extractDocumentation(source, node)
 
         assertEquals("Old method that throws exceptions", doc.summary)
         assertEquals(2, doc.throws.size)
@@ -86,7 +107,8 @@ class DocExtractorTest {
             }
         """.trimIndent()
 
-        val doc = DocExtractor.extractDocumentation(source, 3) // Line with "class NoDocClass"
+        val node = ClassNode("NoDocClass", 0, null)
+        val doc = DocExtractor.extractDocumentation(source, node)
 
         assertTrue(doc.isEmpty())
         assertEquals("", doc.summary)
@@ -108,7 +130,12 @@ class DocExtractorTest {
             }
         """.trimIndent()
 
-        val doc = DocExtractor.extractDocumentation(source, 9) // Line with "String greet"
+        val params = arrayOf(Parameter(ClassHelper.STRING_TYPE, "name"))
+        val classNode = ClassNode("Script", 0, null)
+        val node = MethodNode("greet", 0, ClassHelper.STRING_TYPE, params, null, BlockStatement())
+        node.declaringClass = classNode
+
+        val doc = DocExtractor.extractDocumentation(source, node)
 
         assertEquals("Annotated method with documentation", doc.summary)
         assertEquals("the name parameter", doc.params["name"])
@@ -116,19 +143,15 @@ class DocExtractorTest {
     }
 
     @Test
-    fun `extracts documentation from line number outside bounds returns empty`() {
+    fun `returns empty documentation when node not found`() {
         val source = """
-            /**
-             * Test class.
-             */
             class Test {
             }
         """.trimIndent()
 
-        val docBefore = DocExtractor.extractDocumentation(source, 0) // Invalid line
-        val docAfter = DocExtractor.extractDocumentation(source, 100) // Beyond end
+        val node = ClassNode("NonExistentClass", 0, null)
+        val doc = DocExtractor.extractDocumentation(source, node)
 
-        assertTrue(docBefore.isEmpty())
-        assertTrue(docAfter.isEmpty())
+        assertTrue(doc.isEmpty())
     }
 }
