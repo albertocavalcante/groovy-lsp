@@ -95,5 +95,12 @@ class DocumentationProvider(private val documentProvider: DocumentProvider) {
         fun invalidateDocument(documentUri: URI) {
             instance?.clearCache(documentUri)
         }
+
+        /**
+         * Reset the singleton instance. Useful for testing.
+         */
+        fun reset() {
+            instance = null
+        }
     }
 }

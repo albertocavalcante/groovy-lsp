@@ -33,6 +33,8 @@ object DocExtractor {
             val parser = GroovyDocParser(emptyList<LinkArgument>(), Properties())
             val classDocs = parser.getClassDocsFromSingleSource(".", "Script.groovy", sourceText)
 
+            logger.warn("DEBUG: Extracted ${classDocs.size} class docs from source")
+
             return findDocForNode(classDocs, node)
         } catch (e: Exception) {
             logger.warn("Failed to parse groovydoc", e)
@@ -42,7 +44,12 @@ object DocExtractor {
 
     private fun findDocForNode(classDocs: Map<String, GroovyClassDoc>, node: ASTNode): Documentation {
         // Find the class doc that contains the node
-        val classDoc = findClassDoc(classDocs, node) ?: return Documentation.EMPTY
+        val classDoc = findClassDoc(classDocs, node)
+
+        if (classDoc == null) {
+            logger.warn("DEBUG: Could not find ClassDoc for node ${node.text}")
+            return Documentation.EMPTY
+        }
 
         val elementDoc: GroovyProgramElementDoc? = when (node) {
             is ClassNode -> classDoc
@@ -52,7 +59,12 @@ object DocExtractor {
             else -> null
         }
 
-        return elementDoc?.let { parseGroovyDoc(it) } ?: Documentation.EMPTY
+        if (elementDoc == null) {
+            logger.warn("DEBUG: Could not find ElementDoc for node type ${node.javaClass.simpleName}")
+            return Documentation.EMPTY
+        }
+
+        return parseGroovyDoc(elementDoc)
     }
 
     private fun findClassDoc(classDocs: Map<String, GroovyClassDoc>, node: ASTNode): GroovyClassDoc? {
@@ -95,32 +107,11 @@ object DocExtractor {
         }
 
     private fun parseGroovyDoc(doc: GroovyProgramElementDoc): Documentation {
-        val commentText = doc.commentText() ?: ""
-
-        // Parse the comment text to extract tags if GroovyDoc doesn't expose them nicely in a map
-        // GroovyProgramElementDoc has methods like commentText() but maybe not a structured map of all tags easily.
-        // However, we can use the raw comment or the parsed comment.
-        // Let's use the regex-based parsing on the comment text returned by GroovyDocParser,
-        // because GroovyDocParser handles the extraction of the comment block from source.
-
-        // Actually, GroovyDocParser should have parsed the tags.
-        // But GroovyProgramElementDoc interface is a bit limited in exposing them as a map.
-        // It has methods like seeTags(), paramTags(), etc.
-
-        // Let's try to use the specific methods.
-
-        // Summary is usually the first sentence.
-        val summary = doc.firstSentenceCommentText() ?: ""
-        val description = doc.commentText() // This includes summary usually.
-
-        // We can clean up the description to remove tags if they are included.
-        // GroovyDoc commentText() usually returns the HTML-like description.
-
-        // Let's reuse the logic to parse the raw comment if we can access it,
-        // OR use the methods provided by GroovyProgramElementDoc.
-
-        // GroovyProgramElementDoc has getRawCommentText().
         val rawComment = doc.getRawCommentText()
+        logger.warn(
+            "DEBUG: Raw comment text found: ${if (rawComment.isNullOrBlank()) "EMPTY" else "PRESENT (${rawComment.length} chars)"}",
+        )
+
         if (rawComment.isNullOrBlank()) return Documentation.EMPTY
 
         return parseDocComment(rawComment)
@@ -134,6 +125,8 @@ object DocExtractor {
      * Parse a doc comment string into a Documentation object.
      */
     private fun parseDocComment(docComment: String): Documentation {
+        logger.warn("DEBUG: Parsing comment:\n$docComment")
+
         // Remove comment delimiters and asterisks
         val cleanedComment = docComment
             .replace(Regex("""/\*\*"""), "")
@@ -143,6 +136,8 @@ object DocExtractor {
                 line.trim().removePrefix("*").trim()
             }
             .trim()
+
+        logger.warn("DEBUG: Cleaned comment:\n$cleanedComment")
 
         // Regex for whitespace normalization
         val whitespaceRegex = Regex("""\s+""")
@@ -166,11 +161,15 @@ object DocExtractor {
         val summaryMatch = cleanedComment.split(Regex("""[.?!]\s+|\n\n""")).firstOrNull()?.trim() ?: ""
         val summary = if (summaryMatch.startsWith("@")) "" else summaryMatch
 
+        logger.warn("DEBUG: Extracted summary: '$summary'")
+
         // Extract description (everything before first @ tag)
         val descParts = cleanedComment.split(Regex("""(?=@\w+)"""))
         val description = descParts.firstOrNull()?.trim()?.let {
             if (it.startsWith("@")) "" else it
         } ?: ""
+
+        logger.warn("DEBUG: Extracted description: '$description'")
 
         // Extract @param tags
         val params = paramRegex.findAll(cleanedComment).associate { match ->
@@ -178,10 +177,12 @@ object DocExtractor {
             val paramDesc = match.groupValues[2].trim().replace(whitespaceRegex, " ")
             paramName to paramDesc
         }
+        logger.warn("DEBUG: Extracted ${params.size} params: $params")
 
         // Extract @return tag
         val returnDoc = returnRegex.find(cleanedComment)?.groupValues?.get(1)?.trim()?.replace(whitespaceRegex, " ")
             ?: ""
+        logger.warn("DEBUG: Extracted return: '$returnDoc'")
 
         // Extract @throws tags
         val throws = throwsRegex.findAll(cleanedComment).associate { match ->
