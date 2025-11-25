@@ -261,4 +261,103 @@ class RenameProviderTest {
         assertTrue(textEdits.all { it.newText == "newParam" })
         assertTrue(textEdits.size >= 3, "Should rename parameter in signature and all usages in body")
     }
+
+    @Test
+    fun `rename at position with no symbol should fail`() = runBlocking {
+        val content = """
+            // This is just a comment
+            def myVar = 42
+        """.trimIndent()
+
+        val uri = workspaceRoot.resolve("test.groovy").toUri().toString()
+        val javaUri = java.net.URI.create(uri)
+        documentProvider.put(javaUri, content)
+        compilationService.compile(javaUri, content)
+
+        // Try to rename at the comment position (line 0, position in comment)
+        val exception = assertThrows<ResponseErrorException> {
+            renameProvider.provideRename(uri, Position(0, 5), "newName")
+        }
+
+        assertTrue(
+            exception.responseError.message.contains("No symbol") ||
+                exception.responseError.message.contains("Could not resolve"),
+        )
+    }
+
+    @Test
+    fun `rename class in file with different name should not include file rename`() = runBlocking {
+        val content = """
+            class SomeClass {
+                def method() { return 1 }
+            }
+        """.trimIndent()
+
+        // File name does NOT match class name
+        val fileName = "DifferentFileName.groovy"
+        val filePath = workspaceRoot.resolve(fileName)
+        Files.writeString(filePath, content)
+
+        val uri = filePath.toUri().toString()
+        val javaUri = java.net.URI.create(uri)
+        documentProvider.put(javaUri, content)
+        compilationService.compile(javaUri, content)
+
+        // Rename the class
+        val workspaceEdit = renameProvider.provideRename(uri, Position(0, 10), "RenamedClass")
+
+        assertNotNull(workspaceEdit)
+        assertNotNull(workspaceEdit.documentChanges)
+
+        // Check that text edits exist
+        val textEditChanges = workspaceEdit.documentChanges.filter { it.isLeft }
+        assertTrue(textEditChanges.isNotEmpty(), "Should have text edits for class rename")
+
+        // Verify NO file rename operation when file name doesn't match class name
+        val resourceOperations = workspaceEdit.documentChanges.filter { it.isRight }
+        assertTrue(
+            resourceOperations.isEmpty(),
+            "Class rename should NOT include file rename when file name doesn't match class name",
+        )
+    }
+
+    @Test
+    fun `rename with whitespace-only name should fail`() = runBlocking {
+        val content = """
+            def myVar = 42
+            println myVar
+        """.trimIndent()
+
+        val uri = workspaceRoot.resolve("test.groovy").toUri().toString()
+        val javaUri = java.net.URI.create(uri)
+        documentProvider.put(javaUri, content)
+        compilationService.compile(javaUri, content)
+
+        val exception = assertThrows<ResponseErrorException> {
+            renameProvider.provideRename(uri, Position(0, 8), "   ")
+        }
+
+        assertTrue(
+            exception.responseError.message.contains("empty") || exception.responseError.message.contains("blank"),
+        )
+    }
+
+    @Test
+    fun `rename with special characters should fail`() = runBlocking {
+        val content = """
+            def myVar = 42
+            println myVar
+        """.trimIndent()
+
+        val uri = workspaceRoot.resolve("test.groovy").toUri().toString()
+        val javaUri = java.net.URI.create(uri)
+        documentProvider.put(javaUri, content)
+        compilationService.compile(javaUri, content)
+
+        val exception = assertThrows<ResponseErrorException> {
+            renameProvider.provideRename(uri, Position(0, 8), "my-var")
+        }
+
+        assertTrue(exception.responseError.message.contains("not a valid identifier"))
+    }
 }
