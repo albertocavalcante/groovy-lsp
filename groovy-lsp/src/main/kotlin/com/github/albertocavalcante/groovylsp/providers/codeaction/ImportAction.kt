@@ -115,7 +115,7 @@ class ImportAction(private val compilationService: GroovyCompilationService) {
      * Returns the position after the package declaration or at the beginning.
      */
     private fun findImportInsertionPoint(content: String): Position {
-        val lines = content.split("\n")
+        val lines = content.lines()
         var insertLine = 0
 
         // Find the last import or package declaration
