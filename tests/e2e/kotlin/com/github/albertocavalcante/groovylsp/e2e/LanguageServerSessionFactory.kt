@@ -46,6 +46,11 @@ class LanguageServerSessionFactory(private val mapper: ObjectMapper) {
             processBuilder.environment()["GRADLE_USER_HOME"] = it.toAbsolutePath().toString()
             logger.info("Using isolated Gradle user home for scenario '{}': {}", scenarioName, it)
         }
+        // Keep Gradle model resolution from stalling e2e runs; the server reads this for its timeout.
+        processBuilder.environment().putIfAbsent(
+            "GROOVY_LSP_GRADLE_TIMEOUT_MS",
+            System.getProperty("groovy.lsp.e2e.gradleTimeoutMs") ?: "15000",
+        )
 
         val process = processBuilder.start()
 
@@ -103,14 +108,32 @@ class LanguageServerSessionFactory(private val mapper: ObjectMapper) {
     }
 
     private fun startErrorPump(process: Process, scenarioName: String): Thread {
+        val logFile = resolveGradleUserHome()?.parent?.resolve("e2e-logs")?.resolve("$scenarioName.log")
+            ?: Paths.get("build/e2e-logs/$scenarioName.log")
+
+        Files.createDirectories(logFile.parent)
+
         val thread = Thread(
             {
-                BufferedReader(InputStreamReader(process.errorStream)).use { reader ->
-                    var line = reader.readLine()
-                    while (line != null) {
-                        logger.info("[server:{}] {}", scenarioName, line)
-                        line = reader.readLine()
+                try {
+                    Files.newBufferedWriter(logFile).use { writer ->
+                        BufferedReader(InputStreamReader(process.errorStream)).use { reader ->
+                            var line = reader.readLine()
+                            while (line != null) {
+                                // Write to file
+                                writer.write(line)
+                                writer.newLine()
+                                writer.flush()
+
+                                // Also log to test runner logger for visibility (optional, maybe reduce level)
+                                logger.info("[server:{}] {}", scenarioName, line)
+
+                                line = reader.readLine()
+                            }
+                        }
                     }
+                } catch (e: Exception) {
+                    logger.error("Error pumping stderr to file $logFile", e)
                 }
             },
             "groovy-lsp-e2e-stderr",
