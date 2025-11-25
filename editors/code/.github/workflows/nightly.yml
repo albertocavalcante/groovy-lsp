@@ -27,6 +27,8 @@ on:
 
 jobs:
   nightly:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     env:
       REQUIRE_SERVER_BUNDLE: true
