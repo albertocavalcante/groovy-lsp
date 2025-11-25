@@ -34,19 +34,7 @@ dependencies {
     implementation(libs.gmetrics) // Required for complexity rules
 
     // Gradle Tooling API - For dependency resolution
-    // Use local Gradle installation since repo.gradle.org may not be accessible
-    val gradleHome = System.getenv("GRADLE_USER_HOME") ?: "${System.getProperty("user.home")}/.gradle"
-    val gradleToolingJar =
-        fileTree("$gradleHome/wrapper/dists") {
-            include("**/gradle-tooling-api-*.jar")
-        }.files.firstOrNull()
-
-    if (gradleToolingJar != null) {
-        implementation(files(gradleToolingJar))
-    } else {
-        // Fallback to maven dependency if local jar not found
-        implementation(libs.gradle.tooling.api)
-    }
+    implementation(libs.gradle.tooling.api)
 
     // Kotlin Coroutines
     implementation(libs.kotlin.coroutines.core)
