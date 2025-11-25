@@ -35,36 +35,34 @@ class CodeActionProvider(
         val uri = URI.create(params.textDocument.uri)
         logger.debug("Providing code actions for ${params.textDocument.uri}")
 
-        val actions = mutableListOf<CodeAction>()
-
         // Get document content
-        val content = documentProvider.get(uri)
-        if (content == null) {
+        val content = documentProvider.get(uri) ?: run {
             logger.debug("Document not found in provider: $uri")
             return emptyList()
         }
 
-        // Add formatting action if available
-        val formattingResult = formattingAction.createFormattingAction(params.textDocument.uri, content)
-        if (formattingResult != null) {
-            actions.add(formattingResult)
+        val actions = buildList {
+            // Add formatting action if available
+            formattingAction.createFormattingAction(params.textDocument.uri, content)?.let(::add)
+
+            // Add import actions for missing symbols
+            addAll(
+                importAction.createImportActions(
+                    params.textDocument.uri,
+                    params.context.diagnostics,
+                    content,
+                ),
+            )
+
+            // Add lint fix actions for deterministic CodeNarc fixes
+            addAll(
+                lintFixAction.createLintFixActions(
+                    params.textDocument.uri,
+                    params.context.diagnostics,
+                    content,
+                ),
+            )
         }
-
-        // Add import actions for missing symbols
-        val importActions = importAction.createImportActions(
-            params.textDocument.uri,
-            params.context.diagnostics,
-            content,
-        )
-        actions.addAll(importActions)
-
-        // Add lint fix actions for deterministic CodeNarc fixes
-        val lintActions = lintFixAction.createLintFixActions(
-            params.textDocument.uri,
-            params.context.diagnostics,
-            content,
-        )
-        actions.addAll(lintActions)
 
         logger.debug("Returning ${actions.size} code actions for ${params.textDocument.uri}")
         return actions

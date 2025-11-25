@@ -53,30 +53,21 @@ class ImportAction(private val compilationService: GroovyCompilationService) {
     /**
      * Finds all possible fully-qualified names for a symbol from workspace and dependencies.
      */
-    @Suppress("NestedBlockDepth") // Simple nested iteration, acceptable for symbol search
     private fun findImportCandidates(symbolName: String): List<String> {
-        val candidates = mutableSetOf<String>()
-
         // Search in workspace symbols
-        val workspaceSymbols = compilationService.getAllSymbolStorages()
-        for ((symbolUri, symbolIndex) in workspaceSymbols) {
-            // Find all class symbols with matching name
-            val allClasses = symbolIndex.findByCategory(
-                symbolUri,
-                com.github.albertocavalcante.groovyparser.ast.symbols.SymbolCategory.CLASS,
-            )
-
-            for (symbol in allClasses) {
-                if (symbol is com.github.albertocavalcante.groovyparser.ast.symbols.Symbol.Class) {
-                    if (symbol.name == symbolName) {
-                        val fqn = symbol.fullyQualifiedName
-                        if (fqn.isNotEmpty() && fqn.contains('.')) {
-                            candidates.add(fqn)
-                        }
-                    }
-                }
+        val candidates = compilationService.getAllSymbolStorages()
+            .flatMap { (symbolUri, symbolIndex) ->
+                symbolIndex.findByCategory(
+                    symbolUri,
+                    com.github.albertocavalcante.groovyparser.ast.symbols.SymbolCategory.CLASS,
+                )
             }
-        }
+            .asSequence()
+            .filterIsInstance<com.github.albertocavalcante.groovyparser.ast.symbols.Symbol.Class>()
+            .filter { it.name == symbolName }
+            .map { it.fullyQualifiedName }
+            .filter { it.isNotEmpty() && it.contains('.') }
+            .toSet()
 
         // Search in dependencies (classpath)
         // This would require scanning the classpath for matching class names
@@ -157,22 +148,20 @@ class ImportAction(private val compilationService: GroovyCompilationService) {
     /**
      * Extracts the symbol name from a diagnostic message.
      */
-    @Suppress("ReturnCount") // Multiple extraction patterns necessitate early returns
     private fun extractSymbolName(diagnostic: Diagnostic): String? {
         val message = diagnostic.message
+        return sequenceOf(
+            UNABLE_TO_RESOLVE_PATTERN,
+            CANNOT_FIND_PATTERN,
+            UNRESOLVED_REFERENCE_PATTERN,
+        ).mapNotNull { pattern ->
+            Regex(pattern, RegexOption.IGNORE_CASE).find(message)?.groupValues?.get(1)
+        }.firstOrNull()
+    }
 
-        // Try to extract from "unable to resolve class X" pattern
-        val unableToResolvePattern = Regex("unable to resolve class\\s+(\\w+)", RegexOption.IGNORE_CASE)
-        unableToResolvePattern.find(message)?.let { return it.groupValues[1] }
-
-        // Try to extract from "cannot find symbol X" pattern
-        val cannotFindPattern = Regex("cannot find symbol\\s+(\\w+)", RegexOption.IGNORE_CASE)
-        cannotFindPattern.find(message)?.let { return it.groupValues[1] }
-
-        // Try to extract from "Unresolved reference: X" pattern
-        val unresolvedPattern = Regex("unresolved reference:\\s+(\\w+)", RegexOption.IGNORE_CASE)
-        unresolvedPattern.find(message)?.let { return it.groupValues[1] }
-
-        return null
+    companion object {
+        private const val UNABLE_TO_RESOLVE_PATTERN = "unable to resolve class\\s+(\\w+)"
+        private const val CANNOT_FIND_PATTERN = "cannot find symbol\\s+(\\w+)"
+        private const val UNRESOLVED_REFERENCE_PATTERN = "unresolved reference:\\s+(\\w+)"
     }
 }

@@ -68,9 +68,6 @@ private fun String.toFullDocumentRange(): Range {
     }
 
     var column = length - lastLineStart
-    if (column > 0 && this[length - 1] == '\r') {
-        column--
-    }
     column = max(column, 0)
 
     return Range(
