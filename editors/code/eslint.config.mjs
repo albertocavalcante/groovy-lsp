@@ -22,7 +22,7 @@ export default tseslint.config(
       'node_modules/',
       'client/out/',
       'server/',
-      'scripts/',
+      'tools/',
       '*.js',
       '*.mjs'
     ],

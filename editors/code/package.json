@@ -181,9 +181,9 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run prepare-server && npm run package-build",
-    "prepare-server": "node scripts/prepare-server.js",
-    "prepare-server:local": "PREFER_LOCAL=true node scripts/prepare-server.js",
-    "prepare-server:download": "FORCE_DOWNLOAD=true node scripts/prepare-server.js",
+    "prepare-server": "node tools/prepare-server.js",
+    "prepare-server:local": "PREFER_LOCAL=true node tools/prepare-server.js",
+    "prepare-server:download": "FORCE_DOWNLOAD=true node tools/prepare-server.js",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
     "package-build": "npm run check-types && npm run lint && node esbuild.js --production",
     "watch": "npm-run-all -p watch:*",

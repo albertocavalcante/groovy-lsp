@@ -23,7 +23,7 @@ Copilot / AI helpers: follow this when working in this repo.
 - Groovy Language Server JAR lives in `server/groovy-lsp.jar`.
 - Pinned LSP: `groovy-lsp v0.2.0`, universal `groovy-lsp-0.2.0-linux-amd64.jar` with checksum enforcement.
 - Client source: `client/src/**`; build output: `client/out/`.
-- Scripts: `scripts/prepare-server.js` (download/verify LSP), `scripts/compute-groovy-cache-key.js`.
+- Tools: `tools/prepare-server.js` (download/verify LSP), `tools/compute-groovy-cache-key.js`.
 - CI: `.github/workflows/*.yml` (publish requires successful LSP bundle).
 
 ## Environment toggles
@@ -50,7 +50,7 @@ Copilot / AI helpers: follow this when working in this repo.
 client/src/      # Extension code (TypeScript)
 client/out/      # Bundled output (generated)
 server/          # Bundled groovy-lsp jar lives here
-scripts/         # Build/setup utilities
+tools/           # Build/setup utilities
 .github/workflows# CI definitions
 ```
 
@@ -61,8 +61,14 @@ scripts/         # Build/setup utilities
   USE_LATEST_GROOVY_LSP=true npm run prepare-server
   npm run compile
   ```
+- Fetch PR review summaries (keeps payload small):
+  ```bash
+  gh api repos/albertocavalcante/vscode-groovy/pulls/<PR_NUMBER>/reviews \
+    --jq '.[] | {login: .user.login, state, submitted_at, body}'
+  ```
+  Prefer `--jq` to drop unused fields and preserve context budget.
 - Pinned update (maintainers only):
-  - Update `PINNED_RELEASE_TAG`, `PINNED_JAR_ASSET`, and checksum in `scripts/prepare-server.js`.
+  - Update `PINNED_RELEASE_TAG`, `PINNED_JAR_ASSET`, and checksum in `tools/prepare-server.js`.
   - Run `npm run clean && npm run prepare-server`.
   - Commit with conventional message.
 

@@ -37,7 +37,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          node scripts/compute-groovy-cache-key.js >> "$GITHUB_OUTPUT"
+          node tools/compute-groovy-cache-key.js >> "$GITHUB_OUTPUT"
 
       - name: Cache Groovy LSP
         uses: actions/cache@v4

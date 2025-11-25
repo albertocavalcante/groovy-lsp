@@ -49,7 +49,7 @@ vscode-groovy/
 │   └── extension.ts    # Main extension entry point
 ├── server/             # Language Server JAR
 ├── syntaxes/           # TextMate grammars
-└── scripts/            # Build and setup scripts
+└── tools/              # Build and setup scripts
 ```
 
 ### Available Scripts
@@ -70,7 +70,7 @@ vscode-groovy/
    ```bash
    curl -L "https://github.com/albertocavalcante/groovy-lsp/releases/download/<TAG>/checksums.txt"
    ```
-   Copy the checksum line for the chosen JAR into `PINNED_JAR_SHA256` in `scripts/prepare-server.js`.
+   Copy the checksum line for the chosen JAR into `PINNED_JAR_SHA256` in `tools/prepare-server.js`.
 3. Clear old artifacts and re-fetch:
    ```bash
    npm run clean
