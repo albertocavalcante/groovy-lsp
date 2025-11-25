@@ -43,7 +43,9 @@ jobs:
         uses: actions/cache@v4
         if: matrix.os == 'ubuntu-latest'
         with:
-          path: server/groovy-lsp.jar
+          path: |
+            server/groovy-lsp.jar
+            server/.groovy-lsp-version
           key: groovy-lsp-${{ runner.os }}-${{ steps.groovy_lsp_cache.outputs.tag }}-${{ steps.groovy_lsp_cache.outputs.hash }}
 
       - name: Install dependencies

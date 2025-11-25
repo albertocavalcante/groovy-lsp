@@ -1,6 +1,7 @@
 # Language Server JAR (downloaded/copied during build)
 server/*.jar
 server/groovy-lsp.jar
+server/.groovy-lsp-version
 
 # Build outputs
 out/

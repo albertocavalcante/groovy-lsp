@@ -192,7 +192,7 @@
     "check-types": "tsc --noEmit --project client/tsconfig.json",
     "lint": "eslint client/src/**/*.ts",
     "package": "npm run prepare-server && vsce package",
-    "clean": "rm -rf client/out/ server/*.jar",
+    "clean": "rm -rf client/out/ server/*.jar server/.groovy-lsp-version",
     "postinstall": "cd client && npm install && cd .. && npm run prepare-server",
     "test": "mocha",
     "test:watch": "mocha --watch"

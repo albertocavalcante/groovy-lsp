@@ -7,6 +7,8 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      REQUIRE_SERVER_BUNDLE: true
 
     steps:
       - name: Checkout
