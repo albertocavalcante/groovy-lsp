@@ -6,9 +6,11 @@
 .DS_Store
 *.log
 .aider.conf.yml
+.mocharc.json
 .eslintrc.json
 .release-please-config.json
 .release-please-manifest.json
+release-please-config.json
 .yarnrc
 AGENTS.md
 CLAUDE.md
@@ -27,6 +29,7 @@ client/package-lock.json
 client/package.json
 client/tsconfig.json
 client/tsconfig.tsbuildinfo
+server/.groovy-lsp-version
 tools/**
 **/*.map
 **/*.ts
