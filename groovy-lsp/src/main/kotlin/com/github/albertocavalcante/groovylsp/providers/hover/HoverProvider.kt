@@ -35,10 +35,9 @@ class HoverProvider(
 ) {
     private val logger = LoggerFactory.getLogger(HoverProvider::class.java)
 
-    // Documentation provider for extracting groovydoc
-    private val documentationProvider = com.github.albertocavalcante.groovylsp.documentation.DocumentationProvider(
-        documentProvider,
-    )
+    // Documentation provider for extracting groovydoc - use shared instance for cache consistency
+    private val documentationProvider = com.github.albertocavalcante.groovylsp.documentation.DocumentationProvider
+        .getInstance(documentProvider)
 
     /**
      * Provide hover information for the symbol at the given position.

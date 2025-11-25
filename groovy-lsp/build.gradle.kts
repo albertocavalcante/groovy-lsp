@@ -34,7 +34,7 @@ dependencies {
 
     // Gradle Tooling API - For dependency resolution
     // Use local Gradle installation since repo.gradle.org may not be accessible
-    val gradleHome = System.getProperty("gradle.user.home") ?: "${System.getProperty("user.home")}/.gradle"
+    val gradleHome = System.getenv("GRADLE_USER_HOME") ?: "${System.getProperty("user.home")}/.gradle"
     val gradleToolingJar =
         fileTree("$gradleHome/wrapper/dists") {
             include("**/gradle-tooling-api-*.jar")

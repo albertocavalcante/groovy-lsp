@@ -132,19 +132,3 @@ class DocExtractorTest {
         assertTrue(docAfter.isEmpty())
     }
 }
-
-@Test
-fun `debug sublist extraction`() {
-    val lines = listOf("line1", "line2", "/**", " * Doc", " */", "class Foo")
-    // Line 6 is "class Foo" (1-based)
-    // Line 5 is " */" (1-based)
-    // Line 4 is " * Doc" (1-based)
-    // Line 3 is "/**" (1-based)
-
-    // subList(2, 5) should give indices 2, 3, 4 = "/**", " * Doc", " */"
-    val result = lines.subList(2, 5)
-    println("Result: $result")
-    assertEquals(3, result.size)
-    assertTrue(result[0].contains("/**"))
-    assertTrue(result[2].contains("*/"))
-}

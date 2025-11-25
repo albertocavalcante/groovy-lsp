@@ -5,16 +5,18 @@ import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.AnnotatedNode
 import org.slf4j.LoggerFactory
 import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Service for retrieving documentation for AST nodes.
  * Extracts groovydoc/javadoc from workspace sources.
+ * Thread-safe for concurrent access from coroutines.
  */
 class DocumentationProvider(private val documentProvider: DocumentProvider) {
     private val logger = LoggerFactory.getLogger(DocumentationProvider::class.java)
 
-    // Simple cache to avoid recomputing documentation
-    private val cache = mutableMapOf<String, Documentation>()
+    // Thread-safe cache to avoid recomputing documentation
+    private val cache = ConcurrentHashMap<String, Documentation>()
 
     /**
      * Get documentation for an AST node from the given document.
@@ -66,8 +68,32 @@ class DocumentationProvider(private val documentProvider: DocumentProvider) {
 
     /**
      * Clear cached documentation for a specific document.
+     * Thread-safe: uses ConcurrentHashMap's atomic operations.
      */
     fun clearCache(documentUri: URI) {
-        cache.entries.removeIf { it.key.startsWith("$documentUri:") }
+        val prefix = "$documentUri:"
+        cache.keys.removeIf { it.startsWith(prefix) }
+    }
+
+    companion object {
+        // Shared instance for use across the application
+        @Volatile
+        private var instance: DocumentationProvider? = null
+
+        /**
+         * Get or create a shared DocumentationProvider instance.
+         * This ensures cache invalidation works across all hover requests.
+         */
+        fun getInstance(documentProvider: DocumentProvider): DocumentationProvider = instance ?: synchronized(this) {
+            instance ?: DocumentationProvider(documentProvider).also { instance = it }
+        }
+
+        /**
+         * Clear cache for a document across the shared instance.
+         * Call this when a document changes.
+         */
+        fun invalidateDocument(documentUri: URI) {
+            instance?.clearCache(documentUri)
+        }
     }
 }
