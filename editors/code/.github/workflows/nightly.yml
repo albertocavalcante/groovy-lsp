@@ -102,7 +102,7 @@ jobs:
           SKIP_PREPARE_SERVER: true
 
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: vsix-nightly-${{ steps.nightly_version.outputs.nightly_version }}
           path: "*.vsix"
