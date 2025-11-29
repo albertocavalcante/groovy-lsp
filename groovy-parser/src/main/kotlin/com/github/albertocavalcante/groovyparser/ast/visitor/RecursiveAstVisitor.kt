@@ -43,7 +43,7 @@ import java.net.URI
  *
  * This will live alongside the legacy delegate until parity is proven.
  */
-internal class RecursiveAstVisitor(private val tracker: NodeRelationshipTracker) {
+class RecursiveAstVisitor(private val tracker: NodeRelationshipTracker) {
 
     private lateinit var currentUri: URI
 
@@ -130,6 +130,12 @@ internal class RecursiveAstVisitor(private val tracker: NodeRelationshipTracker)
     }
 
     private fun shouldTrack(node: ASTNode): Boolean = node.lineNumber > 0 && node.columnNumber > 0
+
+    fun getAllNodes(): List<ASTNode> = tracker.getAllNodes()
+
+    fun getParent(node: ASTNode): ASTNode? = tracker.getParent(node)
+
+    fun getUri(node: ASTNode): URI? = tracker.getUri(node)
 
     private fun track(node: ASTNode, block: () -> Unit) {
         if (shouldTrack(node)) {

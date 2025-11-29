@@ -283,8 +283,13 @@ class VisitorBehaviorTest {
         val memberLiteral = allNodes.filterIsInstance<ConstantExpression>()
             .find { it.value == "1.2" }
         assertNotNull(memberLiteral, "Should have tracked annotation member value \"1.2\"")
+
+        val deprecatedAnnotation = annotations.find { annotation ->
+            annotation.classNode?.name == "java.lang.Deprecated"
+        }
+        assertNotNull(deprecatedAnnotation, "Deprecated annotation should be tracked")
         assertEquals(
-            annotations.first(),
+            deprecatedAnnotation,
             visitor.getParent(memberLiteral!!),
             "Annotation member should have annotation as parent",
         )

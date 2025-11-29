@@ -13,6 +13,7 @@ data class ParseRequest(
     val sourceRoots: List<Path> = emptyList(),
     val workspaceSources: List<Path> = emptyList(),
     val locatorCandidates: Set<String> = emptySet(),
+    val useRecursiveVisitor: Boolean = false,
 ) {
     val sourceUnitName: String = uri.path ?: uri.toString()
 }
