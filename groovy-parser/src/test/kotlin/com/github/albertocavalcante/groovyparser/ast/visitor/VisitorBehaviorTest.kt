@@ -6,6 +6,7 @@ import org.codehaus.groovy.ast.FieldNode
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.ast.Parameter
 import org.codehaus.groovy.ast.expr.ClosureExpression
+import org.codehaus.groovy.ast.expr.ConstantExpression
 import org.codehaus.groovy.ast.expr.DeclarationExpression
 import org.codehaus.groovy.ast.stmt.ExpressionStatement
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -181,6 +182,12 @@ class VisitorBehaviorTest {
             parameterNodes.size >= 2,
             "Should have tracked closure parameters, found ${parameterNodes.size}",
         )
+
+        // Each closure parameter should have the closure as parent
+        parameterNodes.forEach { param ->
+            val parent = visitor.getParent(param)
+            assertEquals(closure, parent, "Closure parameter ${param.name} should have closure as parent")
+        }
     }
 
     @Test
@@ -215,6 +222,72 @@ class VisitorBehaviorTest {
             // Parent should be the method (or its parameter list conceptually)
             assertNotNull(parent, "Parameter ${param.name} should have a parent")
         }
+    }
+
+    @Test
+    fun `tracks field initializer expressions`() {
+        val code = """
+            class Foo {
+                def field1 = 42
+                String field2 = "hello"
+            }
+        """.trimIndent()
+
+        val result = fixture.parse(code)
+        assertTrue(result.isSuccessful)
+
+        val visitor = result.astVisitor!!
+        val allNodes = visitor.getAllNodes()
+
+        val fields = allNodes.filterIsInstance<FieldNode>()
+        assertTrue(fields.size >= 2, "Should have at least 2 fields, found ${fields.size}")
+
+        fields.forEach { field ->
+            val init = field.initialExpression
+            assertNotNull(init, "Field ${field.name} should have an initializer")
+            assertTrue(allNodes.contains(init), "Initializer for field ${field.name} should be tracked")
+            val parent = visitor.getParent(init!!)
+            assertEquals(field, parent, "Initializer for field ${field.name} should have the field as parent")
+        }
+    }
+
+    @Test
+    fun `tracks annotations and their members`() {
+        val code = """
+            @Deprecated(since = "1.2")
+            class Foo {
+                @SuppressWarnings(["unchecked"])
+                def bar() {}
+            }
+        """.trimIndent()
+
+        val result = fixture.parse(code)
+        assertTrue(result.isSuccessful)
+
+        val visitor = result.astVisitor!!
+        val allNodes = visitor.getAllNodes()
+
+        val classNode = allNodes.filterIsInstance<ClassNode>().find { it.name.contains("Foo") }
+        assertNotNull(classNode, "Should have tracked class Foo")
+
+        // Annotation nodes should be tracked and attached to their owners
+        val annotations = allNodes.filterIsInstance<org.codehaus.groovy.ast.AnnotationNode>()
+        assertTrue(annotations.size >= 2, "Should have tracked class and method annotations")
+
+        annotations.forEach { annotation ->
+            val parent = visitor.getParent(annotation)
+            assertNotNull(parent, "Annotation ${annotation.classNode?.name} should have a parent")
+        }
+
+        // Annotation members (e.g., since = "1.2") should be visited as expressions
+        val memberLiteral = allNodes.filterIsInstance<ConstantExpression>()
+            .find { it.value == "1.2" }
+        assertNotNull(memberLiteral, "Should have tracked annotation member value \"1.2\"")
+        assertEquals(
+            annotations.first(),
+            visitor.getParent(memberLiteral!!),
+            "Annotation member should have annotation as parent",
+        )
     }
 
     @Test

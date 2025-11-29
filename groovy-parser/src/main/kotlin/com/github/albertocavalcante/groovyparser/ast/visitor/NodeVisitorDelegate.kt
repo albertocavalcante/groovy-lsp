@@ -144,7 +144,6 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
 
     override fun visitClass(node: ClassNode) {
         pushNode(node)
-        visitAnnotations(node)
         try {
             super.visitClass(node)
         } finally {
@@ -154,7 +153,6 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
 
     override fun visitMethod(node: MethodNode) {
         pushNode(node)
-        visitAnnotations(node)
         try {
             // Visit parameters
             node.parameters?.forEach { param ->
@@ -169,7 +167,6 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
 
     override fun visitField(node: FieldNode) {
         pushNode(node)
-        visitAnnotations(node)
         try {
             super.visitField(node)
         } finally {
@@ -179,7 +176,6 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
 
     override fun visitProperty(node: PropertyNode) {
         pushNode(node)
-        visitAnnotations(node)
         try {
             super.visitProperty(node)
         } finally {
