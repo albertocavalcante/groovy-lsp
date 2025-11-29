@@ -136,6 +136,48 @@ class RecursiveVisitorParityTest {
         }
     }
 
+    @Test
+    fun `recursive visitor matches delegate for nested annotations and default params`() {
+        val uri = URI.create("file:///parity-nested-annotations.groovy")
+        val code = """
+            @interface Inner { String name() }
+            @interface Wrapper { Inner value() }
+
+            @Wrapper(@Inner(name = "top"))
+            class AnnotatedDefaults {
+                @Deprecated(since = "1.1")
+                String fieldWithAnno = "x"
+
+                def run(
+                    @SuppressWarnings(["unused"])
+                    String arg = "default"
+                ) {
+                    @Wrapper(@Inner(name = "local"))
+                    def local = arg
+                    return local
+                }
+            }
+        """.trimIndent()
+
+        val result = fixture.parse(code, uri.toString())
+        assertTrue(result.isSuccessful, "Diagnostics: ${result.diagnostics}")
+        assertNotNull(result.ast, "AST should be available")
+
+        val (delegateNodes, delegateParents) = collectWithDelegate(result)
+        val (recursiveNodes, recursiveParents) = collectWithRecursive(result, uri)
+
+        assertNodeSetsMatch(delegateNodes, recursiveNodes)
+        delegateNodes.forEach { node ->
+            val delegateParent = delegateParents[node]
+            val recursiveParent = recursiveParents[node]
+            assertEquals(
+                delegateParent,
+                recursiveParent,
+                "Parent mismatch for ${node.describe()} (delegate=${delegateParent.describe()}, recursive=${recursiveParent.describe()})",
+            )
+        }
+    }
+
     private fun collectWithDelegate(
         result: com.github.albertocavalcante.groovyparser.api.ParseResult,
     ): Pair<Set<ASTNode>, Map<ASTNode, ASTNode?>> {
