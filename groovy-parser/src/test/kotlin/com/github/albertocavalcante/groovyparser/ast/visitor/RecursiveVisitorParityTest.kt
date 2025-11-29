@@ -5,6 +5,7 @@ import com.github.albertocavalcante.groovyparser.test.ParserTestFixture
 import org.codehaus.groovy.ast.ASTNode
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
 
@@ -36,28 +37,14 @@ class RecursiveVisitorParityTest {
         """.trimIndent()
 
         val result = fixture.parse(code, uri.toString())
+        assertTrue(result.isSuccessful, "Diagnostics: ${result.diagnostics}")
         assertNotNull(result.ast, "AST should be available")
 
         val (delegateNodes, delegateParents) = collectWithDelegate(result)
         val (recursiveNodes, recursiveParents) = collectWithRecursive(result, uri)
 
-        // Debug single declaration to understand parent expectations while we refine parity.
-        val localDecl = delegateNodes.filterIsInstance<org.codehaus.groovy.ast.expr.DeclarationExpression>()
-            .first { (it.leftExpression as org.codehaus.groovy.ast.expr.VariableExpression).name == "local" }
-        println(
-            "local decl parents -> delegate=${delegateParents[localDecl]?.describe()} recursive=${recursiveParents[localDecl]?.describe()}",
-        )
-        delegateNodes.filterIsInstance<org.codehaus.groovy.ast.stmt.BlockStatement>()
-            .forEach { block ->
-                println(
-                    "block ${block.lineNumber}:${block.columnNumber} -> delegate=${delegateParents[block]?.describe()} recursive=${recursiveParents[block]?.describe()}",
-                )
-            }
-
         assertNodeSetsMatch(delegateNodes, recursiveNodes)
         delegateNodes.forEach { node ->
-            // DeclarationExpression parenting differs in the legacy visitor; we will align in a later step.
-            if (node is org.codehaus.groovy.ast.expr.DeclarationExpression) return@forEach
             val delegateParent = delegateParents[node]
             val recursiveParent = recursiveParents[node]
             assertEquals(
@@ -88,6 +75,46 @@ class RecursiveVisitorParityTest {
                 do {
                     println "loop"
                 } while (false)
+            }
+        """.trimIndent()
+
+        val result = fixture.parse(code, uri.toString())
+        assertNotNull(result.ast, "AST should be available")
+        assertTrue(result.isSuccessful, "Diagnostics: ${result.diagnostics}")
+
+        val (delegateNodes, delegateParents) = collectWithDelegate(result)
+        val (recursiveNodes, recursiveParents) = collectWithRecursive(result, uri)
+
+        assertNodeSetsMatch(delegateNodes, recursiveNodes)
+        delegateNodes.forEach { node ->
+            val delegateParent = delegateParents[node]
+            val recursiveParent = recursiveParents[node]
+            assertEquals(
+                delegateParent,
+                recursiveParent,
+                "Parent mismatch for ${node.describe()} (delegate=${delegateParent.describe()}, recursive=${recursiveParent.describe()})",
+            )
+        }
+    }
+
+    @Test
+    fun `recursive visitor matches delegate for parameter and field annotations`() {
+        val uri = URI.create("file:///parity-annotations.groovy")
+        val code = """
+            class Annotated {
+                @Deprecated(since = "2.0")
+                String field
+
+                def run(
+                    @SuppressWarnings(["unchecked"])
+                    List<String> values
+                ) {
+                    values.each { v ->
+                        @SuppressWarnings("rawtypes")
+                        def local = v
+                        return local
+                    }
+                }
             }
         """.trimIndent()
 

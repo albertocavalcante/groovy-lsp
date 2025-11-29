@@ -217,7 +217,8 @@ internal class NodeVisitorDelegate(private val tracker: NodeRelationshipTracker)
     override fun visitDeclarationExpression(expression: DeclarationExpression) {
         pushNode(expression)
         try {
-            super.visitDeclarationExpression(expression)
+            expression.leftExpression.visit(this)
+            expression.rightExpression.visit(this)
         } finally {
             popNode()
         }

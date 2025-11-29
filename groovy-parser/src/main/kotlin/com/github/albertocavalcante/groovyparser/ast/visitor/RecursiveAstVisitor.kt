@@ -74,8 +74,8 @@ class RecursiveAstVisitor(private val tracker: NodeRelationshipTracker) {
     private fun visitClass(classNode: ClassNode) {
         track(classNode) {
             visitAnnotations(classNode)
-            classNode.fields.forEach { visitField(it) }
             classNode.properties?.forEach { visitProperty(it) }
+            classNode.fields.forEach { visitField(it) }
             classNode.methods.forEach { visitMethod(it) }
             classNode.objectInitializerStatements?.forEach { visitStatement(it) }
             classNode.innerClasses.forEach { visitClass(it) }
@@ -106,9 +106,8 @@ class RecursiveAstVisitor(private val tracker: NodeRelationshipTracker) {
     }
 
     private fun visitParameter(parameter: Parameter) {
-        track(parameter) {
-            visitAnnotations(parameter)
-        }
+        visitAnnotations(parameter)
+        track(parameter) {}
     }
 
     private fun visitAnnotation(annotation: org.codehaus.groovy.ast.AnnotationNode) {
