@@ -7,6 +7,7 @@ import java.net.URI
 import kotlin.io.path.createTempDirectory
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class GroovyParserFacadeTest {
@@ -109,5 +110,43 @@ class GroovyParserFacadeTest {
         assertTrue(recursiveNodes.isNotEmpty(), "Recursive visitor should collect nodes")
         val classCount = recursiveNodes.count { it is org.codehaus.groovy.ast.ClassNode }
         assertTrue(classCount >= 1, "Recursive visitor should track class nodes")
+    }
+
+    @Test
+    fun `astModel falls back to legacy visitor when recursive visitor is disabled`() {
+        val code = "class Legacy { String name }"
+
+        val result = parser.parse(
+            ParseRequest(
+                uri = URI.create("file:///Legacy.groovy"),
+                content = code,
+                useRecursiveVisitor = false,
+            ),
+        )
+
+        assertTrue(result.isSuccessful)
+        assertNotNull(result.astVisitor)
+        assertSame(result.astVisitor, result.astModel, "astModel should use legacy visitor when recursive is disabled")
+    }
+
+    @Test
+    fun `astModel prefers recursive visitor when enabled`() {
+        val code = "class Preferred { void run() {} }"
+
+        val result = parser.parse(
+            ParseRequest(
+                uri = URI.create("file:///Preferred.groovy"),
+                content = code,
+                useRecursiveVisitor = true,
+            ),
+        )
+
+        assertTrue(result.isSuccessful)
+        assertNotNull(result.recursiveVisitor)
+        assertSame(
+            result.recursiveVisitor,
+            result.astModel,
+            "astModel should point to recursive visitor when enabled",
+        )
     }
 }
