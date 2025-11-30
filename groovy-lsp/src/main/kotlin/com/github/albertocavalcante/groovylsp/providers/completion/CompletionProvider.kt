@@ -144,6 +144,8 @@ object CompletionProvider {
                 is ContextType.MemberAccess -> {
                     logger.debug("Adding GDK/Classpath methods for {}", completionContext.qualifierType)
                     // Strip generics for method lookup (e.g. "ArrayList<String>" -> "ArrayList")
+                    // Note: substringBefore('<') is safe even for nested generics (e.g. Map<String, List<Integer>>)
+                    // because we only need the raw outer type to look up methods on the class itself.
                     val rawType = completionContext.qualifierType.substringBefore('<')
                     addGdkMethods(rawType, compilationService)
                     addClasspathMethods(rawType, compilationService)
