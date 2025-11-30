@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory
  */
 object CompletionProvider {
     private val logger = LoggerFactory.getLogger(CompletionProvider::class.java)
+    private const val DUMMY_IDENTIFIER = "BrazilWorldCup2026"
 
     /**
      * Get basic Groovy language completion items using DSL.
@@ -28,25 +29,24 @@ object CompletionProvider {
     /**
      * Get contextual completions based on AST analysis.
      */
-    fun getContextualCompletions(
+    suspend fun getContextualCompletions(
         uri: String,
         line: Int,
         character: Int,
         compilationService: GroovyCompilationService,
+        content: String,
     ): List<CompletionItem> = try {
-        println("### getContextualCompletions called: uri=$uri, line=$line, char=$character")
-
         val uriObj = java.net.URI.create(uri)
-        println("URI object: $uriObj")
 
-        // Get the AST for the current file
-        val ast = compilationService.getAst(uriObj)
-        val astModel = compilationService.getAstModel(uriObj)
+        // Insert dummy identifier to make incomplete code parseable
+        val modifiedContent = insertDummyIdentifier(content, line, character)
 
-        println("AST: $ast, ASTModel: $astModel")
+        // Perform transient compilation (does not update cache)
+        val parseResult = compilationService.compileTransient(uriObj, modifiedContent)
+        val ast = parseResult.ast
+        val astModel = parseResult.astModel
 
         if (ast == null || astModel == null) {
-            println("AST or AST Model is null!")
             emptyList()
         } else {
             buildCompletionsList(ast, astModel, line, character, compilationService, uriObj)
@@ -57,6 +57,21 @@ object CompletionProvider {
         emptyList()
     }
 
+    private fun insertDummyIdentifier(content: String, line: Int, character: Int): String {
+        val lines = content.lines().toMutableList()
+        if (line < 0 || line >= lines.size) return content
+
+        val targetLine = lines[line]
+        // Ensure character is within bounds
+        val safeChar = character.coerceIn(0, targetLine.length)
+
+        // Insert dummy identifier
+        val modifiedLine = targetLine.substring(0, safeChar) + DUMMY_IDENTIFIER + targetLine.substring(safeChar)
+        lines[line] = modifiedLine
+
+        return lines.joinToString("\n")
+    }
+
     private fun buildCompletionsList(
         ast: org.codehaus.groovy.ast.ASTNode,
         astModel: com.github.albertocavalcante.groovyparser.ast.GroovyAstModel,
@@ -65,17 +80,12 @@ object CompletionProvider {
         compilationService: GroovyCompilationService,
         uri: java.net.URI,
     ): List<CompletionItem> {
-        println("=== buildCompletionsList called ===")
-        println("URI: $uri, line: $line, character: $character")
-
         // Extract completion context
         val context = SymbolExtractor.extractCompletionSymbols(ast, line, character)
 
         // Try to detect member access (e.g., "myList.")
         val nodeAtCursor = astModel.getNodeAt(uri, line, character)
-        println("NodeAtCursor result: $nodeAtCursor")
         val completionContext = detectCompletionContext(nodeAtCursor, astModel)
-        println("CompletionContext result: $completionContext")
 
         return completions {
             // Add local symbol completions
@@ -89,13 +99,13 @@ object CompletionProvider {
             // Handle contextual completions
             when (completionContext) {
                 is CompletionContext.MemberAccess -> {
-                    println("Adding GDK/Classpath methods for ${completionContext.qualifierType}")
+                    logger.debug("Adding GDK/Classpath methods for {}", completionContext.qualifierType)
                     addGdkMethods(completionContext.qualifierType, compilationService)
                     addClasspathMethods(completionContext.qualifierType, compilationService)
                 }
 
                 is CompletionContext.TypeParameter -> {
-                    println("Adding type parameter classes for prefix '${completionContext.prefix}'")
+                    logger.debug("Adding type parameter classes for prefix '{}'", completionContext.prefix)
                     addTypeParameterClasses(completionContext.prefix, compilationService)
                 }
 
@@ -113,50 +123,33 @@ object CompletionProvider {
         nodeAtCursor: org.codehaus.groovy.ast.ASTNode?,
         astModel: com.github.albertocavalcante.groovyparser.ast.GroovyAstModel,
     ): CompletionContext? {
-        println("=== COMPLETION CONTEXT DETECTION ===")
-        println("Node at cursor: ${nodeAtCursor?.javaClass?.simpleName}")
-
         if (nodeAtCursor == null) {
-            println("No node at cursor position")
             return null
         }
 
-        // Log node details
-        println("Node type: ${nodeAtCursor.javaClass.name}")
-        println("Node text: ${nodeAtCursor.text}")
-        println("Node line: ${nodeAtCursor.lineNumber}, column: ${nodeAtCursor.columnNumber}")
-
         // Check parent as well
         val parent = astModel.getParent(nodeAtCursor)
-        println("Parent node: ${parent?.javaClass?.simpleName}")
-        println("Parent text: ${parent?.text}")
 
         return when (nodeAtCursor) {
             // Case 1: Direct PropertyExpression (e.g., "myList.ea|")
             is org.codehaus.groovy.ast.expr.PropertyExpression -> {
-                println("Found PropertyExpression!")
-                println("  Object expression: ${nodeAtCursor.objectExpression.javaClass.simpleName}")
-                println("  Object type: ${nodeAtCursor.objectExpression.type?.name}")
-                println("  Property: ${nodeAtCursor.property}")
-
                 val qualifierType = nodeAtCursor.objectExpression.type?.name
-                println("  Resolved qualifier type: $qualifierType")
                 qualifierType?.let { CompletionContext.MemberAccess(it) }
             }
 
-            // Case 2: VariableExpression that's part of a PropertyExpression
+            // Case 2: VariableExpression that's part of a PropertyExpression or BinaryExpression
             // (e.g., cursor is on "myList" in "myList.")
             is org.codehaus.groovy.ast.expr.VariableExpression -> {
-                println("Found VariableExpression: ${nodeAtCursor.name}")
-                println("  Variable type: ${nodeAtCursor.type?.name}")
-
                 if (parent is org.codehaus.groovy.ast.expr.PropertyExpression) {
-                    println("  Parent is PropertyExpression - member access detected!")
                     val qualifierType = nodeAtCursor.type?.name
-                    println("  Resolved qualifier type: $qualifierType")
                     qualifierType?.let { CompletionContext.MemberAccess(it) }
+                } else if (parent is org.codehaus.groovy.ast.expr.BinaryExpression &&
+                    parent.operation.text == "<" &&
+                    nodeAtCursor.name.contains(DUMMY_IDENTIFIER)
+                ) {
+                    val prefix = nodeAtCursor.name.substringBefore(DUMMY_IDENTIFIER)
+                    CompletionContext.TypeParameter(prefix)
                 } else {
-                    println("  Parent is NOT PropertyExpression")
                     null
                 }
             }
@@ -164,53 +157,38 @@ object CompletionProvider {
             // Case 3: ConstantExpression that's the property in a PropertyExpression
             // (e.g., cursor lands on the dummy identifier "IntelliJIdeaRulezzz" in "myList.IntelliJIde aRulezzz")
             is org.codehaus.groovy.ast.expr.ConstantExpression -> {
-                println("Found ConstantExpression: ${nodeAtCursor.text}")
-
                 if (parent is org.codehaus.groovy.ast.expr.PropertyExpression) {
-                    println("  Parent is PropertyExpression - extracting object type!")
-                    println("  Object expression: ${parent.objectExpression.javaClass.simpleName}")
                     val qualifierType = parent.objectExpression.type?.name
-                    println("  Resolved qualifier type: $qualifierType")
                     qualifierType?.let { CompletionContext.MemberAccess(it) }
                 } else {
-                    println("  Parent is NOT PropertyExpression")
                     null
                 }
             }
 
             // Case 4: ClassExpression (e.g. "List<String>")
             is org.codehaus.groovy.ast.expr.ClassExpression -> {
-                println("Found ClassExpression: ${nodeAtCursor.type.name}")
                 val generics = nodeAtCursor.type.genericsTypes
                 if (generics != null && generics.isNotEmpty()) {
-                    println("  Has generics: ${generics.map { it.name }}")
                     // Check if any generic type matches our dummy identifier
-                    val dummyGeneric = generics.find { it.name.contains("IntelliJIdeaRulezzz") }
+                    val dummyGeneric = generics.find { it.name.contains(DUMMY_IDENTIFIER) }
                     if (dummyGeneric != null) {
-                        println("  Found dummy generic: ${dummyGeneric.name}")
                         // Extract prefix (everything before the dummy identifier)
-                        val prefix = dummyGeneric.name.substringBefore("IntelliJIdeaRulezzz")
-                        println("  Extracted prefix: '$prefix'")
+                        val prefix = dummyGeneric.name.substringBefore(DUMMY_IDENTIFIER)
                         CompletionContext.TypeParameter(prefix)
                     } else {
                         null
                     }
                 } else {
-                    println("  No generics found")
                     null
                 }
             }
 
             // Case 5: Method call expression (might be incomplete)
             is org.codehaus.groovy.ast.expr.MethodCallExpression -> {
-                println("Found MethodCallExpression")
-                println("  Object expression: ${nodeAtCursor.objectExpression?.javaClass?.simpleName}")
-                println("  Method: ${nodeAtCursor.methodAsString}")
                 null // For now, don't handle method calls
             }
 
             else -> {
-                println("Unhandled node type for member access: ${nodeAtCursor.javaClass.simpleName}")
                 null
             }
         }

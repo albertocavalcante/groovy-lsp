@@ -40,6 +40,7 @@ class CompletionProviderTest {
             2, // Line within class
             8, // Character position
             compilationService,
+            content,
         )
 
         // Assert - Should return some completions (could be empty if no context matches)
@@ -54,6 +55,7 @@ class CompletionProviderTest {
             0,
             0,
             compilationService,
+            "",
         )
 
         // Assert - Should return empty list for invalid URI
@@ -68,6 +70,7 @@ class CompletionProviderTest {
             0,
             0,
             compilationService,
+            "",
         )
 
         // Assert - Should return empty list when no compilation exists

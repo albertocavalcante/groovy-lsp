@@ -96,6 +96,28 @@ class GroovyCompilationService {
         return result
     }
 
+    /**
+     * Compiles code without updating the cache.
+     * Useful for completion where we insert a dummy identifier.
+     */
+    suspend fun compileTransient(uri: URI, content: String): com.github.albertocavalcante.groovyparser.api.ParseResult {
+        logger.debug("Transient compilation for: $uri")
+        val sourcePath = runCatching { Path.of(uri) }.getOrNull()
+        val classpath = workspaceManager.getClasspathForFile(uri, content)
+
+        return parser.parse(
+            ParseRequest(
+                uri = uri,
+                content = content,
+                classpath = classpath,
+                sourceRoots = workspaceManager.getSourceRoots(),
+                workspaceSources = workspaceManager.getWorkspaceSources(),
+                locatorCandidates = buildLocatorCandidates(uri, sourcePath),
+                useRecursiveVisitor = true,
+            ),
+        )
+    }
+
     fun getParseResult(uri: URI): com.github.albertocavalcante.groovyparser.api.ParseResult? = cache.get(uri)
 
     fun getAst(uri: URI): ASTNode? = getParseResult(uri)?.ast
