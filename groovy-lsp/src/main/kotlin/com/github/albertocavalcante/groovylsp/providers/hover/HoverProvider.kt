@@ -9,10 +9,10 @@ import com.github.albertocavalcante.groovylsp.errors.NodeNotFoundAtPositionExcep
 import com.github.albertocavalcante.groovylsp.errors.SymbolResolutionException
 import com.github.albertocavalcante.groovylsp.errors.invalidPosition
 import com.github.albertocavalcante.groovylsp.services.DocumentProvider
+import com.github.albertocavalcante.groovyparser.ast.GroovyAstModel
 import com.github.albertocavalcante.groovyparser.ast.findNodeAt
 import com.github.albertocavalcante.groovyparser.ast.isHoverable
 import com.github.albertocavalcante.groovyparser.ast.resolveToDefinition
-import com.github.albertocavalcante.groovyparser.ast.GroovyAstModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.codehaus.groovy.ast.ASTNode
@@ -166,10 +166,7 @@ class HoverProvider(
         return node.resolveToDefinition(visitor, symbolTable, strict = false) ?: node
     }
 
-    private fun resolveConstant(
-        node: ConstantExpression,
-        visitor: GroovyAstModel,
-    ): ASTNode {
+    private fun resolveConstant(node: ConstantExpression, visitor: GroovyAstModel): ASTNode {
         val parent = visitor.getParent(node)
         if (parent is MethodCallExpression && parent.method == node) {
             return parent

@@ -1,7 +1,6 @@
 package com.github.albertocavalcante.groovyparser.ast
 
 import org.codehaus.groovy.ast.ASTNode
-import com.github.albertocavalcante.groovyparser.ast.GroovyAstModel
 import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.ConstructorNode

@@ -93,6 +93,7 @@ class GroovyTypeResolver(
         }
     }
 
+    @Suppress("DEPRECATION") // Groovy's DYNAMIC_TYPE is deprecated in newer APIs but still required here
     private suspend fun resolveVariableType(variable: VariableExpression, context: CompilationContext): ClassNode? {
         // Follow IntelliJ pattern: Variable -> originType -> resolved type
         val accessedVariable = variable.accessedVariable
