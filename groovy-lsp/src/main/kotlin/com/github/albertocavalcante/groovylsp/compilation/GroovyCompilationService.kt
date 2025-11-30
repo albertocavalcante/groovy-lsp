@@ -217,6 +217,7 @@ class GroovyCompilationService {
     // Expose cache for testing purposes
     internal val astCache get() = cache
 
+    private val classLoaderLock = Any()
     private var cachedClassLoader: java.net.URLClassLoader? = null
 
     /**
@@ -237,21 +238,25 @@ class GroovyCompilationService {
     }
 
     private fun getOrCreateClassLoader(): java.net.URLClassLoader {
-        cachedClassLoader?.let { return it }
+        synchronized(classLoaderLock) {
+            cachedClassLoader?.let { return it }
 
-        val classpath = workspaceManager.getDependencyClasspath()
-        val urls = classpath.map { it.toUri().toURL() }.toTypedArray()
-        val loader = java.net.URLClassLoader(urls, null) // Parent null to only search dependencies
-        cachedClassLoader = loader
-        return loader
+            val classpath = workspaceManager.getDependencyClasspath()
+            val urls = classpath.map { it.toUri().toURL() }.toTypedArray()
+            val loader = java.net.URLClassLoader(urls, null) // Parent null to only search dependencies
+            cachedClassLoader = loader
+            return loader
+        }
     }
 
     private fun invalidateClassLoader() {
-        try {
-            cachedClassLoader?.close()
-        } catch (e: Exception) {
-            logger.warn("Error closing class loader", e)
+        synchronized(classLoaderLock) {
+            try {
+                cachedClassLoader?.close()
+            } catch (e: Exception) {
+                logger.warn("Error closing class loader", e)
+            }
+            cachedClassLoader = null
         }
-        cachedClassLoader = null
     }
 }
