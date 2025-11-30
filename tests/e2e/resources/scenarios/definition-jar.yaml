@@ -41,6 +41,15 @@ steps:
         - jsonPath: '$.message'
           expect:
             type: 'CONTAINS'
+            value: 'Resolving Gradle dependencies'
+      timeoutMs: 10000
+
+  - waitNotification:
+      method: window/showMessage
+      checks:
+        - jsonPath: '$.message'
+          expect:
+            type: 'CONTAINS'
             value: 'Dependencies loaded'
       timeoutMs: 60000
 

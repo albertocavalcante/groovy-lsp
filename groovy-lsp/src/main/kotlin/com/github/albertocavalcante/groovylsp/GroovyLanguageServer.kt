@@ -172,6 +172,12 @@ class GroovyLanguageServer :
         }
 
         logger.info("Starting background dependency resolution for: $workspaceRoot")
+        client?.showMessage(
+            MessageParams().apply {
+                type = MessageType.Info
+                message = "Resolving Gradle dependencies..."
+            },
+        )
 
         val progressReporter = ProgressReporter(client)
 

@@ -35,7 +35,15 @@ class GradleDependencyResolver : DependencyResolver {
         return try {
             // Use connection pool for better performance
             val connection = GradleConnectionPool.getConnection(projectDir)
-            val ideaProject = connection.model(IdeaProject::class.java).get()
+            val ideaProject = connection.model(IdeaProject::class.java)
+                .withArguments(
+                    "-Dorg.gradle.daemon=true",
+                    "-Dorg.gradle.parallel=true",
+                    "-Dorg.gradle.configureondemand=true",
+                    "-Dorg.gradle.vfs.watch=true",
+                )
+                .setJvmArguments("-Xmx1g", "-XX:+UseG1GC")
+                .get()
 
             val dependencies = mutableSetOf<Path>()
             val sourceDirectories = mutableSetOf<Path>()
