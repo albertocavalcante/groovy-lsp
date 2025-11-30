@@ -1,18 +1,45 @@
-import { workspace, Disposable } from 'vscode';
-import { affectsJavaConfiguration } from './settings';
-import { restartClient } from '../server/client';
+import { workspace, Disposable, window } from 'vscode';
+import {
+    requiresServerRestart,
+    canBeAppliedDynamically
+} from './settings';
+import { restartClient, getClient } from '../server/client';
 
 /**
  * Sets up configuration change watchers
  */
 export function setupConfigurationWatcher(): Disposable {
     return workspace.onDidChangeConfiguration(async (event) => {
-        // Restart server if Java configuration changed
-        if (affectsJavaConfiguration(event)) {
-            console.log('Java configuration changed, restarting server...');
-            await restartClient();
+        // Check if any groovy.* configuration changed
+        if (!event.affectsConfiguration('groovy')) {
+            return;
         }
 
-        // Add other configuration change handlers here as needed
+        // Handle settings that require a server restart
+        if (requiresServerRestart(event)) {
+            const answer = await window.showInformationMessage(
+                'Groovy configuration changed. The language server needs to be restarted for changes to take effect.',
+                'Restart Now',
+                'Restart Later'
+            );
+
+            if (answer === 'Restart Now') {
+                console.log('Configuration changed, restarting server...');
+                await restartClient();
+            }
+            return;
+        }
+
+        // Handle settings that can be applied dynamically
+        if (canBeAppliedDynamically(event)) {
+            console.log('Configuration changed, notifying server...');
+            const client = getClient();
+            if (client) {
+                // The LSP client automatically sends workspace/didChangeConfiguration
+                // when configurationSection is set in client options
+                // No action needed here - just log for debugging
+                console.log('Server will be notified via workspace/didChangeConfiguration');
+            }
+        }
     });
 }

@@ -35,6 +35,10 @@
         "title": "Groovy: Restart Language Server"
       },
       {
+        "command": "groovy.showVersion",
+        "title": "Groovy: Show Language Server Version"
+      },
+      {
         "command": "groovy.gradle.build",
         "title": "Gradle: Build"
       },
@@ -175,6 +179,123 @@
           "type": "boolean",
           "default": true,
           "description": "Enable/disable code formatting for Groovy files"
+        },
+        "groovy.compilation.mode": {
+          "type": "string",
+          "enum": [
+            "workspace",
+            "single-file"
+          ],
+          "default": "workspace",
+          "enumDescriptions": [
+            "Compile all files together for full project context (slower, more accurate)",
+            "Compile each file independently for faster feedback (may miss cross-file errors)"
+          ],
+          "description": "Compilation mode for Groovy files"
+        },
+        "groovy.compilation.incrementalThreshold": {
+          "type": "number",
+          "default": 50,
+          "minimum": 1,
+          "description": "Number of files changed to trigger full workspace recompilation"
+        },
+        "groovy.compilation.maxWorkspaceFiles": {
+          "type": "number",
+          "default": 500,
+          "minimum": 1,
+          "description": "Maximum number of files to compile in workspace mode. Larger projects automatically use single-file mode."
+        },
+        "groovy.codenarc.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable CodeNarc static analysis for Groovy files"
+        },
+        "groovy.codenarc.propertiesFile": {
+          "type": "string",
+          "description": "Path to custom CodeNarc configuration file (.properties or .groovy). If not set, auto-detection is used."
+        },
+        "groovy.codenarc.autoDetect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically detect project type (Jenkins, Gradle, Spock) and apply appropriate CodeNarc ruleset"
+        },
+        "groovy.jenkins.filePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "Jenkinsfile",
+            "*.jenkins",
+            "*.jenkinsfile"
+          ],
+          "description": "File patterns to recognize as Jenkins Pipeline files"
+        },
+        "groovy.jenkins.sharedLibraries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Library name (e.g., 'my-pipeline-lib')"
+              },
+              "jar": {
+                "type": "string",
+                "description": "Absolute path to library JAR file"
+              },
+              "sourcesJar": {
+                "type": "string",
+                "description": "Absolute path to library sources JAR (optional, for navigation)"
+              }
+            },
+            "required": [
+              "name",
+              "jar"
+            ]
+          },
+          "default": [],
+          "markdownDescription": "Jenkins shared libraries configuration. Each library provides custom pipeline steps and DSL extensions.\n\nExample:\n```json\n[\n  {\n    \"name\": \"my-pipeline-lib\",\n    \"jar\": \"/path/to/my-pipeline-lib.jar\",\n    \"sourcesJar\": \"/path/to/my-pipeline-lib-sources.jar\"\n  }\n]\n```"
+        },
+        "groovy.jenkins.gdslPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Paths to IntelliJ GDSL files for DSL enhancements. GDSL files provide dynamic method and property contributions for pipeline DSLs.\n\nExample: `[\"/path/to/jenkins.gdsl\"]`"
+        },
+        "groovy.todo.scanEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable TODO/FIXME comment scanning and reporting"
+        },
+        "groovy.todo.patterns": {
+          "type": "object",
+          "default": {
+            "TODO": "Information",
+            "FIXME": "Warning",
+            "XXX": "Warning",
+            "HACK": "Warning",
+            "NOTE": "Information",
+            "BUG": "Error",
+            "OPTIMIZE": "Hint"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "Error",
+              "Warning",
+              "Information",
+              "Hint"
+            ]
+          },
+          "markdownDescription": "TODO comment patterns and their diagnostic severity levels.\n\nExample:\n```json\n{\n  \"TODO\": \"Information\",\n  \"FIXME\": \"Warning\",\n  \"HACK\": \"Error\"\n}\n```"
+        },
+        "groovy.todo.semanticTokensEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use semantic tokens for TODO comment highlighting (requires LSP semantic tokens support)"
         }
       }
     }

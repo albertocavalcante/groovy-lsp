@@ -8,11 +8,35 @@ A VS Code extension that adds Groovy language support with syntax highlighting, 
 
 ## Features
 
+### Core Language Support
 - [x] Syntax highlighting for all Groovy file types
-- [x] Code completion and IntelliSense
+- [x] Code completion and IntelliSense with type information
 - [x] Real-time error detection and diagnostics
-- [x] Hover documentation
+- [x] Hover documentation with GroovyDoc/JavaDoc
+- [x] Go to Definition & Type Definition
+- [x] Find All References
+- [x] Rename Symbol (workspace-wide)
+- [x] Signature Help (parameter hints)
+- [x] Code Formatting (OpenRewrite-based)
+- [x] Document & Workspace Symbols
 - [x] Automatic language server management
+
+### Static Analysis
+- [x] CodeNarc integration with project-specific rulesets
+- [x] Auto-detection of project types (Jenkins, Gradle, Spock)
+- [x] Quick fixes for common issues
+- [x] TODO/FIXME comment scanning
+
+### Build Integration
+- [x] Gradle project support
+- [x] Automatic dependency resolution
+- [x] Multi-workspace support
+
+### Jenkins Pipeline
+- [x] Jenkinsfile syntax support
+- [x] Shared library configuration
+- [x] GDSL file support for DSL extensions
+- [x] Custom pipeline step completion
 
 ## Supported Files
 
@@ -33,17 +57,94 @@ That's it! The extension will find Java automatically from your PATH or `JAVA_HO
 
 ## Configuration
 
-If you need to specify a custom Java installation:
+### Basic Settings
 
 ```json
 {
-  "groovy.java.home": "/path/to/your/java17"
+  // Java configuration (required)
+  "groovy.java.home": "/path/to/your/java17",
+
+  // Enable/disable code formatting
+  "groovy.format.enable": true,
+
+  // Trace LSP communication (off, messages, verbose)
+  "groovy.trace.server": "off"
+}
+```
+
+### CodeNarc Static Analysis
+
+```json
+{
+  // Enable CodeNarc linting
+  "groovy.codenarc.enabled": true,
+
+  // Path to custom CodeNarc config file
+  "groovy.codenarc.propertiesFile": "/path/to/codenarc.properties",
+
+  // Auto-detect project type and apply appropriate ruleset
+  "groovy.codenarc.autoDetect": true
+}
+```
+
+### Jenkins Pipeline Support
+
+For Jenkins shared libraries:
+
+```json
+{
+  // File patterns to recognize as Jenkinsfiles
+  "groovy.jenkins.filePatterns": ["Jenkinsfile", "*.jenkins", "*.jenkinsfile"],
+
+  // Configure shared libraries
+  "groovy.jenkins.sharedLibraries": [
+    {
+      "name": "my-pipeline-lib",
+      "jar": "/path/to/my-pipeline-lib.jar",
+      "sourcesJar": "/path/to/my-pipeline-lib-sources.jar"
+    }
+  ],
+
+  // GDSL files for DSL enhancements
+  "groovy.jenkins.gdslPaths": ["/path/to/jenkins.gdsl"]
+}
+```
+
+### Compilation Settings
+
+```json
+{
+  // Compilation mode: "workspace" (accurate) or "single-file" (fast)
+  "groovy.compilation.mode": "workspace",
+
+  // Files changed threshold for full recompilation
+  "groovy.compilation.incrementalThreshold": 50,
+
+  // Maximum files to compile in workspace mode
+  "groovy.compilation.maxWorkspaceFiles": 500
+}
+```
+
+### TODO Comment Scanning
+
+```json
+{
+  // Enable TODO/FIXME scanning
+  "groovy.todo.scanEnabled": true,
+
+  // Configure patterns and severity levels
+  "groovy.todo.patterns": {
+    "TODO": "Information",
+    "FIXME": "Warning",
+    "BUG": "Error"
+  }
 }
 ```
 
 ## Commands
 
-- `Groovy: Restart Server` - Restart the language server if something goes wrong
+- `Groovy: Restart Language Server` - Restart the language server if something goes wrong
+- `Groovy: Show Language Server Version` - Display the current LSP server version
 
 ## Development
 

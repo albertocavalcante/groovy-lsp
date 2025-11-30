@@ -11,6 +11,50 @@ import { setClient } from '../ui/statusBar';
 import { getConfiguration } from '../configuration/settings';
 import { ServerResolver } from '../services/ServerResolver';
 
+/**
+ * Jenkins shared library configuration
+ */
+interface JenkinsSharedLibrary {
+    name: string;
+    jar: string;
+    sourcesJar?: string;
+}
+
+/**
+ * LSP Server initialization options matching the server's configuration schema
+ */
+interface LspInitializationOptions {
+    server: {
+        maxNumberOfProblems: number;
+    };
+    compilation: {
+        mode: 'workspace' | 'single-file';
+        incrementalThreshold: number;
+        maxWorkspaceFiles: number;
+    };
+    codenarc: {
+        enabled: boolean;
+        propertiesFile?: string;
+        autoDetect: boolean;
+    };
+    jenkins: {
+        filePatterns: string[];
+        sharedLibraries: JenkinsSharedLibrary[];
+        gdslPaths: string[];
+    };
+    todo: {
+        scanEnabled: boolean;
+        patterns: Record<string, 'Error' | 'Warning' | 'Information' | 'Hint'>;
+        semanticTokensEnabled: boolean;
+    };
+    format: {
+        enable: boolean;
+    };
+    trace: {
+        server: 'off' | 'messages' | 'verbose';
+    };
+}
+
 let client: LanguageClient | undefined;
 let context: ExtensionContext | undefined;
 
@@ -99,6 +143,66 @@ async function createServerOptions(): Promise<ServerOptions> {
 }
 
 /**
+ * Builds initialization options from workspace configuration
+ */
+function buildInitializationOptions(): LspInitializationOptions {
+    const config = workspace.getConfiguration('groovy');
+
+    return {
+        // Server configuration
+        server: {
+            maxNumberOfProblems: config.get<number>('server.maxNumberOfProblems', 100)
+        },
+
+        // Compilation settings
+        compilation: {
+            mode: config.get<'workspace' | 'single-file'>('compilation.mode', 'workspace'),
+            incrementalThreshold: config.get<number>('compilation.incrementalThreshold', 50),
+            maxWorkspaceFiles: config.get<number>('compilation.maxWorkspaceFiles', 500)
+        },
+
+        // CodeNarc static analysis
+        codenarc: {
+            enabled: config.get<boolean>('codenarc.enabled', true),
+            propertiesFile: config.get<string>('codenarc.propertiesFile'),
+            autoDetect: config.get<boolean>('codenarc.autoDetect', true)
+        },
+
+        // Jenkins pipeline support
+        jenkins: {
+            filePatterns: config.get<string[]>('jenkins.filePatterns', ['Jenkinsfile', '*.jenkins', '*.jenkinsfile']),
+            sharedLibraries: config.get<JenkinsSharedLibrary[]>('jenkins.sharedLibraries', []),
+            gdslPaths: config.get<string[]>('jenkins.gdslPaths', [])
+        },
+
+        // TODO/FIXME scanning
+        todo: {
+            scanEnabled: config.get<boolean>('todo.scanEnabled', true),
+            patterns: config.get<Record<string, 'Error' | 'Warning' | 'Information' | 'Hint'>>('todo.patterns', {
+                'TODO': 'Information',
+                'FIXME': 'Warning',
+                'XXX': 'Warning',
+                'HACK': 'Warning',
+                'NOTE': 'Information',
+                'BUG': 'Error',
+                'OPTIMIZE': 'Hint'
+            }),
+            semanticTokensEnabled: config.get<boolean>('todo.semanticTokensEnabled', true)
+        },
+
+        // Formatting
+        format: {
+            enable: config.get<boolean>('format.enable', true)
+        },
+
+        // Trace/debugging
+        trace: {
+            server: config.get<'off' | 'messages' | 'verbose'>('trace.server', 'off')
+        }
+    };
+}
+
+/**
  * Creates client options for the Language Client
  */
 function createClientOptions(): LanguageClientOptions {
@@ -112,8 +216,11 @@ function createClientOptions(): LanguageClientOptions {
         ],
         synchronize: {
             // Notify the server about file changes to Groovy files in the workspace
-            fileEvents: workspace.createFileSystemWatcher('**/*.{groovy,gvy,gy,gsh,gradle,Jenkinsfile}')
+            fileEvents: workspace.createFileSystemWatcher('**/*.{groovy,gvy,gy,gsh,gradle,Jenkinsfile}'),
+            // Also notify about configuration changes for all groovy.* settings
+            configurationSection: 'groovy'
         },
+        initializationOptions: buildInitializationOptions(),
         outputChannelName: 'Groovy Language Server',
         traceOutputChannel: workspace.getConfiguration('groovy').get('trace.server') !== 'off'
             ? window.createOutputChannel('Groovy Language Server Trace')
