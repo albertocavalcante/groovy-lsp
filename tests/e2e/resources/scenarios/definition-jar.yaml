@@ -56,7 +56,8 @@ steps:
       timeoutMs: 180000
       optional: true
 
-  # After download completes (or skipped), dependency resolution should complete
+  # After download notification (or skipped), wait for download + resolution to complete
+  # If download is happening, this can take 60-180s for the download itself
   - waitNotification:
       method: window/showMessage
       checks:
@@ -64,7 +65,7 @@ steps:
           expect:
             type: 'CONTAINS'
             value: 'Dependencies loaded'
-      timeoutMs: 60000
+      timeoutMs: 180000
 
   - request:
       method: 'textDocument/definition'
