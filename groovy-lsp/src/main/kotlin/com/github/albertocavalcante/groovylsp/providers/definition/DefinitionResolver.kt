@@ -228,6 +228,16 @@ class DefinitionResolver(
     }
 
     /**
+     * Check if we should attempt global lookup.
+     * This is needed when local resolution returns the reference itself (common for ClassNode)
+     * or when no definition was found.
+     */
+
+    /**
+     * Attempt to find definition globally using the compilation service.
+     */
+
+    /**
      * Validate the definition node has proper position information.
      */
     private fun validateDefinition(definition: ASTNode, uri: URI): ASTNode {
