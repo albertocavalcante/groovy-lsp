@@ -39,29 +39,65 @@ object CompletionProvider {
         character: Int,
         compilationService: GroovyCompilationService,
         content: String,
-    ): List<CompletionItem> = try {
-        val uriObj = java.net.URI.create(uri)
+    ): List<CompletionItem> {
+        return try {
+            val uriObj = java.net.URI.create(uri)
 
-        // Insert dummy identifier to make incomplete code parseable
-        val modifiedContent = insertDummyIdentifier(content, line, character)
+            // Determine if we are inserting into an existing identifier
+            val isClean = isCleanInsertion(content, line, character)
 
-        // Perform transient compilation (does not update cache)
-        val parseResult = compilationService.compileTransient(uriObj, modifiedContent)
-        val ast = parseResult.ast
-        val astModel = parseResult.astModel
+            // Strategy 1: Simple insertion (e.g. "myList.BrazilWorldCup2026")
+            val content1 = insertDummyIdentifier(content, line, character, withDef = false)
+            val result1 = compilationService.compileTransient(uriObj, content1)
 
-        if (ast == null || astModel == null) {
+            // If simple insertion failed and it was a clean insertion, try adding 'def'
+            // This helps in class bodies: "class Foo { def BrazilWorldCup2026 }" is valid, but "class Foo { BrazilWorldCup2026 }" is not.
+            if (isClean && !result1.isSuccessful) {
+                val content2 = insertDummyIdentifier(content, line, character, withDef = true)
+                val result2 = compilationService.compileTransient(uriObj, content2)
+
+                // If 'def' strategy produced a better result (successful or fewer errors), use it
+                if (result2.isSuccessful || result2.diagnostics.size < result1.diagnostics.size) {
+                    val ast = result2.ast
+                    val astModel = result2.astModel
+                    if (ast != null && astModel != null) {
+                        return buildCompletionsList(ast, astModel, line, character, compilationService, uriObj)
+                    }
+                }
+            }
+
+            // Fallback to result1 (simple insertion)
+            val ast = result1.ast
+            val astModel = result1.astModel
+
+            if (ast == null || astModel == null) {
+                emptyList()
+            } else {
+                buildCompletionsList(ast, astModel, line, character, compilationService, uriObj)
+            }
+        } catch (e: CompilationFailedException) {
+            // If AST analysis fails, log and return empty list
+            logger.debug("AST analysis failed for completion at {}:{}: {}", line, character, e.message)
             emptyList()
-        } else {
-            buildCompletionsList(ast, astModel, line, character, compilationService, uriObj)
         }
-    } catch (e: CompilationFailedException) {
-        // If AST analysis fails, log and return empty list
-        logger.debug("AST analysis failed for completion at {}:{}: {}", line, character, e.message)
-        emptyList()
     }
 
-    private fun insertDummyIdentifier(content: String, line: Int, character: Int): String {
+    private fun isCleanInsertion(content: String, line: Int, character: Int): Boolean {
+        val lines = content.lines()
+        if (line < 0 || line >= lines.size) return true
+
+        val targetLine = lines[line]
+        // Ensure character is within bounds
+        val safeChar = character.coerceIn(0, targetLine.length)
+
+        val charBefore = if (safeChar > 0) targetLine[safeChar - 1] else ' '
+        val charAfter = if (safeChar < targetLine.length) targetLine[safeChar] else ' '
+
+        // If surrounded by identifier parts, it's NOT a clean insertion (we are inside a word)
+        return !Character.isJavaIdentifierPart(charBefore) && !Character.isJavaIdentifierPart(charAfter)
+    }
+
+    private fun insertDummyIdentifier(content: String, line: Int, character: Int, withDef: Boolean): String {
         val lines = content.lines().toMutableList()
         if (line < 0 || line >= lines.size) return content
 
@@ -70,7 +106,8 @@ object CompletionProvider {
         val safeChar = character.coerceIn(0, targetLine.length)
 
         // Insert dummy identifier
-        val modifiedLine = targetLine.substring(0, safeChar) + DUMMY_IDENTIFIER + targetLine.substring(safeChar)
+        val insertion = if (withDef) "def $DUMMY_IDENTIFIER" else DUMMY_IDENTIFIER
+        val modifiedLine = targetLine.substring(0, safeChar) + insertion + targetLine.substring(safeChar)
         lines[line] = modifiedLine
 
         return lines.joinToString("\n")
