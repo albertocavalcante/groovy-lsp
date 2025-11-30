@@ -53,7 +53,8 @@ object TypeInferencer {
                 // 2. If mixed -> ArrayList<java.lang.Object>
 
                 val firstType = inferExpressionType(elements[0])
-                val allSame = elements.all { inferExpressionType(it) == firstType }
+                // Optimization: Skip the first element as we already inferred it
+                val allSame = elements.asSequence().drop(1).all { inferExpressionType(it) == firstType }
 
                 if (allSame) {
                     val boxedType = boxType(firstType)

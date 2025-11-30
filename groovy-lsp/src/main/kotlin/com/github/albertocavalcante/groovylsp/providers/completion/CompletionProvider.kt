@@ -184,10 +184,9 @@ object CompletionProvider {
 
                 // If object is a variable, try to get inferred type from context
                 if (objectExpr is org.codehaus.groovy.ast.expr.VariableExpression) {
-                    val variableName = objectExpr.name
-                    val inferredVar = context.variables.find { it.name == variableName }
-                    if (inferredVar != null) {
-                        qualifierType = inferredVar.type
+                    val inferredType = resolveVariableType(objectExpr.name, context)
+                    if (inferredType != null) {
+                        qualifierType = inferredType
                     }
                 }
 
@@ -201,10 +200,9 @@ object CompletionProvider {
                     var qualifierType = nodeAtCursor.type?.name
 
                     // Try to get inferred type from context
-                    val variableName = nodeAtCursor.name
-                    val inferredVar = context.variables.find { it.name == variableName }
-                    if (inferredVar != null) {
-                        qualifierType = inferredVar.type
+                    val inferredType = resolveVariableType(nodeAtCursor.name, context)
+                    if (inferredType != null) {
+                        qualifierType = inferredType
                     }
 
                     qualifierType?.let { ContextType.MemberAccess(it) }
@@ -228,10 +226,9 @@ object CompletionProvider {
 
                     // If object is a variable, try to get inferred type from context
                     if (objectExpr is org.codehaus.groovy.ast.expr.VariableExpression) {
-                        val variableName = objectExpr.name
-                        val inferredVar = context.variables.find { it.name == variableName }
-                        if (inferredVar != null) {
-                            qualifierType = inferredVar.type
+                        val inferredType = resolveVariableType(objectExpr.name, context)
+                        if (inferredType != null) {
+                            qualifierType = inferredType
                         }
                     }
 
@@ -268,6 +265,11 @@ object CompletionProvider {
                 null
             }
         }
+    }
+
+    private fun resolveVariableType(variableName: String, context: SymbolCompletionContext): String? {
+        val inferredVar = context.variables.find { it.name == variableName }
+        return inferredVar?.type
     }
 
     private sealed interface ContextType {

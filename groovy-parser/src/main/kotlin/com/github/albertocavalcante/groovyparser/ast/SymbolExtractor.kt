@@ -211,7 +211,6 @@ object SymbolExtractor {
             // println("DEBUG: Checking class ${classNode.name}, line=${classNode.lineNumber}-${classNode.lastLineNumber}, cursor=$line")
             line >= classSymbol.line && line <= classNode.lastLineNumber // Relaxed check
         }
-        println("DEBUG: Current class: ${currentClass?.name}")
 
         val methods = currentClass?.let { extractMethodSymbols(it.astNode) } ?: emptyList()
         val fields = currentClass?.let { extractFieldSymbols(it.astNode) } ?: emptyList()
