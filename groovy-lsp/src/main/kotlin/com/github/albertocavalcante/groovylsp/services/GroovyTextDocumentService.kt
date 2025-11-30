@@ -287,7 +287,11 @@ class GroovyTextDocumentService(
             val uri = java.net.URI.create(params.textDocument.uri)
 
             // CRITICAL: Ensure compilation completes before proceeding
-            compilationService.ensureCompiled(uri)
+            val compilationResult = compilationService.ensureCompiled(uri)
+            if (compilationResult == null) {
+                logger.warn("Document $uri not compiled, cannot provide definitions")
+                return@future Either.forLeft(emptyList())
+            }
 
             val telemetrySink = DefinitionTelemetrySink { event ->
                 client()?.telemetryEvent(event)

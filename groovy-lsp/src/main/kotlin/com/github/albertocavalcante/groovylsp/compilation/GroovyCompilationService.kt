@@ -156,14 +156,15 @@ class GroovyCompilationService {
         }
 
         // Check if already in cache
-        cache.get(uri)?.let { parseResult ->
+        cache.getWithContent(uri)?.let { (cachedContent, parseResult) ->
             logger.debug("Using cached compilation for $uri")
             val diagnostics = parseResult.diagnostics.map { it.toLspDiagnostic() }
             val ast = parseResult.ast
+            val sourceText = cachedContent
             return if (ast != null) {
-                CompilationResult.success(ast, diagnostics, "")
+                CompilationResult.success(ast, diagnostics, sourceText)
             } else {
-                CompilationResult.failure(diagnostics, "")
+                CompilationResult.failure(diagnostics, sourceText)
             }
         }
 
