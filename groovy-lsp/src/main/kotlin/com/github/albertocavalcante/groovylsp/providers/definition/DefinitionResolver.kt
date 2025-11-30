@@ -76,7 +76,7 @@ class DefinitionResolver(
         uri: URI,
         position: com.github.albertocavalcante.groovyparser.ast.types.Position,
     ): ASTNode {
-        val definition = try {
+        val initialDefinition = try {
             targetNode.resolveToDefinition(astVisitor, symbolTable, strict = false)
         } catch (e: StackOverflowError) {
             logger.debug("Stack overflow during definition resolution, likely circular reference", e)
@@ -87,6 +87,16 @@ class DefinitionResolver(
         } catch (e: IllegalStateException) {
             logger.debug("Invalid state during definition resolution: ${e.message}", e)
             handleResolutionError(e, targetNode, uri, position)
+        }
+
+        // Refine ClassNode resolution: prefer local declaration over reference
+        // If we found a ClassNode, check if there's a specific declaration in the AST with the same name.
+        // This handles cases where resolveToDefinition returns a reference ClassNode (e.g. from a constructor call)
+        // but the class is actually defined in the same file.
+        val definition = if (initialDefinition is ClassNode) {
+            astVisitor.getAllClassNodes().find { it.name == initialDefinition.name } ?: initialDefinition
+        } else {
+            initialDefinition
         }
 
         // Check if we need to try global lookup (e.g. for class references across files)
