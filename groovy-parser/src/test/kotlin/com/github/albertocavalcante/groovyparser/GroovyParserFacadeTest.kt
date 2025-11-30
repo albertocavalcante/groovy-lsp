@@ -149,4 +149,56 @@ class GroovyParserFacadeTest {
             "astModel should point to recursive visitor when enabled",
         )
     }
+
+    @Test
+    fun `recursive visitor matches legacy node lookup for common constructs`() {
+        val code = """
+            class Sample {
+              def method(int x) {
+                if (x > 0) {
+                  println x
+                }
+              }
+            }
+        """.trimIndent()
+        val uri = URI.create("file:///Sample.groovy")
+
+        val legacy = parser.parse(
+            ParseRequest(
+                uri = uri,
+                content = code,
+                useRecursiveVisitor = false,
+            ),
+        ).astVisitor
+        val recursive = parser.parse(
+            ParseRequest(
+                uri = uri,
+                content = code,
+                useRecursiveVisitor = true,
+            ),
+        ).recursiveVisitor
+
+        requireNotNull(legacy) { "Legacy visitor missing" }
+        requireNotNull(recursive) { "Recursive visitor missing" }
+
+        val positions = listOf(
+            com.github.albertocavalcante.groovyparser.ast.types.Position(0, 6) to "class name",
+            com.github.albertocavalcante.groovyparser.ast.types.Position(1, 6) to "method name",
+            com.github.albertocavalcante.groovyparser.ast.types.Position(1, 17) to "parameter",
+            com.github.albertocavalcante.groovyparser.ast.types.Position(2, 8) to "if condition variable",
+            com.github.albertocavalcante.groovyparser.ast.types.Position(3, 14) to "println argument",
+        )
+
+        positions.forEach { (pos, label) ->
+            val legacyNode = legacy.getNodeAt(uri, pos)
+            val recursiveNode = recursive.getNodeAt(uri, pos)
+            assertNotNull(legacyNode, "Legacy visitor missing $label at $pos")
+            assertNotNull(recursiveNode, "Recursive visitor missing $label at $pos")
+            assertEquals(
+                legacyNode.javaClass,
+                recursiveNode.javaClass,
+                "Node type mismatch for $label at $pos",
+            )
+        }
+    }
 }
