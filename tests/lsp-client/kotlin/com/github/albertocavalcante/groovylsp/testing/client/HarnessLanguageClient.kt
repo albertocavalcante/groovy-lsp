@@ -131,6 +131,28 @@ class HarnessLanguageClient(private val mapper: ObjectMapper) : LanguageClient {
             // Snapshot current notification count to track new arrivals
             val initialNotificationCount = notifications.size
 
+            // Check for pre-existing notifications that match method but fail predicate
+            // These were sent before we started waiting but are still relevant for diagnostics
+            val preExistingMatches = notifications.filter { envelope ->
+                envelope.id !in consumedNotificationIds &&
+                    envelope.method == method &&
+                    !predicate(envelope.payload)
+            }
+
+            preExistingMatches.forEach { envelope ->
+                // Add to matchedButFailed for diagnostics
+                matchedButFailed.add(PredicateFailure(envelope, "Predicate returned false"))
+
+                // Also add to receivedDuringWait so they appear in the exception message
+                receivedDuringWait.add(
+                    NotificationSnapshot(
+                        method = envelope.method,
+                        timestamp = envelope.timestamp,
+                        payload = envelope.payload,
+                    ),
+                )
+            }
+
             while (true) {
                 // Track all new notifications that arrived during this wait
                 if (notifications.size > receivedDuringWait.size + initialNotificationCount) {
