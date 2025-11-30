@@ -19,6 +19,10 @@ import org.slf4j.LoggerFactory
  */
 object CompletionProvider {
     private val logger = LoggerFactory.getLogger(CompletionProvider::class.java)
+
+    // Note: IntelliJ uses "IntelliJIdeaRulezzz"
+    // Kotlin LSP uses "RWwgUHN5IEtvbmdyb28g" (El Psy Kongroo)
+    // See: https://github.com/Kotlin/kotlin-lsp/blob/main/features-impl/kotlin/src/com/jetbrains/ls/api/features/impl/common/kotlin/completion/rekot/completionUtils.kt
     private const val DUMMY_IDENTIFIER = "BrazilWorldCup2026"
 
     /**
