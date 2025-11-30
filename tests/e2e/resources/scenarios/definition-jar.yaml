@@ -44,6 +44,19 @@ steps:
             value: 'Resolving Gradle dependencies'
       timeoutMs: 10000
 
+  # Optional: Gradle distribution download (only on cold CI, can take 60-180s)
+  # Skips early if "Dependencies loaded" arrives (warm cache scenario)
+  - waitNotification:
+      method: window/showMessage
+      checks:
+        - jsonPath: '$.message'
+          expect:
+            type: 'CONTAINS'
+            value: 'Downloading Gradle distribution'
+      timeoutMs: 180000
+      optional: true
+
+  # After download completes (or skipped), dependency resolution should complete
   - waitNotification:
       method: window/showMessage
       checks:

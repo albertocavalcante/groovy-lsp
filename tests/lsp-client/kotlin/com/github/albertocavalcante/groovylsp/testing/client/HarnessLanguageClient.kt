@@ -108,6 +108,28 @@ class HarnessLanguageClient(private val mapper: ObjectMapper) : LanguageClient {
     }
 
     /**
+     * Peeks if a notification matching the given criteria exists in the queue without consuming it.
+     * Used for optional steps to detect if the next step's notification has already arrived.
+     *
+     * @param method The notification method to look for
+     * @param predicate The predicate to match the notification payload
+     * @return true if a matching notification exists in the queue, false otherwise
+     */
+    fun peekNotification(method: String, predicate: (JsonNode?) -> Boolean): Boolean {
+        lock.withLock {
+            return notifications.any { envelope ->
+                envelope.id !in consumedNotificationIds &&
+                    envelope.method == method &&
+                    try {
+                        predicate(envelope.payload)
+                    } catch (e: Exception) {
+                        false
+                    }
+            }
+        }
+    }
+
+    /**
      * Awaits a notification with detailed diagnostic information.
      * Returns a WaitResult containing the envelope (if found), notifications received during wait,
      * notifications that matched the method but failed the predicate, and elapsed time.
