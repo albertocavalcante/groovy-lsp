@@ -3,6 +3,7 @@ package com.github.albertocavalcante.groovylsp.services
 import org.slf4j.LoggerFactory
 import java.lang.reflect.Modifier
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Provides Groovy GDK methods (extension methods like .each, .collect) for types.
@@ -13,14 +14,14 @@ class GroovyGdkProvider(private val classpathService: ClasspathService) {
 
     // Map of <TargetType, List<ExtensionMethod>>
     // e.g. "java.util.List" -> [each, collect, ...]
-    private val cache = ConcurrentHashMap<String, List<GdkMethodInfo>>()
-    private var isInitialized = false
+    private val cache = ConcurrentHashMap<String, List<GdkExtensionMethod>>()
+    private val isInitialized = AtomicBoolean(false)
 
     /**
-     * Initializes the GDK index. call this on startup.
+     * Initializes the GDK index. Call this on startup.
      */
     fun initialize() {
-        if (isInitialized) return
+        if (isInitialized.get()) return
 
         // Common GDK classes in Groovy
         val gdkClasses = listOf(
@@ -33,7 +34,7 @@ class GroovyGdkProvider(private val classpathService: ClasspathService) {
             indexGdkClass(className)
         }
 
-        isInitialized = true
+        isInitialized.set(true)
         logger.info("Initialized GDK Provider with ${cache.size} target types")
     }
 
@@ -49,7 +50,7 @@ class GroovyGdkProvider(private val classpathService: ClasspathService) {
             // The first parameter is the "self" type (the type being extended)
             val selfType = method.parameterTypes[0].name // Full qualified name
 
-            val methodInfo = GdkMethodInfo(
+            val methodInfo = GdkExtensionMethod(
                 name = method.name,
                 returnType = method.returnType.simpleName,
                 // Parameters excluding the first one (self)
@@ -76,8 +77,8 @@ class GroovyGdkProvider(private val classpathService: ClasspathService) {
      * Returns GDK methods available for a specific type.
      * Handles class hierarchy (e.g. Iterable methods are available on List).
      */
-    fun getMethodsForType(className: String): List<GdkMethodInfo> {
-        if (!isInitialized) initialize()
+    fun getMethodsForType(className: String): List<GdkExtensionMethod> {
+        if (!isInitialized.get()) initialize()
 
         // 1. Exact match
         val results = (cache[className] ?: emptyList()).toMutableList()
@@ -116,7 +117,7 @@ class GroovyGdkProvider(private val classpathService: ClasspathService) {
     }
 }
 
-data class GdkMethodInfo(
+data class GdkExtensionMethod(
     val name: String,
     val returnType: String,
     val parameters: List<String>,

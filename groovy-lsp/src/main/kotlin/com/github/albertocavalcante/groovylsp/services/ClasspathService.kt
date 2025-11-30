@@ -6,6 +6,7 @@ import java.lang.reflect.Modifier
 import java.net.URLClassLoader
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Service to manage the classpath and load classes/methods from the user's project and the JDK.
@@ -19,12 +20,15 @@ class ClasspathService {
 
     // Class index for type parameter completion: SimpleName -> List<FullyQualifiedName>
     private val classIndex = ConcurrentHashMap<String, MutableList<String>>()
-    private var isIndexed = false
+    private val isIndexed = AtomicBoolean(false)
 
     /**
      * Updates the active classloader with the provided paths (JARs or directories).
+     *
+     * @param paths List of paths to add to the classpath
      */
     fun updateClasspath(paths: List<Path>) {
+        val oldClassLoader = currentClassLoader
         try {
             logger.info("Updating classpath with ${paths.size} paths")
             val urls = paths.map { it.toUri().toURL() }.toTypedArray()
@@ -33,10 +37,12 @@ class ClasspathService {
             currentClassLoader = URLClassLoader(urls, ClassLoader.getSystemClassLoader())
 
             // Invalidate index when classpath changes
-            isIndexed = false
+            isIndexed.set(false)
             classIndex.clear()
         } catch (e: Exception) {
             logger.error("Failed to update classpath", e)
+            // Restore previous classloader to maintain consistent state
+            currentClassLoader = oldClassLoader
         }
     }
 
@@ -45,37 +51,41 @@ class ClasspathService {
      * This is called lazily on first type parameter completion request.
      */
     fun indexAllClasses() {
-        if (isIndexed) return
+        if (isIndexed.get()) return
 
-        logger.info("Indexing all classes from classpath...")
-        val startTime = System.currentTimeMillis()
+        synchronized(this) {
+            if (isIndexed.get()) return
 
-        try {
-            ClassGraph()
-                .enableClassInfo()
-                .scan().use { result ->
-                    result.allClasses.forEach { classInfo ->
-                        val simpleName = classInfo.simpleName
-                        val fullName = classInfo.name
+            logger.info("Indexing all classes from classpath...")
+            val startTime = System.currentTimeMillis()
 
-                        // Skip anonymous classes and synthetic classes
-                        if (simpleName.contains('$') || classInfo.isSynthetic) {
-                            return@forEach
-                        }
+            try {
+                ClassGraph()
+                    .enableClassInfo()
+                    .scan().use { result ->
+                        result.allClasses.forEach { classInfo ->
+                            val simpleName = classInfo.simpleName
+                            val fullName = classInfo.name
 
-                        classIndex.compute(simpleName) { _, list ->
-                            val newList = list ?: mutableListOf()
-                            newList.add(fullName)
-                            newList
+                            // Skip anonymous classes and synthetic classes
+                            if (simpleName.contains('$') || classInfo.isSynthetic) {
+                                return@forEach
+                            }
+
+                            classIndex.compute(simpleName) { _, list ->
+                                val newList = list ?: mutableListOf()
+                                newList.add(fullName)
+                                newList
+                            }
                         }
                     }
-                }
 
-            isIndexed = true
-            val elapsedMs = System.currentTimeMillis() - startTime
-            logger.info("Indexed ${classIndex.size} class names in ${elapsedMs}ms")
-        } catch (e: Exception) {
-            logger.error("Failed to index classes", e)
+                isIndexed.set(true)
+                val elapsedMs = System.currentTimeMillis() - startTime
+                logger.info("Indexed ${classIndex.size} class names in ${elapsedMs}ms")
+            } catch (e: Exception) {
+                logger.error("Failed to index classes", e)
+            }
         }
     }
 
@@ -84,7 +94,9 @@ class ClasspathService {
      * Returns list of ClassInfo with simple name and fully qualified name.
      */
     fun findClassesByPrefix(prefix: String, maxResults: Int = 50): List<ClassInfo> {
-        if (!isIndexed) {
+        if (prefix.isBlank()) return emptyList()
+
+        if (!isIndexed.get()) {
             indexAllClasses()
         }
 

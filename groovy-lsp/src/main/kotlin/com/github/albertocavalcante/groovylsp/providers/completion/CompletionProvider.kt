@@ -24,6 +24,7 @@ object CompletionProvider {
     // Kotlin LSP uses "RWwgUHN5IEtvbmdyb28g" (El Psy Kongroo)
     // See: https://github.com/Kotlin/kotlin-lsp/blob/main/features-impl/kotlin/src/com/jetbrains/ls/api/features/impl/common/kotlin/completion/rekot/completionUtils.kt
     private const val DUMMY_IDENTIFIER = "BrazilWorldCup2026"
+    private const val MAX_TYPE_COMPLETION_RESULTS = 20
 
     /**
      * Get basic Groovy language completion items using DSL.
@@ -370,7 +371,8 @@ object CompletionProvider {
         prefix: String,
         compilationService: GroovyCompilationService,
     ) {
-        val classes = compilationService.classpathService.findClassesByPrefix(prefix, maxResults = 20)
+        val classes =
+            compilationService.classpathService.findClassesByPrefix(prefix, maxResults = MAX_TYPE_COMPLETION_RESULTS)
         logger.debug("Found {} classes for prefix {}", classes.size, prefix)
 
         classes.forEach { classInfo ->
