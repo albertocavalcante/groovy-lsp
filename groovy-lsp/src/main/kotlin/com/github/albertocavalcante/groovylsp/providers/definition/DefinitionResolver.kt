@@ -120,7 +120,9 @@ class DefinitionResolver(
         if (definition is ClassNode) {
             // Check if this specific ClassNode instance is one of the classes declared in the AST
             // If it's not in the list of declared classes, it's likely a reference/placeholder
-            val isDeclaredInFile = astVisitor.getAllClassNodes().any { it === definition }
+            val isDeclaredInFile = astVisitor.getAllClassNodes().any {
+                it === definition || it.name == definition.name
+            }
             if (!isDeclaredInFile) {
                 return true
             }
@@ -150,7 +152,12 @@ class DefinitionResolver(
                 val symbol = index.find<Symbol.Class>(uri, className)
                 if (symbol != null) {
                     // Found it! Load the AST node
-                    return loadClassNodeFromAst(uri, className)
+                    val classNode = loadClassNodeFromAst(uri, className)
+                    if (classNode != null) {
+                        return classNode
+                    } else {
+                        logger.warn("Symbol found in index but ClassNode not found in AST for $className at $uri")
+                    }
                 }
             }
         }
