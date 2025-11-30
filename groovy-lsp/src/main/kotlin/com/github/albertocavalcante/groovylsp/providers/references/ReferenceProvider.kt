@@ -227,9 +227,7 @@ class ReferenceProvider(private val compilationService: GroovyCompilationService
     /**
      * Check if a node is part of a declaration.
      */
-    private fun ASTNode.isPartOfDeclaration(
-        visitor: GroovyAstModel,
-    ): Boolean = when {
+    private fun ASTNode.isPartOfDeclaration(visitor: GroovyAstModel): Boolean = when {
         this is org.codehaus.groovy.ast.Parameter -> true
         this is org.codehaus.groovy.ast.MethodNode -> true
         this is org.codehaus.groovy.ast.FieldNode -> true

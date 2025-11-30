@@ -1,5 +1,6 @@
 package com.github.albertocavalcante.groovyparser.ast
 
+import com.github.albertocavalcante.groovyparser.ast.GroovyAstModel
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.Variable
@@ -58,7 +59,10 @@ class SymbolResolver(private val registry: SymbolRegistry) {
     /**
      * Get the field search context for a variable expression.
      */
-    private fun getFieldSearchContext(variableExpr: VariableExpression, visitor: GroovyAstModel): Map<String, ClassNode>? {
+    private fun getFieldSearchContext(
+        variableExpr: VariableExpression,
+        visitor: GroovyAstModel,
+    ): Map<String, ClassNode>? {
         val uri = visitor.getUri(variableExpr) ?: return null
         val classDeclarations = registry.getClassDeclarations(uri)
         return if (classDeclarations.isNotEmpty()) classDeclarations else null
