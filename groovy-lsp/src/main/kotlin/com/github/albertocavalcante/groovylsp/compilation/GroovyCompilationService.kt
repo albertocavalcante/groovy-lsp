@@ -62,6 +62,7 @@ class GroovyCompilationService {
                 sourceRoots = workspaceManager.getSourceRoots(),
                 workspaceSources = workspaceManager.getWorkspaceSources(),
                 locatorCandidates = buildLocatorCandidates(uri, sourcePath),
+                useRecursiveVisitor = true,
             ),
         )
 
