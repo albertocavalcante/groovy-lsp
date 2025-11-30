@@ -68,6 +68,10 @@ class GradleDependencyResolver : DependencyResolver {
     ) {
         logger.debug("Processing module: ${module.name}")
 
+        module.dependencies.forEach { dep ->
+            logger.debug("Dependency found: $dep (type: ${dep.javaClass.name})")
+        }
+
         module.dependencies
             .filterIsInstance<IdeaSingleEntryLibraryDependency>()
             .forEach { dependency ->
