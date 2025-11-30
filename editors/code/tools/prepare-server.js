@@ -7,663 +7,879 @@
  * 4. Download from GitHub releases (pinned, latest, nightly, or explicit tag)
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const https = require('node:https');
-const crypto = require('node:crypto');
+const fs = require("node:fs");
+const path = require("node:path");
+const https = require("node:https");
+const crypto = require("node:crypto");
+const { validateJarFile } = require("./validate-server.js");
 
-const GITHUB_API_BASE = 'https://api.github.com/repos/albertocavalcante/groovy-lsp';
-const SERVER_DIR = path.join(__dirname, '..', 'server');
-const CANONICAL_JAR_NAME = 'groovy-lsp.jar';
+const GITHUB_API_BASE =
+  "https://api.github.com/repos/albertocavalcante/groovy-lsp";
+const SERVER_DIR = path.join(__dirname, "..", "server");
+const CANONICAL_JAR_NAME = "groovy-lsp.jar";
 const JAR_PATH = path.join(SERVER_DIR, CANONICAL_JAR_NAME);
-const VERSION_FILE = path.join(SERVER_DIR, '.groovy-lsp-version');
+const VERSION_FILE = path.join(SERVER_DIR, ".groovy-lsp-version");
 
 // Pinned Groovy LSP release
-const PINNED_RELEASE_TAG = 'v0.2.0';
-const PINNED_JAR_ASSET = 'groovy-lsp-0.2.0-linux-amd64.jar';
+const PINNED_RELEASE_TAG = "v0.2.0";
+const PINNED_JAR_ASSET = "groovy-lsp-0.2.0-linux-amd64.jar";
 // v0.2.0 ships a single universal JAR; reuse the linux-amd64 artifact for all platforms
 const PINNED_DOWNLOAD_URL = `https://github.com/albertocavalcante/groovy-lsp/releases/download/${PINNED_RELEASE_TAG}/${PINNED_JAR_ASSET}`;
-const PINNED_JAR_SHA256 = '0ec247be16c0cce5217a1bd4b6242f67c9ed002e486b749479d50c980a328601';
+const PINNED_JAR_SHA256 =
+  "0ec247be16c0cce5217a1bd4b6242f67c9ed002e486b749479d50c980a328601";
 const GITHUB_RELEASE_API = `${GITHUB_API_BASE}/releases/latest`;
 const GITHUB_RELEASES_API = `${GITHUB_API_BASE}/releases?per_page=30`;
 const GITHUB_RELEASE_TAG_API = `${GITHUB_API_BASE}/releases/tags`;
 
 function expectValue(argv, index, flag) {
-    if (index >= argv.length || argv[index].startsWith('--')) {
-        throw new Error(`Missing value for ${flag} option.`);
-    }
-    return argv[index];
+  if (index >= argv.length || argv[index].startsWith("--")) {
+    throw new Error(`Missing value for ${flag} option.`);
+  }
+  return argv[index];
 }
 
 function parseArgs(argv = []) {
-    const parsed = {
-        printReleaseTag: false,
-        nightly: false,
-        latest: false,
-        tag: null,
-        local: null,
-        forceDownload: false,
-        channel: null,
-        preferLocal: false,
-        help: false,
-        unknown: []
-    };
+  const parsed = {
+    printReleaseTag: false,
+    nightly: false,
+    latest: false,
+    tag: null,
+    local: null,
+    forceDownload: false,
+    channel: null,
+    preferLocal: false,
+    help: false,
+    unknown: [],
+  };
 
-    for (let i = 0; i < argv.length; i += 1) {
-        const arg = argv[i];
-        switch (arg) {
-        case '--print-release-tag':
-            parsed.printReleaseTag = true;
-            break;
-        case '--nightly':
-            parsed.nightly = true;
-            break;
-        case '--latest':
-            parsed.latest = true;
-            break;
-        case '--tag':
-            parsed.tag = expectValue(argv, i + 1, '--tag');
-            i += 1;
-            break;
-        case '--channel':
-            parsed.channel = expectValue(argv, i + 1, '--channel');
-            i += 1;
-            break;
-        case '--local':
-            parsed.local = expectValue(argv, i + 1, '--local');
-            i += 1;
-            break;
-        case '--force-download':
-            parsed.forceDownload = true;
-            break;
-        case '--prefer-local':
-            parsed.preferLocal = true;
-            break;
-        case '--help':
-        case '-h':
-            parsed.help = true;
-            break;
-        default:
-            parsed.unknown.push(arg);
-        }
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    switch (arg) {
+      case "--print-release-tag":
+        parsed.printReleaseTag = true;
+        break;
+      case "--nightly":
+        parsed.nightly = true;
+        break;
+      case "--latest":
+        parsed.latest = true;
+        break;
+      case "--tag":
+        parsed.tag = expectValue(argv, i + 1, "--tag");
+        i += 1;
+        break;
+      case "--channel":
+        parsed.channel = expectValue(argv, i + 1, "--channel");
+        i += 1;
+        break;
+      case "--local":
+        parsed.local = expectValue(argv, i + 1, "--local");
+        i += 1;
+        break;
+      case "--force-download":
+        parsed.forceDownload = true;
+        break;
+      case "--prefer-local":
+        parsed.preferLocal = true;
+        break;
+      case "--help":
+      case "-h":
+        parsed.help = true;
+        break;
+      default:
+        parsed.unknown.push(arg);
     }
+  }
 
-    return parsed;
+  return parsed;
 }
 
 /**
  * Finds local Groovy LSP JAR file in common development locations
  */
 function findLocalGroovyLspJar() {
-    const searchPaths = [
-        // 1. Environment variable override
-        process.env.GROOVY_LSP_LOCAL_JAR,
+  const searchPaths = [
+    // 1. Environment variable override
+    process.env.GROOVY_LSP_LOCAL_JAR,
 
-        // 2. Sibling directory (common for development)
-        path.join(__dirname, '..', '..', 'groovy-lsp', 'build', 'libs'),
+    // 2. Sibling directory (common for development)
+    path.join(__dirname, "..", "..", "groovy-lsp", "build", "libs"),
 
-        // 3. Common workspace patterns
-        path.join(process.env.HOME || '', 'dev', 'workspace', 'groovy-lsp', 'build', 'libs'),
-        path.join(process.env.HOME || '', 'workspace', 'groovy-lsp', 'build', 'libs'),
-        path.join(process.env.HOME || '', 'projects', 'groovy-lsp', 'build', 'libs'),
-    ].filter(Boolean); // Remove null/undefined paths
+    // 3. Common workspace patterns
+    path.join(
+      process.env.HOME || "",
+      "dev",
+      "workspace",
+      "groovy-lsp",
+      "build",
+      "libs",
+    ),
+    path.join(
+      process.env.HOME || "",
+      "workspace",
+      "groovy-lsp",
+      "build",
+      "libs",
+    ),
+    path.join(
+      process.env.HOME || "",
+      "projects",
+      "groovy-lsp",
+      "build",
+      "libs",
+    ),
+  ].filter(Boolean); // Remove null/undefined paths
 
-    for (const searchPath of searchPaths) {
-        try {
-            // If it's a direct file path (from env var), check if it exists
-            if (searchPath === process.env.GROOVY_LSP_LOCAL_JAR) {
-                if (fs.existsSync(searchPath) && searchPath.endsWith('.jar')) {
-                    console.log(`Found local JAR via GROOVY_LSP_LOCAL_JAR: ${searchPath}`);
-                    return searchPath;
-                }
-                continue;
-            }
-
-            // Otherwise, search for JAR files in the directory
-            if (fs.existsSync(searchPath) && fs.statSync(searchPath).isDirectory()) {
-                const jarFiles = fs.readdirSync(searchPath)
-                    .filter(file => file.endsWith('.jar') && file.includes('groovy-lsp'))
-                    .sort(); // Sort to get consistent results
-
-                if (jarFiles.length > 0) {
-                    const foundJar = path.join(searchPath, jarFiles[0]); // Use first match
-                    console.log(`Found local JAR: ${foundJar}`);
-                    return foundJar;
-                }
-            }
-        } catch (error) {
-            // Ignore errors for individual paths
-            continue;
+  for (const searchPath of searchPaths) {
+    try {
+      // If it's a direct file path (from env var), check if it exists
+      if (searchPath === process.env.GROOVY_LSP_LOCAL_JAR) {
+        if (fs.existsSync(searchPath) && searchPath.endsWith(".jar")) {
+          console.log(
+            `Found local JAR via GROOVY_LSP_LOCAL_JAR: ${searchPath}`,
+          );
+          return searchPath;
         }
-    }
+        continue;
+      }
 
-    console.log('No local Groovy LSP JAR found in common locations');
-    return null;
+      // Otherwise, search for JAR files in the directory
+      if (fs.existsSync(searchPath) && fs.statSync(searchPath).isDirectory()) {
+        const jarFiles = fs
+          .readdirSync(searchPath)
+          .filter(
+            (file) => file.endsWith(".jar") && file.includes("groovy-lsp"),
+          )
+          .sort(); // Sort to get consistent results
+
+        if (jarFiles.length > 0) {
+          const foundJar = path.join(searchPath, jarFiles[0]); // Use first match
+          console.log(`Found local JAR: ${foundJar}`);
+          return foundJar;
+        }
+      }
+    } catch (error) {
+      // Ignore errors for individual paths
+      continue;
+    }
+  }
+
+  console.log("No local Groovy LSP JAR found in common locations");
+  return null;
 }
 
 function copyLocalJar(localJarPath, { forceDownload }) {
-    let shouldCopy = true;
+  // Validate source JAR before copying
+  try {
+    validateJarFile(localJarPath);
+  } catch (error) {
+    throw new Error(`Source JAR validation failed: ${error.message}`);
+  }
 
-    if (!forceDownload && fs.existsSync(JAR_PATH)) {
-        const localStat = fs.statSync(localJarPath);
-        const existingStat = fs.statSync(JAR_PATH);
+  let shouldCopy = true;
 
-        if (localStat.mtime <= existingStat.mtime) {
-            console.log(`✓ Using existing ${CANONICAL_JAR_NAME} (up to date)`);
-            writeInstalledVersion('local');
-            shouldCopy = false;
-        }
+  if (!forceDownload && fs.existsSync(JAR_PATH)) {
+    const localStat = fs.statSync(localJarPath);
+    const existingStat = fs.statSync(JAR_PATH);
+
+    if (localStat.mtime <= existingStat.mtime) {
+      console.log(`✓ Using existing ${CANONICAL_JAR_NAME} (up to date)`);
+      writeInstalledVersion("local");
+      shouldCopy = false;
+    }
+  }
+
+  if (shouldCopy) {
+    console.log(`Copying from local build: ${localJarPath}`);
+    fs.copyFileSync(localJarPath, JAR_PATH);
+
+    // Validate destination JAR after copying
+    try {
+      validateJarFile(JAR_PATH);
+    } catch (error) {
+      // Clean up corrupt file
+      try {
+        fs.unlinkSync(JAR_PATH);
+      } catch (cleanupError) {
+        console.warn(
+          `Warning: Failed to remove corrupt JAR ${JAR_PATH}: ${cleanupError.message}`,
+        );
+      }
+      throw new Error(`Copied JAR validation failed: ${error.message}`);
     }
 
-    if (shouldCopy) {
-        console.log(`Copying from local build: ${localJarPath}`);
-        fs.copyFileSync(localJarPath, JAR_PATH);
-        writeInstalledVersion('local');
-        console.log(`✓ Copied to ${CANONICAL_JAR_NAME}`);
-    }
+    writeInstalledVersion("local");
+    console.log(`✓ Copied to ${CANONICAL_JAR_NAME}`);
+  }
 }
 
 function deriveSelection(cliOptions) {
-    const explicitTag = cliOptions.tag || process.env.GROOVY_LSP_TAG || null;
-    const channel = (cliOptions.channel || process.env.GROOVY_LSP_CHANNEL || '').toLowerCase();
-    const useNightly = cliOptions.nightly || channel === 'nightly';
-    const useLatestRelease = !useNightly && (cliOptions.latest || channel === 'release' || process.env.USE_LATEST_GROOVY_LSP === 'true');
+  const explicitTag = cliOptions.tag || process.env.GROOVY_LSP_TAG || null;
+  const channel = (
+    cliOptions.channel ||
+    process.env.GROOVY_LSP_CHANNEL ||
+    ""
+  ).toLowerCase();
+  const useNightly = cliOptions.nightly || channel === "nightly";
+  const useLatestRelease =
+    !useNightly &&
+    (cliOptions.latest ||
+      channel === "release" ||
+      process.env.USE_LATEST_GROOVY_LSP === "true");
 
-    if (explicitTag) {
-        return { type: 'tag', tag: explicitTag };
-    }
+  if (explicitTag) {
+    return { type: "tag", tag: explicitTag };
+  }
 
-    if (useNightly) {
-        return { type: 'nightly' };
-    }
+  if (useNightly) {
+    return { type: "nightly" };
+  }
 
-    if (useLatestRelease) {
-        return { type: 'latest' };
-    }
+  if (useLatestRelease) {
+    return { type: "latest" };
+  }
 
-    return { type: 'pinned' };
+  return { type: "pinned" };
 }
 
 async function resolveTarget(selection) {
-    const buildTargetFromReleaseInfo = async (info, { noJarError, logMessage }) => {
-        if (!info) {
-            throw new Error('Release information not found.');
-        }
-        const jarAsset = selectJarAsset(info.assets);
-        if (!jarAsset) {
-            throw new Error(noJarError(info));
-        }
-        const checksum = await fetchChecksumForAsset(info.assets, jarAsset.name);
-        console.log(`${logMessage}: ${info.tag_name}`);
-        return {
-            tag: info.tag_name,
-            assetName: jarAsset.name,
-            downloadUrl: jarAsset.browser_download_url,
-            checksum
-        };
-    };
-
-    if (selection.type === 'tag') {
-        const info = await getReleaseByTag(selection.tag);
-        return await buildTargetFromReleaseInfo(info, {
-            noJarError: i => `No JAR file found in release ${i.tag_name}`,
-            logMessage: 'Selected Groovy LSP release tag'
-        });
+  const buildTargetFromReleaseInfo = async (
+    info,
+    { noJarError, logMessage },
+  ) => {
+    if (!info) {
+      throw new Error("Release information not found.");
     }
-
-    if (selection.type === 'nightly') {
-        const info = await getLatestNightlyRelease();
-        if (!info) {
-            throw new Error('No nightly Groovy LSP release found');
-        }
-        return await buildTargetFromReleaseInfo(info, {
-            noJarError: i => `No JAR file found in nightly release ${i.tag_name}`,
-            logMessage: 'Selected latest nightly Groovy LSP'
-        });
+    const jarAsset = selectJarAsset(info.assets);
+    if (!jarAsset) {
+      throw new Error(noJarError(info));
     }
-
-    if (selection.type === 'latest') {
-        const info = await getLatestReleaseInfo();
-        return await buildTargetFromReleaseInfo(info, {
-            noJarError: () => 'No JAR file found in the latest release',
-            logMessage: 'Selected latest Groovy LSP release'
-        });
-    }
-
-    // Pinned release fallback
-    console.log(`Selected pinned Groovy LSP release: ${PINNED_RELEASE_TAG}`);
+    const checksum = await fetchChecksumForAsset(info.assets, jarAsset.name);
+    console.log(`${logMessage}: ${info.tag_name}`);
     return {
-        tag: PINNED_RELEASE_TAG,
-        assetName: PINNED_JAR_ASSET,
-        downloadUrl: PINNED_DOWNLOAD_URL,
-        checksum: PINNED_JAR_SHA256
+      tag: info.tag_name,
+      assetName: jarAsset.name,
+      downloadUrl: jarAsset.browser_download_url,
+      checksum,
     };
+  };
+
+  if (selection.type === "tag") {
+    const info = await getReleaseByTag(selection.tag);
+    return await buildTargetFromReleaseInfo(info, {
+      noJarError: (i) => `No JAR file found in release ${i.tag_name}`,
+      logMessage: "Selected Groovy LSP release tag",
+    });
+  }
+
+  if (selection.type === "nightly") {
+    const info = await getLatestNightlyRelease();
+    if (!info) {
+      throw new Error("No nightly Groovy LSP release found");
+    }
+    return await buildTargetFromReleaseInfo(info, {
+      noJarError: (i) => `No JAR file found in nightly release ${i.tag_name}`,
+      logMessage: "Selected latest nightly Groovy LSP",
+    });
+  }
+
+  if (selection.type === "latest") {
+    const info = await getLatestReleaseInfo();
+    return await buildTargetFromReleaseInfo(info, {
+      noJarError: () => "No JAR file found in the latest release",
+      logMessage: "Selected latest Groovy LSP release",
+    });
+  }
+
+  // Pinned release fallback
+  console.log(`Selected pinned Groovy LSP release: ${PINNED_RELEASE_TAG}`);
+  return {
+    tag: PINNED_RELEASE_TAG,
+    assetName: PINNED_JAR_ASSET,
+    downloadUrl: PINNED_DOWNLOAD_URL,
+    checksum: PINNED_JAR_SHA256,
+  };
 }
 
 /**
  * Downloads a file from URL to local path
  */
 function downloadFile(url, filePath) {
-    return new Promise((resolve, reject) => {
-        function handleRequest(requestUrl) {
-            const request = https.get(requestUrl, (response) => {
-                // Handle redirects
-                if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-                    console.log(`Following redirect...`);
-                    return handleRequest(response.headers.location);
-                }
-
-                if (response.statusCode !== 200) {
-                    reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
-                    return;
-                }
-
-                // Create file stream only when we have a successful response
-                const file = fs.createWriteStream(filePath);
-
-                file.on('error', (error) => {
-                    fs.unlink(filePath, () => {}); // Clean up on error
-                    reject(error);
-                });
-
-                file.on('finish', () => {
-                    file.close();
-                    resolve();
-                });
-
-                response.pipe(file);
-            });
-
-            request.on('error', (error) => {
-                fs.unlink(filePath, () => {}); // Clean up on error
-                reject(error);
-            });
-
-            request.setTimeout(60000, () => {
-                request.destroy();
-                reject(new Error('Download timeout'));
-            });
+  return new Promise((resolve, reject) => {
+    function handleRequest(requestUrl) {
+      const request = https.get(requestUrl, (response) => {
+        // Handle redirects
+        if (
+          response.statusCode >= 300 &&
+          response.statusCode < 400 &&
+          response.headers.location
+        ) {
+          console.log(`Following redirect...`);
+          return handleRequest(response.headers.location);
         }
 
-        handleRequest(url);
-    });
+        if (response.statusCode !== 200) {
+          reject(
+            new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`),
+          );
+          return;
+        }
+
+        // Create file stream only when we have a successful response
+        const file = fs.createWriteStream(filePath);
+
+        file.on("error", (error) => {
+          fs.unlink(filePath, () => {}); // Clean up on error
+          reject(error);
+        });
+
+        file.on("finish", () => {
+          file.close();
+          resolve();
+        });
+
+        response.pipe(file);
+      });
+
+      request.on("error", (error) => {
+        fs.unlink(filePath, () => {}); // Clean up on error
+        reject(error);
+      });
+
+      request.setTimeout(60000, () => {
+        request.destroy();
+        reject(new Error("Download timeout"));
+      });
+    }
+
+    handleRequest(url);
+  });
 }
 
 /**
  * Reads version marker stored alongside the server JAR
  */
 function readInstalledVersion() {
-    try {
-        const content = fs.readFileSync(VERSION_FILE, 'utf8').trim();
-        return content || null;
-    } catch (error) {
-        if (error.code !== 'ENOENT') {
-            console.warn(`Warning: Could not read version file at ${VERSION_FILE}: ${error.message}`);
-        }
-        return null;
+  try {
+    const content = fs.readFileSync(VERSION_FILE, "utf8").trim();
+    return content || null;
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      console.warn(
+        `Warning: Could not read version file at ${VERSION_FILE}: ${error.message}`,
+      );
     }
+    return null;
+  }
 }
 
 /**
  * Writes version marker for the installed JAR
  */
 function writeInstalledVersion(versionTag) {
-    fs.writeFileSync(VERSION_FILE, `${versionTag}\n`, 'utf8');
+  fs.writeFileSync(VERSION_FILE, `${versionTag}\n`, "utf8");
 }
 
 /**
  * Computes SHA-256 for a file path (streaming to avoid large buffers)
  */
 function sha256File(filePath) {
-    return new Promise((resolve, reject) => {
-        const hash = crypto.createHash('sha256');
-        const stream = fs.createReadStream(filePath);
-        stream.on('data', chunk => hash.update(chunk));
-        stream.on('end', () => resolve(hash.digest('hex')));
-        stream.on('error', reject);
-    });
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = fs.createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("end", () => resolve(hash.digest("hex")));
+    stream.on("error", reject);
+  });
 }
 
 /**
  * Validates the checksum of the JAR if expected hash is available
  */
 async function verifyChecksum(filePath, expectedHash) {
-    if (!expectedHash) return;
-    const actual = await sha256File(filePath);
-    if (actual !== expectedHash) {
-        throw new Error(`Checksum mismatch for ${filePath}. Expected ${expectedHash} but got ${actual}`);
-    }
+  if (!expectedHash) return;
+  const actual = await sha256File(filePath);
+  if (actual !== expectedHash) {
+    throw new Error(
+      `Checksum mismatch for ${filePath}. Expected ${expectedHash} but got ${actual}`,
+    );
+  }
 }
 
 /**
  * Downloads the target release JAR from GitHub
  */
 async function downloadRelease(target) {
-    console.log(`Downloading Groovy LSP ${target.tag} (${target.assetName})...`);
-    await downloadFile(target.downloadUrl, JAR_PATH);
+  console.log(`Downloading Groovy LSP ${target.tag} (${target.assetName})...`);
+  await downloadFile(target.downloadUrl, JAR_PATH);
+
+  // Validate downloaded JAR
+  try {
+    validateJarFile(JAR_PATH);
+  } catch (error) {
+    // Clean up corrupt download
     try {
-        await verifyChecksum(JAR_PATH, target.checksum);
-    } catch (error) {
-        try {
-            fs.unlinkSync(JAR_PATH);
-        } catch (cleanupError) {
-            console.warn(`Warning: Failed to remove corrupted download ${JAR_PATH}: ${cleanupError.message}`);
-        }
-        throw error;
+      fs.unlinkSync(JAR_PATH);
+    } catch (cleanupError) {
+      console.warn(
+        `Warning: Failed to remove corrupted download ${JAR_PATH}: ${cleanupError.message}`,
+      );
     }
-    writeInstalledVersion(target.tag);
-    console.log(`✓ Downloaded and saved as ${CANONICAL_JAR_NAME}`);
+    throw new Error(`Downloaded JAR validation failed: ${error.message}`);
+  }
+
+  try {
+    await verifyChecksum(JAR_PATH, target.checksum);
+  } catch (error) {
+    try {
+      fs.unlinkSync(JAR_PATH);
+    } catch (cleanupError) {
+      console.warn(
+        `Warning: Failed to remove corrupted download ${JAR_PATH}: ${cleanupError.message}`,
+      );
+    }
+    throw error;
+  }
+  writeInstalledVersion(target.tag);
+  console.log(`✓ Downloaded and saved as ${CANONICAL_JAR_NAME}`);
 }
 
 /**
  * Main function to prepare the server JAR
  */
 async function prepareServer(runtimeOptions = {}) {
-    try {
-        if (process.env.SKIP_PREPARE_SERVER === 'true') {
-            console.log('SKIP_PREPARE_SERVER=true, skipping server preparation.');
-            return;
-        }
-
-        // Ensure server directory exists
-        if (!fs.existsSync(SERVER_DIR)) {
-            fs.mkdirSync(SERVER_DIR, { recursive: true });
-            console.log('Created server directory');
-        }
-
-        const cliOptions = parseArgs(runtimeOptions.argv || []);
-        if (cliOptions.help) {
-            printHelp();
-            return;
-        }
-
-        const forceDownload = runtimeOptions.forceDownload ?? (cliOptions.forceDownload || process.env.FORCE_DOWNLOAD === 'true');
-        const preferLocal = runtimeOptions.preferLocal ?? (cliOptions.preferLocal || process.env.PREFER_LOCAL === 'true');
-        const explicitLocalJar = runtimeOptions.local ?? cliOptions.local ?? process.env.GROOVY_LSP_LOCAL_JAR ?? null;
-        const installedVersion = readInstalledVersion();
-
-        // Hard local override (highest precedence)
-        if (explicitLocalJar) {
-            const resolvedLocal = path.resolve(explicitLocalJar);
-            if (!fs.existsSync(resolvedLocal)) {
-                throw new Error(`Local JAR not found: ${resolvedLocal}`);
-            }
-            console.log(`Using explicitly provided local JAR: ${resolvedLocal}`);
-            copyLocalJar(resolvedLocal, { forceDownload });
-            return;
-        }
-
-        // Try local build first if preferred
-        if (preferLocal) {
-            const localJarPath = findLocalGroovyLspJar();
-
-            if (localJarPath) {
-                copyLocalJar(localJarPath, { forceDownload });
-                return;
-            } else {
-                console.log('PREFER_LOCAL=true but no local JAR found, falling back to download...');
-            }
-        }
-
-        const selection = deriveSelection({
-            ...cliOptions,
-            tag: runtimeOptions.tag ?? cliOptions.tag,
-            nightly: runtimeOptions.nightly ?? cliOptions.nightly,
-            latest: runtimeOptions.latest ?? cliOptions.latest,
-            channel: runtimeOptions.channel ?? cliOptions.channel
-        });
-        const target = await resolveTarget(selection);
-        if (!target.checksum) {
-            console.warn(`⚠️  No checksum available for ${target.assetName}; proceeding without verification.`);
-        }
-
-        const jarExists = fs.existsSync(JAR_PATH);
-        const canVerify = !!target.checksum;
-
-        if (!forceDownload && jarExists) {
-            if (installedVersion === target.tag) {
-                if (canVerify) {
-                    try {
-                        await verifyChecksum(JAR_PATH, target.checksum);
-                        console.log(`✓ Using existing ${CANONICAL_JAR_NAME} for ${target.tag}`);
-                        return;
-                    } catch (checksumError) {
-                        console.warn(`Checksum mismatch for existing ${CANONICAL_JAR_NAME}: ${checksumError.message}`);
-                        console.warn('Re-downloading Groovy LSP...');
-                        try {
-                            fs.unlinkSync(JAR_PATH);
-                        } catch (cleanupError) {
-                            console.warn(`Warning: Failed to remove corrupted JAR ${JAR_PATH}: ${cleanupError.message}`);
-                        }
-                    }
-                } else {
-                    console.log(`✓ Using existing ${CANONICAL_JAR_NAME} for ${target.tag} (checksum unavailable)`);
-                    return;
-                }
-            } else {
-                if (canVerify) {
-                    try {
-                        await verifyChecksum(JAR_PATH, target.checksum);
-                        writeInstalledVersion(target.tag);
-                        console.log(`✓ Using existing ${CANONICAL_JAR_NAME} for ${target.tag} (version marker refreshed)`);
-                        return;
-                    } catch (checksumError) {
-                        console.warn(`Existing ${CANONICAL_JAR_NAME} failed checksum: ${checksumError.message}`);
-                        console.warn('Re-downloading Groovy LSP...');
-                        try {
-                            fs.unlinkSync(JAR_PATH);
-                        } catch (cleanupError) {
-                            console.warn(`Warning: Failed to remove corrupted JAR ${JAR_PATH}: ${cleanupError.message}`);
-                        }
-                    }
-                } else {
-                    console.log(`Existing ${CANONICAL_JAR_NAME} does not match requested version (${target.tag}); downloading fresh copy...`);
-                }
-            }
-        }
-
-        // Download from GitHub releases
-        console.log(`Downloading Groovy LSP release (${target.tag})...`);
-        await downloadRelease(target);
-
-    } catch (error) {
-        console.error('❌ Error preparing Groovy Language Server:');
-        console.error(error.message);
-
-        // Provide helpful error messages
-        if (error.message.includes('ENOTFOUND') || error.message.includes('timeout')) {
-            console.error('');
-            console.error('Network error. Please check your internet connection or try again later.');
-        }
-
-        console.error('');
-        console.error(`Pinned release: ${PINNED_RELEASE_TAG}`);
-        console.error(`Pinned asset: ${PINNED_JAR_ASSET}`);
-        console.error(`Release page: https://github.com/albertocavalcante/groovy-lsp/releases/tag/${PINNED_RELEASE_TAG}`);
-        console.error('To try the latest available release instead, set USE_LATEST_GROOVY_LSP=true.');
-        console.error('To try the latest nightly, set GROOVY_LSP_CHANNEL=nightly or pass --nightly.');
-        console.error('');
-        console.error('You can also manually copy a JAR file to:');
-        console.error(`  ${JAR_PATH}`);
-
-        const requireBundle = process.env.REQUIRE_SERVER_BUNDLE === 'true';
-        const ignoreFailure = process.env.IGNORE_DOWNLOAD_FAILURE === 'true';
-        const isCI = !!(process.env.CI || process.env.GITHUB_ACTIONS);
-
-        // Allow CI runs (except when REQUIRE_SERVER_BUNDLE=true) to continue without failing installation
-        if (!requireBundle && (ignoreFailure || isCI)) {
-            console.warn('\n⚠️ WARNING: Server JAR download failed, but ignoring failure (CI/GITHUB_ACTIONS/IGNORE_DOWNLOAD_FAILURE).');
-            console.warn('The extension will NOT work without the server JAR unless a custom path is configured.');
-            process.exit(0);
-        }
-
-        process.exit(1);
+  try {
+    if (process.env.SKIP_PREPARE_SERVER === "true") {
+      console.log("SKIP_PREPARE_SERVER=true, skipping server preparation.");
+      return;
     }
+
+    // Ensure server directory exists
+    if (!fs.existsSync(SERVER_DIR)) {
+      fs.mkdirSync(SERVER_DIR, { recursive: true });
+      console.log("Created server directory");
+    }
+
+    const cliOptions = parseArgs(runtimeOptions.argv || []);
+    if (cliOptions.help) {
+      printHelp();
+      return;
+    }
+
+    const forceDownload =
+      runtimeOptions.forceDownload ??
+      (cliOptions.forceDownload || process.env.FORCE_DOWNLOAD === "true");
+    const preferLocal =
+      runtimeOptions.preferLocal ??
+      (cliOptions.preferLocal || process.env.PREFER_LOCAL === "true");
+    const explicitLocalJar =
+      runtimeOptions.local ??
+      cliOptions.local ??
+      process.env.GROOVY_LSP_LOCAL_JAR ??
+      null;
+    const installedVersion = readInstalledVersion();
+
+    // Hard local override (highest precedence)
+    if (explicitLocalJar) {
+      const resolvedLocal = path.resolve(explicitLocalJar);
+
+      if (!fs.existsSync(resolvedLocal)) {
+        throw new Error(`Local JAR path not found: ${resolvedLocal}`);
+      }
+
+      // Check if it's a directory - if so, search for JAR files within it
+      const stat = fs.statSync(resolvedLocal);
+      let jarToUse = resolvedLocal;
+
+      if (stat.isDirectory()) {
+        console.log(
+          `Provided path is a directory, searching for JAR files: ${resolvedLocal}`,
+        );
+
+        // Search for groovy-lsp JAR in the directory and subdirectories
+        const buildLibs = path.join(
+          resolvedLocal,
+          "groovy-lsp",
+          "build",
+          "libs",
+        );
+        if (fs.existsSync(buildLibs) && fs.statSync(buildLibs).isDirectory()) {
+          const jarFiles = fs
+            .readdirSync(buildLibs)
+            .filter(
+              (file) =>
+                file.endsWith(".jar") &&
+                file.includes("groovy-lsp") &&
+                file.includes("-all"),
+            )
+            .sort();
+
+          if (jarFiles.length > 0) {
+            jarToUse = path.join(buildLibs, jarFiles[0]);
+            console.log(`Found JAR in build directory: ${jarToUse}`);
+          } else {
+            throw new Error(
+              `No groovy-lsp JAR found in ${buildLibs}. Did you run the build?`,
+            );
+          }
+        } else {
+          // Try to find any JAR in the provided directory
+          const jarFiles = fs
+            .readdirSync(resolvedLocal)
+            .filter((file) => file.endsWith(".jar"))
+            .sort();
+
+          if (jarFiles.length > 0) {
+            jarToUse = path.join(resolvedLocal, jarFiles[0]);
+            console.log(`Found JAR in directory: ${jarToUse}`);
+          } else {
+            throw new Error(
+              `No JAR files found in directory: ${resolvedLocal}`,
+            );
+          }
+        }
+      }
+
+      console.log(`Using explicitly provided local JAR: ${jarToUse}`);
+      copyLocalJar(jarToUse, { forceDownload });
+      return;
+    }
+
+    // Try local build first if preferred
+    if (preferLocal) {
+      const localJarPath = findLocalGroovyLspJar();
+
+      if (localJarPath) {
+        copyLocalJar(localJarPath, { forceDownload });
+        return;
+      } else {
+        console.log(
+          "PREFER_LOCAL=true but no local JAR found, falling back to download...",
+        );
+      }
+    }
+
+    const selection = deriveSelection({
+      ...cliOptions,
+      tag: runtimeOptions.tag ?? cliOptions.tag,
+      nightly: runtimeOptions.nightly ?? cliOptions.nightly,
+      latest: runtimeOptions.latest ?? cliOptions.latest,
+      channel: runtimeOptions.channel ?? cliOptions.channel,
+    });
+    const target = await resolveTarget(selection);
+    if (!target.checksum) {
+      console.warn(
+        `⚠️  No checksum available for ${target.assetName}; proceeding without verification.`,
+      );
+    }
+
+    const jarExists = fs.existsSync(JAR_PATH);
+    const canVerify = !!target.checksum;
+
+    if (!forceDownload && jarExists) {
+      if (installedVersion === target.tag) {
+        if (canVerify) {
+          try {
+            await verifyChecksum(JAR_PATH, target.checksum);
+            console.log(
+              `✓ Using existing ${CANONICAL_JAR_NAME} for ${target.tag}`,
+            );
+            return;
+          } catch (checksumError) {
+            console.warn(
+              `Checksum mismatch for existing ${CANONICAL_JAR_NAME}: ${checksumError.message}`,
+            );
+            console.warn("Re-downloading Groovy LSP...");
+            try {
+              fs.unlinkSync(JAR_PATH);
+            } catch (cleanupError) {
+              console.warn(
+                `Warning: Failed to remove corrupted JAR ${JAR_PATH}: ${cleanupError.message}`,
+              );
+            }
+          }
+        } else {
+          console.log(
+            `✓ Using existing ${CANONICAL_JAR_NAME} for ${target.tag} (checksum unavailable)`,
+          );
+          return;
+        }
+      } else {
+        if (canVerify) {
+          try {
+            await verifyChecksum(JAR_PATH, target.checksum);
+            writeInstalledVersion(target.tag);
+            console.log(
+              `✓ Using existing ${CANONICAL_JAR_NAME} for ${target.tag} (version marker refreshed)`,
+            );
+            return;
+          } catch (checksumError) {
+            console.warn(
+              `Existing ${CANONICAL_JAR_NAME} failed checksum: ${checksumError.message}`,
+            );
+            console.warn("Re-downloading Groovy LSP...");
+            try {
+              fs.unlinkSync(JAR_PATH);
+            } catch (cleanupError) {
+              console.warn(
+                `Warning: Failed to remove corrupted JAR ${JAR_PATH}: ${cleanupError.message}`,
+              );
+            }
+          }
+        } else {
+          console.log(
+            `Existing ${CANONICAL_JAR_NAME} does not match requested version (${target.tag}); downloading fresh copy...`,
+          );
+        }
+      }
+    }
+
+    // Download from GitHub releases
+    console.log(`Downloading Groovy LSP release (${target.tag})...`);
+    await downloadRelease(target);
+
+    // Final validation - ensure JAR is valid before completing
+    if (fs.existsSync(JAR_PATH)) {
+      try {
+        validateJarFile(JAR_PATH);
+        console.log(`\u2713 Final validation: ${CANONICAL_JAR_NAME} is valid`);
+      } catch (error) {
+        console.error(`\u274c Final validation failed: ${error.message}`);
+        throw new Error(
+          `Server JAR validation failed at completion: ${error.message}`,
+        );
+      }
+    } else {
+      throw new Error(`Server JAR not found after preparation: ${JAR_PATH}`);
+    }
+  } catch (error) {
+    console.error("❌ Error preparing Groovy Language Server:");
+    console.error(error.message);
+
+    // Provide helpful error messages
+    if (
+      error.message.includes("ENOTFOUND") ||
+      error.message.includes("timeout")
+    ) {
+      console.error("");
+      console.error(
+        "Network error. Please check your internet connection or try again later.",
+      );
+    }
+
+    console.error("");
+    console.error(`Pinned release: ${PINNED_RELEASE_TAG}`);
+    console.error(`Pinned asset: ${PINNED_JAR_ASSET}`);
+    console.error(
+      `Release page: https://github.com/albertocavalcante/groovy-lsp/releases/tag/${PINNED_RELEASE_TAG}`,
+    );
+    console.error(
+      "To try the latest available release instead, set USE_LATEST_GROOVY_LSP=true.",
+    );
+    console.error(
+      "To try the latest nightly, set GROOVY_LSP_CHANNEL=nightly or pass --nightly.",
+    );
+    console.error("");
+    console.error("You can also manually copy a JAR file to:");
+    console.error(`  ${JAR_PATH}`);
+
+    const requireBundle = process.env.REQUIRE_SERVER_BUNDLE === "true";
+    const ignoreFailure = process.env.IGNORE_DOWNLOAD_FAILURE === "true";
+    const isCI = !!(process.env.CI || process.env.GITHUB_ACTIONS);
+
+    // Allow CI runs (except when REQUIRE_SERVER_BUNDLE=true) to continue without failing installation
+    if (!requireBundle && (ignoreFailure || isCI)) {
+      console.warn(
+        "\n⚠️ WARNING: Server JAR download failed, but ignoring failure (CI/GITHUB_ACTIONS/IGNORE_DOWNLOAD_FAILURE).",
+      );
+      console.warn(
+        "The extension will NOT work without the server JAR unless a custom path is configured.",
+      );
+      process.exit(0);
+    }
+
+    process.exit(1);
+  }
 }
 
 // Run the script
 if (require.main === module) {
-    async function run() {
-        const cliOptions = parseArgs(process.argv.slice(2));
+  async function run() {
+    const cliOptions = parseArgs(process.argv.slice(2));
 
-        if (cliOptions.printReleaseTag) {
-            process.stdout.write(PINNED_RELEASE_TAG);
-            return;
-        }
-
-        if (cliOptions.unknown.length > 0) {
-            console.warn(`Ignoring unknown options: ${cliOptions.unknown.join(', ')}`);
-        }
-
-        if (cliOptions.help) {
-            printHelp();
-            return;
-        }
-
-        console.log('Preparing Groovy Language Server...');
-        await prepareServer({ argv: process.argv.slice(2) });
-        console.log('✅ Server preparation complete!');
+    if (cliOptions.printReleaseTag) {
+      process.stdout.write(PINNED_RELEASE_TAG);
+      return;
     }
 
-    run().catch(error => {
-        console.error('Failed to prepare Groovy Language Server:', error);
-        process.exit(1);
-    }); // NOSONAR: top-level await is not available in this CommonJS entrypoint
+    if (cliOptions.unknown.length > 0) {
+      console.warn(
+        `Ignoring unknown options: ${cliOptions.unknown.join(", ")}`,
+      );
+    }
+
+    if (cliOptions.help) {
+      printHelp();
+      return;
+    }
+
+    console.log("Preparing Groovy Language Server...");
+    await prepareServer({ argv: process.argv.slice(2) });
+    console.log("✅ Server preparation complete!");
+  }
+
+  run().catch((error) => {
+    console.error("Failed to prepare Groovy Language Server:", error);
+    process.exit(1);
+  }); // NOSONAR: top-level await is not available in this CommonJS entrypoint
 }
 
 module.exports = {
-    PINNED_RELEASE_TAG
+  PINNED_RELEASE_TAG,
 };
 /**
  * Fetches JSON data from a URL
  */
 function fetchJson(url) {
-    return new Promise((resolve, reject) => {
-        const headers = {
-            'User-Agent': 'vscode-groovy-extension'
-        };
+  return new Promise((resolve, reject) => {
+    const headers = {
+      "User-Agent": "vscode-groovy-extension",
+    };
 
-        // Add GitHub authentication if token is available (for CI rate limiting)
-        if (process.env.GITHUB_TOKEN) {
-            headers['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
+    // Add GitHub authentication if token is available (for CI rate limiting)
+    if (process.env.GITHUB_TOKEN) {
+      headers["Authorization"] = `token ${process.env.GITHUB_TOKEN}`;
+    }
+
+    const request = https.get(url, { headers }, (response) => {
+      let data = "";
+
+      response.on("data", (chunk) => {
+        data += chunk;
+      });
+
+      response.on("end", () => {
+        try {
+          const json = JSON.parse(data);
+
+          if (response.statusCode >= 400) {
+            reject(
+              new Error(
+                `HTTP ${response.statusCode}: ${json.message || "Request failed"}`,
+              ),
+            );
+            return;
+          }
+
+          resolve(json);
+        } catch (error) {
+          reject(new Error(`Failed to parse JSON: ${error.message}`));
         }
-
-        const request = https.get(url, { headers }, (response) => {
-            let data = '';
-
-            response.on('data', (chunk) => {
-                data += chunk;
-            });
-
-            response.on('end', () => {
-                try {
-                    const json = JSON.parse(data);
-
-                    if (response.statusCode >= 400) {
-                        reject(new Error(`HTTP ${response.statusCode}: ${json.message || 'Request failed'}`));
-                        return;
-                    }
-
-                    resolve(json);
-                } catch (error) {
-                    reject(new Error(`Failed to parse JSON: ${error.message}`));
-                }
-            });
-        });
-
-        request.on('error', (error) => reject(error));
-        request.setTimeout(30000, () => {
-            request.destroy();
-            reject(new Error('Request timeout'));
-        });
+      });
     });
+
+    request.on("error", (error) => reject(error));
+    request.setTimeout(30000, () => {
+      request.destroy();
+      reject(new Error("Request timeout"));
+    });
+  });
 }
 
 /**
  * Fetches text content from a URL
  */
 function fetchText(url) {
-    return new Promise((resolve, reject) => {
-        const headers = { 'User-Agent': 'vscode-groovy-extension' };
-        if (process.env.GITHUB_TOKEN) {
-            headers['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
-        }
+  return new Promise((resolve, reject) => {
+    const headers = { "User-Agent": "vscode-groovy-extension" };
+    if (process.env.GITHUB_TOKEN) {
+      headers["Authorization"] = `token ${process.env.GITHUB_TOKEN}`;
+    }
 
-        const request = https.get(url, { headers }, (response) => {
-            let data = '';
-            response.on('data', chunk => { data += chunk; });
-            response.on('end', () => resolve(data));
-        });
-
-        request.on('error', reject);
-        request.setTimeout(30000, () => {
-            request.destroy();
-            reject(new Error('Request timeout'));
-        });
+    const request = https.get(url, { headers }, (response) => {
+      let data = "";
+      response.on("data", (chunk) => {
+        data += chunk;
+      });
+      response.on("end", () => resolve(data));
     });
+
+    request.on("error", reject);
+    request.setTimeout(30000, () => {
+      request.destroy();
+      reject(new Error("Request timeout"));
+    });
+  });
 }
 
 /**
  * Gets latest release info from GitHub (non-prerelease)
  */
 async function getLatestReleaseInfo() {
-    return await fetchJson(GITHUB_RELEASE_API);
+  return await fetchJson(GITHUB_RELEASE_API);
 }
 
 /**
  * Gets release info for a specific tag (includes prereleases/nightlies)
  */
 async function getReleaseByTag(tag) {
-    return await fetchJson(`${GITHUB_RELEASE_TAG_API}/${encodeURIComponent(tag)}`);
+  return await fetchJson(
+    `${GITHUB_RELEASE_TAG_API}/${encodeURIComponent(tag)}`,
+  );
 }
 
 /**
  * Gets the latest nightly (prerelease) release
  */
 async function getLatestNightlyRelease() {
-    const releases = await fetchJson(GITHUB_RELEASES_API);
-    if (!Array.isArray(releases) || releases.length === 0) return null;
+  const releases = await fetchJson(GITHUB_RELEASES_API);
+  if (!Array.isArray(releases) || releases.length === 0) return null;
 
-    const candidates = releases
-        .filter(r => !r.draft && /nightly/i.test(r.tag_name || ''))
-        .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
+  const candidates = releases
+    .filter((r) => !r.draft && /nightly/i.test(r.tag_name || ""))
+    .sort(
+      (a, b) =>
+        new Date(b.published_at || b.created_at) -
+        new Date(a.published_at || a.created_at),
+    );
 
-    return candidates[0] || null;
+  return candidates[0] || null;
 }
 
 /**
  * Picks a JAR asset; prefer linux-amd64/universal
  */
 function selectJarAsset(assets) {
-    if (!assets || assets.length === 0) return null;
-    const preferred = assets.find(a =>
-        a.name.endsWith('.jar') &&
-        a.name.includes('linux-amd64')
-    );
-    if (preferred) return preferred;
-    return assets.find(a => a.name.endsWith('.jar')) || null;
+  if (!assets || assets.length === 0) return null;
+  const preferred = assets.find(
+    (a) => a.name.endsWith(".jar") && a.name.includes("linux-amd64"),
+  );
+  if (preferred) return preferred;
+  return assets.find((a) => a.name.endsWith(".jar")) || null;
 }
 
 /**
  * Attempts to find a checksum for the given asset name from checksums.txt
  */
 async function fetchChecksumForAsset(assets, assetName) {
-    const checksumAsset = assets?.find(a => a.name === 'checksums.txt');
-    if (!checksumAsset) return null;
-    try {
-        const content = await fetchText(checksumAsset.browser_download_url);
-        const line = content.split('\n').find(l => l.trim().endsWith(` ${assetName}`));
-        if (!line) return null;
-        const [hash] = line.trim().split(/\s+/);
-        return hash || null;
-    } catch (error) {
-        console.warn(`Warning: Unable to read checksums.txt: ${error.message}`);
-        return null;
-    }
+  const checksumAsset = assets?.find((a) => a.name === "checksums.txt");
+  if (!checksumAsset) return null;
+  try {
+    const content = await fetchText(checksumAsset.browser_download_url);
+    const line = content
+      .split("\n")
+      .find((l) => l.trim().endsWith(` ${assetName}`));
+    if (!line) return null;
+    const [hash] = line.trim().split(/\s+/);
+    return hash || null;
+  } catch (error) {
+    console.warn(`Warning: Unable to read checksums.txt: ${error.message}`);
+    return null;
+  }
 }
 
 function printHelp() {
-    const help = `
+  const help = `
 Usage: node tools/prepare-server.js [options]
 
 Options:
@@ -682,5 +898,5 @@ Environment:
   PREFER_LOCAL, USE_LATEST_GROOVY_LSP, FORCE_DOWNLOAD, SKIP_PREPARE_SERVER.
 `.trim();
 
-    console.log(help);
+  console.log(help);
 }
