@@ -62,7 +62,7 @@ object CompletionProvider {
                 if (result2.isSuccessful || result2.diagnostics.size < result1.diagnostics.size) {
                     val ast = result2.ast
                     val astModel = result2.astModel
-                    if (ast != null && astModel != null) {
+                    if (ast != null) {
                         return buildCompletionsList(ast, astModel, line, character, compilationService, uriObj)
                     }
                 }
@@ -72,7 +72,7 @@ object CompletionProvider {
             val ast = result1.ast
             val astModel = result1.astModel
 
-            if (ast == null || astModel == null) {
+            if (ast == null) {
                 emptyList()
             } else {
                 buildCompletionsList(ast, astModel, line, character, compilationService, uriObj)

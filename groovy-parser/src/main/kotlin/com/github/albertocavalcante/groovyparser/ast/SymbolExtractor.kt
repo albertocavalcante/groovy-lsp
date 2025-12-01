@@ -46,7 +46,11 @@ object SymbolExtractor {
                     val variable = decl.variableExpression
 
                     // Use TypeInferencer to determine the best type
-                    val inferredType = TypeInferencer.inferType(decl)
+                    val inferredType = try {
+                        TypeInferencer.inferType(decl)
+                    } catch (e: Exception) {
+                        "java.lang.Object"
+                    }
 
                     variables.add(
                         VariableSymbol(
