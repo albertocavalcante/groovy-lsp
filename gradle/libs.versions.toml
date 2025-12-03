@@ -8,7 +8,7 @@ shadow = "9.2.2"
 gitHooks = "2.1.5"
 jmh = "0.7.3"
 
-groovy = "4.0.29"
+groovy = "5.0.3"
 lsp4j = "0.24.0"
 codenarc = "3.6.0-groovy-4.0"
 gmetrics = "2.1.0"
