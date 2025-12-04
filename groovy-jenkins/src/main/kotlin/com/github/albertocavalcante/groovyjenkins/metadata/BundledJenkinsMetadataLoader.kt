@@ -56,30 +56,30 @@ class BundledJenkinsMetadataLoader {
         val globalVariables: Map<String, GlobalVariableJson>,
     ) {
         fun toBundledMetadata(): BundledJenkinsMetadata {
-            val stepsMap = steps.mapValues { (_, step) ->
-                JenkinsStepMetadata(
-                    name = step.name,
+            val stepsMap = steps.map { (stepName, step) ->
+                stepName to JenkinsStepMetadata(
+                    name = stepName,
                     plugin = step.plugin,
-                    parameters = step.parameters.mapValues { (_, param) ->
-                        StepParameter(
-                            name = param.name,
+                    parameters = step.parameters.map { (paramName, param) ->
+                        paramName to StepParameter(
+                            name = paramName,
                             type = param.type,
                             required = param.required,
                             default = param.default,
                             documentation = param.documentation,
                         )
-                    },
+                    }.toMap(),
                     documentation = step.documentation,
                 )
-            }
+            }.toMap()
 
-            val globalVarsMap = globalVariables.mapValues { (_, globalVar) ->
-                GlobalVariableMetadata(
-                    name = globalVar.name,
+            val globalVarsMap = globalVariables.map { (varName, globalVar) ->
+                varName to GlobalVariableMetadata(
+                    name = varName,
                     type = globalVar.type,
                     documentation = globalVar.documentation,
                 )
-            }
+            }.toMap()
 
             return BundledJenkinsMetadata(
                 steps = stepsMap,
@@ -90,7 +90,6 @@ class BundledJenkinsMetadataLoader {
 
     @Serializable
     private data class StepJson(
-        val name: String,
         val plugin: String,
         val parameters: Map<String, ParameterJson>,
         val documentation: String? = null,
@@ -98,7 +97,6 @@ class BundledJenkinsMetadataLoader {
 
     @Serializable
     private data class ParameterJson(
-        val name: String,
         val type: String,
         val required: Boolean = false,
         val default: String? = null,
@@ -106,5 +104,5 @@ class BundledJenkinsMetadataLoader {
     )
 
     @Serializable
-    private data class GlobalVariableJson(val name: String, val type: String, val documentation: String? = null)
+    private data class GlobalVariableJson(val type: String, val documentation: String? = null)
 }

@@ -1,37 +1,31 @@
 {
   "steps": {
     "sh": {
-      "name": "sh",
       "plugin": "workflow-durable-task-step:1400.v7fd76b_8b_6b_9a",
       "parameters": {
         "script": {
-          "name": "script",
           "type": "String",
           "required": true,
           "documentation": "Shell script to execute"
         },
         "returnStdout": {
-          "name": "returnStdout",
           "type": "boolean",
           "required": false,
           "default": "false",
           "documentation": "Return standard output instead of exit code"
         },
         "returnStatus": {
-          "name": "returnStatus",
           "type": "boolean",
           "required": false,
           "default": "false",
           "documentation": "Return exit code instead of throwing exception on non-zero"
         },
         "encoding": {
-          "name": "encoding",
           "type": "String",
           "required": false,
           "documentation": "Encoding for output"
         },
         "label": {
-          "name": "label",
           "type": "String",
           "required": false,
           "documentation": "Label for this step in Blue Ocean"
@@ -42,17 +36,14 @@
   },
   "globalVariables": {
     "env": {
-      "name": "env",
       "type": "org.jenkinsci.plugins.workflow.cps.EnvActionImpl",
       "documentation": "Environment variables available in the build"
     },
     "params": {
-      "name": "params",
       "type": "Map<String, Object>",
       "documentation": "Build parameters defined in the pipeline"
     },
     "currentBuild": {
-      "name": "currentBuild",
       "type": "org.jenkinsci.plugins.workflow.support.steps.build.RunWrapper",
       "documentation": "Information about the current build"
     }
