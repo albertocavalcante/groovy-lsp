@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.3.0](https://github.com/albertocavalcante/groovy-lsp/compare/v0.2.0...v0.3.0) (2025-12-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **codeaction:** implement textDocument/codeAction for imports, formatting, and lint fixes ([#114](https://github.com/albertocavalcante/groovy-lsp/issues/114))
+
+### Features
+
+* add bundled Jenkins metadata scaffold ([#145](https://github.com/albertocavalcante/groovy-lsp/issues/145)) ([69d1aad](https://github.com/albertocavalcante/groovy-lsp/commit/69d1aad785693eb4139d32c611423756a8f50e23))
+* add groovydoc extraction to hover and signature help ([#112](https://github.com/albertocavalcante/groovy-lsp/issues/112)) ([22cfeca](https://github.com/albertocavalcante/groovy-lsp/commit/22cfecafe2207a697d73896d48a7c1d31e4cb835))
+* add support for goto definition in JAR dependencies ([#142](https://github.com/albertocavalcante/groovy-lsp/issues/142)) ([b53887b](https://github.com/albertocavalcante/groovy-lsp/commit/b53887b4b8500c76d35ecb4a9de0f42f2c823e32))
+* **codeaction:** implement textDocument/codeAction for imports, formatting, and lint fixes ([#114](https://github.com/albertocavalcante/groovy-lsp/issues/114)) ([a4661b6](https://github.com/albertocavalcante/groovy-lsp/commit/a4661b639b2bbd79630ba8a54e12fddd9fd85ef9))
+* default to recursive ast visitor in lsp ([#139](https://github.com/albertocavalcante/groovy-lsp/issues/139)) ([8d99ead](https://github.com/albertocavalcante/groovy-lsp/commit/8d99eade4bc0cead370efbf511ae9ea0c9f6092f))
+* fix race condition and symbol resolution for goto-definition ([#141](https://github.com/albertocavalcante/groovy-lsp/issues/141)) ([a32958f](https://github.com/albertocavalcante/groovy-lsp/commit/a32958f25d16117ffd895d03bbf141273d34e40e))
+* Implement GDK and Type Parameter completion ([#143](https://github.com/albertocavalcante/groovy-lsp/issues/143)) ([8664629](https://github.com/albertocavalcante/groovy-lsp/commit/86646296f34f3d97fd22d58fd3d901236f634355))
+* improve type inference with generics support and fix forEach completion ([#144](https://github.com/albertocavalcante/groovy-lsp/issues/144)) ([db6b45e](https://github.com/albertocavalcante/groovy-lsp/commit/db6b45eb653181b13d279406e1877fa58abeed79))
+* **jenkins:** add first-class Jenkins pipeline support with @Library resolution and GDSL metadata ([#123](https://github.com/albertocavalcante/groovy-lsp/issues/123)) ([b1160c1](https://github.com/albertocavalcante/groovy-lsp/commit/b1160c1f2e617c485e98dd78bf1e2b522127803a))
+* **parser:** add full groovy operator support to recursive visitor ([#133](https://github.com/albertocavalcante/groovy-lsp/issues/133)) ([4188412](https://github.com/albertocavalcante/groovy-lsp/commit/4188412d394d584e49d97694488bdcbdbd8023a7))
+* recursive AST visitor with comprehensive parity testing and documentation ([#132](https://github.com/albertocavalcante/groovy-lsp/issues/132)) ([813a1cf](https://github.com/albertocavalcante/groovy-lsp/commit/813a1cf01d507683615e01213efc10f9d09e876d))
+* **rename:** implement workspace-wide rename refactoring ([#109](https://github.com/albertocavalcante/groovy-lsp/issues/109)) ([fa2d8ea](https://github.com/albertocavalcante/groovy-lsp/commit/fa2d8ea0eb8ff8dce25d13b2af38777f9fbe2dd2))
+* surface bundled Jenkins step completions ([#147](https://github.com/albertocavalcante/groovy-lsp/issues/147)) ([b45777f](https://github.com/albertocavalcante/groovy-lsp/commit/b45777f23113d6764dd259e0d14c2df998b61183))
+
+
+### Bug Fixes
+
+* **deps:** update dependency com.fasterxml.jackson:jackson-bom to v2.20.1 ([#90](https://github.com/albertocavalcante/groovy-lsp/issues/90)) ([d2b2019](https://github.com/albertocavalcante/groovy-lsp/commit/d2b20190e46d7e4f92c58f39daf12a198261e096))
+* **deps:** update dependency net.jqwik:jqwik to v1.9.3 ([#94](https://github.com/albertocavalcante/groovy-lsp/issues/94)) ([ecc8b9f](https://github.com/albertocavalcante/groovy-lsp/commit/ecc8b9feb6235b85a9822a1c1c8593e5dbe662b4))
+* **deps:** update junit-framework monorepo ([#58](https://github.com/albertocavalcante/groovy-lsp/issues/58)) ([5900a0b](https://github.com/albertocavalcante/groovy-lsp/commit/5900a0b5be33cfa0c218bbcc9c5f493889bdd158))
+* ensure resource cleanup in CLI commands to prevent CI hangs ([#102](https://github.com/albertocavalcante/groovy-lsp/issues/102)) ([de2138b](https://github.com/albertocavalcante/groovy-lsp/commit/de2138b265840fa7fe792b7af4b9834e7cfefb0b))
+* isolate e2e gradle cache shutdown ([#126](https://github.com/albertocavalcante/groovy-lsp/issues/126)) ([dca8ed9](https://github.com/albertocavalcante/groovy-lsp/commit/dca8ed929d466faa8a85d43db7e69cc09508045c))
+* **release:** add timeout, default to self-hosted, and fix jar paths ([#106](https://github.com/albertocavalcante/groovy-lsp/issues/106)) ([1bfc5e4](https://github.com/albertocavalcante/groovy-lsp/commit/1bfc5e4363c301dd4b7116d819eadc42f265d131))
+* repair nightly workflow indentation ([#128](https://github.com/albertocavalcante/groovy-lsp/issues/128)) ([a57308c](https://github.com/albertocavalcante/groovy-lsp/commit/a57308c9f545e982f01eef51dafb9566a5ef6762))
+* resolve configuration cache violation in printVersion task ([#98](https://github.com/albertocavalcante/groovy-lsp/issues/98)) ([e6c955e](https://github.com/albertocavalcante/groovy-lsp/commit/e6c955e7ff5e8cbce25cda7cedebc7e20cc40c58))
+
+
+### Performance Improvements
+
+* optimize CI test execution and improve observability ([#101](https://github.com/albertocavalcante/groovy-lsp/issues/101)) ([4d626d0](https://github.com/albertocavalcante/groovy-lsp/commit/4d626d02828832e77282f64604bc3867d9b038fe))
+* **parser:** optimize recursive visitor allocation using inline functions ([#135](https://github.com/albertocavalcante/groovy-lsp/issues/135)) ([4133bf8](https://github.com/albertocavalcante/groovy-lsp/commit/4133bf81bdabe3d64e6dc0fe21c91ef74069e386))
+
 ## [0.2.0](https://github.com/albertocavalcante/groovy-lsp/compare/v0.1.0...v0.2.0) (2025-11-23)
 
 
