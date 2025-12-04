@@ -104,6 +104,14 @@ repos/owner/repo/pulls/PR_NUMBER/comments | jq -r '.[] | "File: \(.path)\nLine: 
 Claude WebFetch - For automated analysis: WebFetch url="https://sonarcloud.io/api/issues/search?..." prompt="List the
 issues with severity and file locations" </pr-review-commands>
 
+<pr-feedback-workflow>
+  When addressing review feedback, retrieve all sources before coding (run from repo root):
+  - General PR comments: gh pr view PR_NUMBER --json comments --jq '.comments[] | {author: .author.login, body: .body, createdAt: .createdAt}'
+  - Inline review comments: gh api repos/albertocavalcante/groovy-lsp/pulls/PR_NUMBER/comments --jq '.[] | {author: .user.login, path: .path, line: .line, body: .body}'
+  - Review summaries: gh pr view PR_NUMBER --json reviews --jq '.reviews[] | {author: .author.login, state: .state, body: .body, submittedAt: .submittedAt}'
+  Fetch these before making changes so no feedback is missed.
+</pr-feedback-workflow>
+
 <github-issues>
   # Quick Issue Creation
   gh issue create -R albertocavalcante/groovy-lsp \
