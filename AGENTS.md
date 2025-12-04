@@ -46,6 +46,10 @@ gh api repos/owner/repo/contents/build.gradle.kts --jq '.download_url' | xargs c
     Examples: feat:, fix:, ci:, docs:, refactor:
   </commit-format>
 
+  <pr-title-format>
+    Pull Request titles MUST also use conventional style: "type: description" (e.g., feat: add Jenkins metadata scaffold)
+  </pr-title-format>
+
   <safety-check>
     Always run: git branch --show-current
     If on main: immediately git checkout -b new-branch
