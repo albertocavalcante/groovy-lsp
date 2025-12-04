@@ -61,7 +61,7 @@ gh api repos/owner/repo/contents/build.gradle.kts --jq '.download_url' | xargs c
   </ship-it-definition>
 </git-workflow-rules>
 
-<local-git-ignore>
+  <local-git-ignore>
   File: .git/info/exclude (local ignore, not shared with others)
 
 Add files/folders that should be ignored only on your machine: echo "filename.ext" >> .git/info/exclude echo
@@ -75,6 +75,10 @@ instead)
     Only use .gitignore when explicitly told "add to .gitignore"
   </default-behavior>
 </local-git-ignore>
+
+<privacy>
+  NEVER expose absolute home directory paths in docs, specs, commits, or PRs. Use `$HOME` or `~` instead.
+</privacy>
 
 <test-debugging>
   For test debugging with println: MUST run with --info flag

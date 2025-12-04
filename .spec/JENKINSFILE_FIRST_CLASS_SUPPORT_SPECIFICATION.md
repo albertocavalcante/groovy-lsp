@@ -1839,7 +1839,7 @@ Post-beta:
 
 ### Internal Documents
 
-- Approved plan: `/Users/albertocavalcante/.claude/plans/calm-wandering-lollipop.md`
+- Approved plan: `~/.claude/plans/calm-wandering-lollipop.md`
 - Architectural review feedback (embedded in this spec)
 - TODO expansion: `groovy-jenkins/BUNDLED_STUBS_TODO.md`
 

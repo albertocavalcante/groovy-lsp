@@ -174,7 +174,7 @@ Before considering Phase 0 complete:
 ### Related Issues
 
 - See `PARSER_REFACTORING_PLAN.md` for ASM-based parameter extraction
-- See approved plan at `/Users/albertocavalcante/.claude/plans/calm-wandering-lollipop.md`
+- See approved plan at `~/.claude/plans/calm-wandering-lollipop.md`
 - Phase 2.5 will add controller metadata dump for instance-specific accuracy
 
 ### PR Breakdown
