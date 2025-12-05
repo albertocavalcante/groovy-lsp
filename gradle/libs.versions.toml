@@ -18,7 +18,7 @@ collectionsImmutable = "0.4.0"
 serialization = "1.8.0"
 slf4j = "2.0.17"
 logback = "1.5.21"
-rewriteGroovy = "8.67.0"
+rewriteGroovy = "8.68.1"
 
 junit = "5.14.1"
 junitPlatform = "1.14.1"
