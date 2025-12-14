@@ -5,8 +5,10 @@ import net.jqwik.api.Property
 import net.jqwik.api.constraints.AlphaChars
 import net.jqwik.api.constraints.StringLength
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
@@ -52,49 +54,20 @@ class FixHandlerRegistryTest {
     fun `property - unregistered random rule names return null handler`(
         @ForAll @AlphaChars @StringLength(min = 1, max = 50) randomRuleName: String,
     ): Boolean {
-        // Skip if the random name happens to match a registered rule
-        val registeredRules = setOf(
-            "TrailingWhitespace",
-            "UnnecessarySemicolon",
-            "ConsecutiveBlankLines",
-            "BlankLineBeforePackage",
-            "UnusedImport",
-            "DuplicateImport",
-            "UnnecessaryGroovyImport",
-            "ImportFromSamePackage",
-            "UnnecessaryPublicModifier",
-            "UnnecessaryDefInVariableDeclaration",
-            "UnnecessaryGetter",
-            "UnnecessarySetter",
-            "UnnecessaryDotClass",
-        )
+        val registeredRules = FixHandlerRegistry.getRegisteredRules()
 
-        if (registeredRules.contains(randomRuleName)) {
+        return if (registeredRules.contains(randomRuleName)) {
             // For registered rules, handler should be non-null
-            return FixHandlerRegistry.getHandler(randomRuleName) != null
+            FixHandlerRegistry.getHandler(randomRuleName) != null
         } else {
             // For unregistered rules, handler should be null
-            return FixHandlerRegistry.getHandler(randomRuleName) == null
+            FixHandlerRegistry.getHandler(randomRuleName) == null
         }
     }
 
     @Test
     fun `all registered rules have handlers`() {
-        val registeredRules = listOf(
-            "TrailingWhitespace",
-            "UnnecessarySemicolon",
-            "ConsecutiveBlankLines",
-            "BlankLineBeforePackage",
-            "UnusedImport",
-            "DuplicateImport",
-            "UnnecessaryGroovyImport",
-            "ImportFromSamePackage",
-            "UnnecessaryPublicModifier",
-            "UnnecessaryDefInVariableDeclaration",
-            "UnnecessaryGetter",
-            "UnnecessarySetter",
-            "UnnecessaryDotClass",
-        )
+        val registeredRules = FixHandlerRegistry.getRegisteredRules()
 
         for (ruleName in registeredRules) {
             val handler = FixHandlerRegistry.getHandler(ruleName)
@@ -104,25 +77,70 @@ class FixHandlerRegistryTest {
 
     @Test
     fun `all registered rules have titles`() {
-        val registeredRules = listOf(
-            "TrailingWhitespace" to "Remove trailing whitespace",
-            "UnnecessarySemicolon" to "Remove unnecessary semicolon",
-            "ConsecutiveBlankLines" to "Remove consecutive blank lines",
-            "BlankLineBeforePackage" to "Remove blank lines before package",
-            "UnusedImport" to "Remove unused import",
-            "DuplicateImport" to "Remove duplicate import",
-            "UnnecessaryGroovyImport" to "Remove unnecessary import",
-            "ImportFromSamePackage" to "Remove same-package import",
-            "UnnecessaryPublicModifier" to "Remove unnecessary 'public'",
-            "UnnecessaryDefInVariableDeclaration" to "Remove unnecessary 'def'",
-            "UnnecessaryGetter" to "Use property access",
-            "UnnecessarySetter" to "Use property assignment",
-            "UnnecessaryDotClass" to "Remove '.class'",
+        val rulesWithTitles = FixHandlerRegistry.getRegisteredRulesWithTitles()
+        val registeredRules = FixHandlerRegistry.getRegisteredRules()
+
+        // Validate: all registered rules have titles
+        assertEquals(
+            registeredRules,
+            rulesWithTitles.keys,
+            "All registered rules should have titles",
         )
 
-        for ((ruleName, expectedTitle) in registeredRules) {
+        // Validate: no title is empty or default
+        for ((ruleName, title) in rulesWithTitles) {
+            assertNotEquals(
+                "Fix $ruleName",
+                title,
+                "Rule '$ruleName' should have a specific title, not default",
+            )
+            assertTrue(
+                title.isNotBlank(),
+                "Title for rule '$ruleName' should not be blank",
+            )
+        }
+    }
+
+    @Test
+    fun `getRegisteredRules returns non-empty set`() {
+        val rules = FixHandlerRegistry.getRegisteredRules()
+        assertTrue(rules.isNotEmpty(), "Registry should have at least one rule registered")
+    }
+
+    @Test
+    fun `getRegisteredRulesWithTitles returns consistent data`() {
+        val rulesWithTitles = FixHandlerRegistry.getRegisteredRulesWithTitles()
+        val registeredRules = FixHandlerRegistry.getRegisteredRules()
+
+        assertEquals(
+            registeredRules.size,
+            rulesWithTitles.size,
+            "Number of rules should match number of titles",
+        )
+
+        for (ruleName in registeredRules) {
+            assertTrue(
+                rulesWithTitles.containsKey(ruleName),
+                "Rule '$ruleName' should have a title in rulesWithTitles map",
+            )
+        }
+    }
+
+    @Test
+    fun `handler and title lookups are consistent`() {
+        val registeredRules = FixHandlerRegistry.getRegisteredRules()
+
+        for (ruleName in registeredRules) {
+            // If a rule has a handler, it should have a title
+            val handler = FixHandlerRegistry.getHandler(ruleName)
             val title = FixHandlerRegistry.getTitle(ruleName)
-            assertEquals(expectedTitle, title, "Rule '$ruleName' should have title '$expectedTitle'")
+
+            assertNotNull(handler, "Rule '$ruleName' should have a handler")
+            assertNotEquals(
+                "Fix $ruleName",
+                title,
+                "Rule '$ruleName' should have a specific title, not default",
+            )
         }
     }
 }

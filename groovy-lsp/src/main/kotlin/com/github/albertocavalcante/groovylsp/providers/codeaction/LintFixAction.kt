@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 
 /**
  * Provides lint fix actions for deterministic CodeNarc issues.
- * Only offers safe, simple transformations; complex or risky fixes are declined.
+ * Only offers safe, simple transformations; complex or risky fixes are not provided.
  *
  * Uses a registry-based architecture where each CodeNarc rule name maps to a fix handler function.
  * This allows for easy extensibility and clear separation of concerns.
@@ -55,13 +55,21 @@ class LintFixAction {
         if (!isCodeNarcDiagnostic(diagnostic)) return null
 
         // Get rule name and handler
-        val ruleName = extractRuleName(diagnostic) ?: return logAndReturnNull("No rule name found in diagnostic code")
-        val handler = FixHandlerRegistry.getHandler(ruleName)
-            ?: return logAndReturnNull("No handler registered for rule: $ruleName")
+        val ruleName = extractRuleName(diagnostic) ?: run {
+            logger.debug("No rule name found in diagnostic code")
+            return null
+        }
+        val handler = FixHandlerRegistry.getHandler(ruleName) ?: run {
+            logger.debug("No handler registered for rule: $ruleName")
+            return null
+        }
 
         // Create context and invoke handler
         val context = FixContext(diagnostic, content, lines, uriString)
-        val textEdit = handler(context) ?: return logAndReturnNull("Handler returned null for rule: $ruleName")
+        val textEdit = handler(context) ?: run {
+            logger.debug("Handler returned null for rule: $ruleName")
+            return null
+        }
 
         // Build and return CodeAction
         val title = FixHandlerRegistry.getTitle(ruleName)
@@ -79,14 +87,6 @@ class LintFixAction {
             return false
         }
         return true
-    }
-
-    /**
-     * Logs a debug message and returns null.
-     */
-    private fun logAndReturnNull(message: String): CodeAction? {
-        logger.debug(message)
-        return null
     }
 
     /**

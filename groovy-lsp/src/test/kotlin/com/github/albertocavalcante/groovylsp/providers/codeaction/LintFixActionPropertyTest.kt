@@ -9,6 +9,8 @@ import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DiagnosticSeverity
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 /**
  * Property-based tests for LintFixAction.
@@ -25,14 +27,17 @@ class LintFixActionPropertyTest {
      * **Validates: Requirements 1.3**
      *
      * For any diagnostic with a source other than "CodeNarc" (case-insensitive),
-     * the system should return null and not attempt to create a fix.
+     * the system should return empty list and not attempt to create a fix.
      */
-    @Suppress("FunctionName") // Property test naming convention
     @Property(tries = 100)
-    fun nonCodeNarcDiagnosticsReturnEmptyActions(
+    fun `property - non-CodeNarc diagnostics return empty actions`(
         @ForAll("nonCodeNarcSources") source: String,
     ): Boolean {
-        val diagnostic = createDiagnostic(source, "TrailingWhitespace", "Some message")
+        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
+            code = "TrailingWhitespace",
+            message = "Some message",
+            source = source,
+        )
         val content = "def x = 1   \n"
 
         val actions = lintFixAction.createLintFixActions(
@@ -45,31 +50,47 @@ class LintFixActionPropertyTest {
         return actions.isEmpty()
     }
 
-    @Suppress("FunctionName") // Property test naming convention
+    /**
+     * Property test: Case-Insensitive Source Matching
+     * **Feature: codenarc-lint-fixes, Property 2: Source Filtering**
+     * **Validates: Requirements 1.3**
+     *
+     * CodeNarc source matching should be case-insensitive and process
+     * diagnostics regardless of capitalization variations.
+     */
     @Property(tries = 100)
-    fun codeNarcDiagnosticsWithCaseVariationsAreProcessed(
+    fun `property - CodeNarc diagnostics with case variations are accepted`(
         @ForAll("codeNarcCaseVariations") source: String,
     ): Boolean {
-        val diagnostic = createDiagnostic(source, "TrailingWhitespace", "Some message")
+        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
+            code = "TrailingWhitespace",
+            message = "Some message",
+            source = source,
+        )
         val content = "def x = 1   \n"
 
-        // This test verifies that CodeNarc source (case-insensitive) is accepted
-        // The actual fix may or may not be created depending on handler implementation
-        // But the diagnostic should at least be considered (not filtered out)
+        // Should not throw exception for valid CodeNarc sources
         val actions = lintFixAction.createLintFixActions(
             "file:///test.groovy",
             listOf(diagnostic),
             content,
         )
 
-        // For now, handlers return null, so actions will be empty
-        // But the important thing is no exception is thrown
-        return true
+        // Validate: diagnostic is processed without error
+        // Currently handlers return null, but no exception should occur
+        // When handlers implemented: actions.isNotEmpty()
+        return true // No exception = success
     }
 
-    @Suppress("FunctionName") // Property test naming convention
-    @Property(tries = 100)
-    fun nullSourceDiagnosticsReturnEmptyActions(): Boolean {
+    /**
+     * Unit test: Null Source Diagnostics
+     * **Feature: codenarc-lint-fixes, Property 2: Source Filtering**
+     * **Validates: Requirements 1.3**
+     *
+     * Diagnostics with null source should be filtered out.
+     */
+    @Test
+    fun `null source diagnostics return empty actions`() {
         val diagnostic = Diagnostic().apply {
             range = Range(Position(0, 0), Position(0, 10))
             message = "Some message"
@@ -86,7 +107,7 @@ class LintFixActionPropertyTest {
         )
 
         // Null source diagnostics should not produce any actions
-        return actions.isEmpty()
+        assertTrue(actions.isEmpty())
     }
 
     @Provide
@@ -110,13 +131,5 @@ class LintFixActionPropertyTest {
             "CODEnarc",
             "cOdEnArC",
         )
-    }
-
-    private fun createDiagnostic(source: String?, code: String, message: String): Diagnostic = Diagnostic().apply {
-        this.range = Range(Position(0, 0), Position(0, 10))
-        this.message = message
-        this.source = source
-        this.code = org.eclipse.lsp4j.jsonrpc.messages.Either.forLeft(code)
-        this.severity = DiagnosticSeverity.Warning
     }
 }
