@@ -1,19 +1,22 @@
 package com.github.albertocavalcante.groovylsp.documentation
 
 import org.codehaus.groovy.ast.ASTNode
+import org.codehaus.groovy.ast.AnnotatedNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.FieldNode
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.ast.PropertyNode
-import org.codehaus.groovy.groovydoc.GroovyClassDoc
-import org.codehaus.groovy.groovydoc.GroovyProgramElementDoc
-import org.codehaus.groovy.tools.groovydoc.LinkArgument
-import org.codehaus.groovy.tools.groovydoc.antlr4.GroovyDocParser
 import org.slf4j.LoggerFactory
-import java.util.Properties
 
 /**
- * Extracts documentation from groovydoc/javadoc comments using GroovyDocParser.
+ * Extracts documentation from groovydoc/javadoc comments.
+ *
+ * Implementation note:
+ * - We intentionally avoid parsing the whole source with GroovyDocParser because real-world Groovy sources
+ *   (especially Jenkins Pipeline Unit tests and scripts) frequently contain syntax that GroovyDocParser
+ *   fails to parse, which would degrade hover/definition UX.
+ * - Instead, we locate the closest preceding `/** ... */` block above the node declaration (skipping
+ *   annotations and blank lines) and parse the raw comment contents.
  */
 object DocExtractor {
     private val logger = LoggerFactory.getLogger(DocExtractor::class.java)
@@ -26,107 +29,124 @@ object DocExtractor {
      * @return Extracted documentation or empty Documentation if none found
      */
     fun extractDocumentation(sourceText: String, node: ASTNode): Documentation {
-        try {
-            // GroovyDocParser requires a package path, file name, and source.
-            // We use dummy values for package/file as we are parsing a single source string.
-            // The parser will extract the actual package from the source if present.
-            val parser = GroovyDocParser(emptyList<LinkArgument>(), Properties())
-            val classDocs = parser.getClassDocsFromSingleSource(".", "Script.groovy", sourceText)
-
-            logger.warn("DEBUG: Extracted ${classDocs.size} class docs from source")
-
-            return findDocForNode(classDocs, node)
-        } catch (e: Exception) {
-            logger.warn("Failed to parse groovydoc", e)
-            return Documentation.EMPTY
-        }
+        return runCatching {
+            val rawComment = findRawDocComment(sourceText, node) ?: return Documentation.EMPTY
+            parseDocComment(rawComment)
+        }.onFailure { e ->
+            logger.debug("Failed to extract documentation", e)
+        }.getOrElse { Documentation.EMPTY }
     }
 
-    private fun findDocForNode(classDocs: Map<String, GroovyClassDoc>, node: ASTNode): Documentation {
-        // Find the class doc that contains the node
-        val classDoc = findClassDoc(classDocs, node)
+    private fun findRawDocComment(sourceText: String, node: ASTNode): String? {
+        val lines = sourceText.lines()
+        if (lines.isEmpty()) return null
 
-        if (classDoc == null) {
-            logger.warn("DEBUG: Could not find ClassDoc for node ${node.text}")
-            return Documentation.EMPTY
+        val lineIndex = declarationLineIndex(lines, node) ?: return null
+        return findDocCommentBeforeLine(lines, lineIndex)
+    }
+
+    private fun declarationLineIndex(lines: List<String>, node: ASTNode): Int? {
+        if (node is AnnotatedNode && node.lineNumber > 0) {
+            val idx = node.lineNumber - 1
+            if (idx in lines.indices) return idx
         }
 
-        val elementDoc: GroovyProgramElementDoc? = when (node) {
-            is ClassNode -> classDoc
-            is MethodNode -> findMethodDoc(classDoc, node)
-            is FieldNode -> findFieldDoc(classDoc, node)
-            is PropertyNode -> findPropertyDoc(classDoc, node)
+        // Fallback for tests and synthetic nodes: locate declaration by name.
+        return when (node) {
+            is ClassNode -> findClassDeclarationLineIndex(lines, node)
+            is MethodNode -> findMethodDeclarationLineIndex(lines, node)
+            is FieldNode -> findFieldDeclarationLineIndex(lines, node)
+            is PropertyNode -> findPropertyDeclarationLineIndex(lines, node)
             else -> null
         }
-
-        if (elementDoc == null) {
-            logger.warn("DEBUG: Could not find ElementDoc for node type ${node.javaClass.simpleName}")
-            return Documentation.EMPTY
-        }
-
-        return parseGroovyDoc(elementDoc)
     }
 
-    private fun findClassDoc(classDocs: Map<String, GroovyClassDoc>, node: ASTNode): GroovyClassDoc? {
-        val className = when (node) {
-            is ClassNode -> node.name
-            is MethodNode -> node.declaringClass.name
-            is FieldNode -> node.declaringClass.name
-            is PropertyNode -> node.declaringClass.name
-            else -> return null
-        }
-
-        // Try exact match first
-        classDocs[className]?.let { return it }
-
-        // Try matching simple name if fully qualified name fails (e.g. if package matches)
-        val simpleName = className.substringAfterLast('.')
-        return classDocs.values.find { it.name() == simpleName || it.qualifiedName() == className }
-    }
-
-    private fun findMethodDoc(classDoc: GroovyClassDoc, node: MethodNode): GroovyProgramElementDoc? {
-        // Match method by name and parameters
-        return classDoc.methods().find { methodDoc ->
-            methodDoc.name() == node.name &&
-                methodDoc.parameters().size == node.parameters.size
-            // TODO: check parameter types if needed for overloading
-        } ?: classDoc.constructors().find { constructorDoc ->
-            constructorDoc.name() == classDoc.name() && // Constructors usually have class name
-                constructorDoc.parameters().size == node.parameters.size
-        }
-    }
-
-    private fun findFieldDoc(classDoc: GroovyClassDoc, node: FieldNode): GroovyProgramElementDoc? =
-        classDoc.fields().find {
-            it.name() == node.name
-        }
-
-    private fun findPropertyDoc(classDoc: GroovyClassDoc, node: PropertyNode): GroovyProgramElementDoc? =
-        classDoc.properties().find {
-            it.name() == node.name
-        }
-
-    private fun parseGroovyDoc(doc: GroovyProgramElementDoc): Documentation {
-        val rawComment = doc.getRawCommentText()
-        logger.warn(
-            "DEBUG: Raw comment text found: ${if (rawComment.isNullOrBlank()) "EMPTY" else "PRESENT (${rawComment.length} chars)"}",
+    private fun findClassDeclarationLineIndex(lines: List<String>, node: ClassNode): Int? {
+        val simpleName = node.nameWithoutPackage
+        val patterns = listOf(
+            Regex("""\bclass\s+$simpleName\b"""),
+            Regex("""\binterface\s+$simpleName\b"""),
+            Regex("""\benum\s+$simpleName\b"""),
+            Regex("""\btrait\s+$simpleName\b"""),
         )
 
-        if (rawComment.isNullOrBlank()) return Documentation.EMPTY
+        return lines.indexOfFirst { line ->
+            val trimmed = line.trim()
+            patterns.any { it.containsMatchIn(trimmed) }
+        }.takeIf { it >= 0 }
+    }
 
-        return parseDocComment(rawComment)
+    private fun findMethodDeclarationLineIndex(lines: List<String>, node: MethodNode): Int? {
+        val name = Regex.escape(node.name)
+        val pattern = Regex("""^\s*(?:public|protected|private|static|final|\s)*\s*(?:def|\w+)\s+$name\s*\(""")
+
+        return lines.indexOfFirst { line ->
+            pattern.containsMatchIn(line)
+        }.takeIf { it >= 0 }
+    }
+
+    private fun findFieldDeclarationLineIndex(lines: List<String>, node: FieldNode): Int? {
+        val name = Regex.escape(node.name)
+        val pattern = Regex("""^\s*(?:public|protected|private|static|final|\s)*\s*(?:def|\w+)\s+$name\b""")
+
+        return lines.indexOfFirst { line ->
+            pattern.containsMatchIn(line)
+        }.takeIf { it >= 0 }
+    }
+
+    private fun findPropertyDeclarationLineIndex(lines: List<String>, node: PropertyNode): Int? {
+        val name = Regex.escape(node.name)
+        val pattern = Regex("""^\s*(?:public|protected|private|static|final|\s)*\s*(?:def|\w+)\s+$name\b""")
+
+        return lines.indexOfFirst { line ->
+            pattern.containsMatchIn(line)
+        }
+    }
+
+    private fun findDocCommentBeforeLine(lines: List<String>, lineIndex: Int): String? {
+        if (lines.isEmpty()) return null
+
+        var i = (lineIndex - 1).coerceAtMost(lines.lastIndex)
+        if (i < 0) return null
+
+        while (i >= 0) {
+            val trimmed = lines[i].trim()
+            if (trimmed.isBlank() || trimmed.startsWith("@")) {
+                i--
+                continue
+            }
+            break
+        }
+
+        if (i < 0) return null
+
+        val commentEndIndex = i
+        if (!lines[commentEndIndex].contains("*/")) return null
+
+        var startIndex: Int? = null
+        for (j in commentEndIndex downTo 0) {
+            val line = lines[j]
+            if (line.contains("/**")) {
+                startIndex = j
+                break
+            }
+            if (line.contains("/*") && !line.contains("/**")) {
+                // Non-doc block comment; do not treat it as documentation.
+                return null
+            }
+        }
+
+        val start = startIndex ?: return null
+        return lines.subList(start, commentEndIndex + 1).joinToString("\n")
     }
 
     // Reuse the existing parsing logic for the raw comment content,
     // as it already handles @param, @return, etc. nicely.
-    // We just use GroovyDocParser to FIND the comment.
 
     /**
      * Parse a doc comment string into a Documentation object.
      */
     private fun parseDocComment(docComment: String): Documentation {
-        logger.warn("DEBUG: Parsing comment:\n$docComment")
-
         // Remove comment delimiters and asterisks
         val cleanedComment = docComment
             .replace(Regex("""/\*\*"""), "")
@@ -136,8 +156,6 @@ object DocExtractor {
                 line.trim().removePrefix("*").trim()
             }
             .trim()
-
-        logger.warn("DEBUG: Cleaned comment:\n$cleanedComment")
 
         // Regex for whitespace normalization
         val whitespaceRegex = Regex("""\s+""")
@@ -161,15 +179,11 @@ object DocExtractor {
         val summaryMatch = cleanedComment.split(Regex("""[.?!]\s+|\n\n""")).firstOrNull()?.trim() ?: ""
         val summary = if (summaryMatch.startsWith("@")) "" else summaryMatch
 
-        logger.warn("DEBUG: Extracted summary: '$summary'")
-
         // Extract description (everything before first @ tag)
         val descParts = cleanedComment.split(Regex("""(?=@\w+)"""))
         val description = descParts.firstOrNull()?.trim()?.let {
             if (it.startsWith("@")) "" else it
         } ?: ""
-
-        logger.warn("DEBUG: Extracted description: '$description'")
 
         // Extract @param tags
         val params = paramRegex.findAll(cleanedComment).associate { match ->
@@ -177,12 +191,10 @@ object DocExtractor {
             val paramDesc = match.groupValues[2].trim().replace(whitespaceRegex, " ")
             paramName to paramDesc
         }
-        logger.warn("DEBUG: Extracted ${params.size} params: $params")
 
         // Extract @return tag
         val returnDoc = returnRegex.find(cleanedComment)?.groupValues?.get(1)?.trim()?.replace(whitespaceRegex, " ")
             ?: ""
-        logger.warn("DEBUG: Extracted return: '$returnDoc'")
 
         // Extract @throws tags
         val throws = throwsRegex.findAll(cleanedComment).associate { match ->
