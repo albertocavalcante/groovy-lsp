@@ -4,15 +4,13 @@
 -dontobfuscate
 -dontoptimize
 
--ignorewarnings
-
 -keepattributes *Annotation*,Signature,Exceptions,InnerClasses,EnclosingMethod,SourceFile,LineNumberTable,StackMapTable
 
 # Entry point
 -keep class com.github.albertocavalcante.groovylsp.MainKt { public static void main(java.lang.String[]); }
 
 # Keep our public API surface (LSP + CLI)
--keep class com.github.albertocavalcante.** { *; }
+-keep class com.github.albertocavalcante.** { public *; }
 
 # Groovy is highly reflective/dynamic; keep it intact.
 -keep class org.apache.groovy.** { *; }
@@ -30,5 +28,9 @@
 # Keep the SLF4J provider implementation (loaded via ServiceLoader).
 -keep class ch.qos.logback.classic.spi.LogbackServiceProvider { *; }
 
-# Be lenient about optional references removed by shrinking.
--dontwarn **
+# Be lenient about optional/runtime-specific references.
+# Prefer targeted suppressions to keep ProGuard output actionable for maintainers.
+-ignorewarnings
+-dontwarn org.openrewrite.jgit.**
+-dontwarn net.java.dev.jna.**
+-dontwarn com.sun.jna.**

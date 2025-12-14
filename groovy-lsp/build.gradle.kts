@@ -15,7 +15,10 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("com.guardsquare:proguard-gradle:7.8.2")
+        // ProGuard (non-Android) Gradle integration per Guardsquare docs:
+        // https://www.guardsquare.com/manual/setup/gradle
+        // There is no Gradle Plugin Portal plugin id for this artifact; it must be added to the buildscript classpath.
+        classpath("com.guardsquare:proguard-gradle:${libs.versions.proguardGradle.get()}")
     }
 }
 
@@ -60,9 +63,9 @@ dependencies {
     implementation(libs.classgraph)
 
     // ProGuard analysis-only library jars (not packaged): used to complete class hierarchies for excluded optional deps.
-    add("proguardLibrary", "org.openrewrite.tools:jgit:1.3.0")
-    add("proguardLibrary", "net.java.dev.jna:jna:5.18.1")
-    add("proguardLibrary", "net.java.dev.jna:jna-platform:5.18.1")
+    add("proguardLibrary", libs.openrewrite.jgit)
+    add("proguardLibrary", libs.jna)
+    add("proguardLibrary", libs.jna.platform)
 
     // Testing - Kotlin/Java
     testImplementation(libs.kotlin.test)
@@ -450,6 +453,7 @@ abstract class SmokeShadowJarTask
             smokeFile.writeText(
                 """
                 // Minimal Groovy file used for jar smoke checks
+                // Intentionally includes trailing whitespace so `check` reliably emits at least one diagnostic.
                 class Smoke {  
                   static void main(String[] args) {
                     println "ok"  
@@ -465,6 +469,21 @@ abstract class SmokeShadowJarTask
                     commandLine(listOf("java", "-jar", jar.absolutePath) + args)
                     standardOutput = stdout
                     errorOutput = stderr
+                }
+                val stderrStr = stderr.toString(Charsets.UTF_8)
+                val fatalMarkers =
+                    listOf(
+                        "NoClassDefFoundError",
+                        "ClassNotFoundException",
+                        "NoSuchMethodError",
+                        "VerifyError",
+                        "Exception in thread",
+                    )
+                if (fatalMarkers.any(stderrStr::contains)) {
+                    throw GradleException("Smoke failed; stderr contained fatal markers:\n$stderrStr")
+                }
+                if (stderrStr.isNotBlank()) {
+                    logger.warn("Smoke produced stderr:\n{}", stderrStr)
                 }
                 return stdout.toString(Charsets.UTF_8)
             }
