@@ -100,16 +100,14 @@ object DocExtractor {
         return lines.subList(start, commentEndIndex + 1).joinToString("\n")
     }
 
-    private fun findRawDocCommentWithGroovyDocParser(sourceText: String, node: ASTNode): String? {
-        return runCatching {
-            val parser = GroovyDocParser(emptyList<LinkArgument>(), Properties())
-            val classDocs = parser.getClassDocsFromSingleSource(".", "Script.groovy", sourceText)
-            findDocForNode(classDocs, node)?.getRawCommentText()
-        }.onFailure { e ->
-            logger.debug("GroovyDocParser failed; falling back to comment scan", e)
-        }.getOrNull()
-            ?.takeUnless { it.isNullOrBlank() }
-    }
+    private fun findRawDocCommentWithGroovyDocParser(sourceText: String, node: ASTNode): String? = runCatching {
+        val parser = GroovyDocParser(emptyList<LinkArgument>(), Properties())
+        val classDocs = parser.getClassDocsFromSingleSource(".", "Script.groovy", sourceText)
+        findDocForNode(classDocs, node)?.getRawCommentText()
+    }.onFailure { e ->
+        logger.debug("GroovyDocParser failed; falling back to comment scan", e)
+    }.getOrNull()
+        ?.takeUnless { it.isNullOrBlank() }
 
     private fun findDocForNode(classDocs: Map<String, GroovyClassDoc>, node: ASTNode): GroovyProgramElementDoc? {
         val classDoc = findClassDoc(classDocs, node) ?: return null
