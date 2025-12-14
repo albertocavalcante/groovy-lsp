@@ -1,4 +1,5 @@
 import org.gradle.process.ExecOperations
+import java.io.ByteArrayOutputStream
 import java.util.zip.ZipFile
 import javax.inject.Inject
 
@@ -9,6 +10,15 @@ plugins {
     application
 }
 
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.guardsquare:proguard-gradle:7.8.2")
+    }
+}
+
 val baseVersion: String by rootProject.extra
 
 version =
@@ -17,6 +27,11 @@ version =
         System.getenv("GITHUB_HEAD_REF")?.contains("release-please") == true -> baseVersion
         else -> "$baseVersion-SNAPSHOT"
     }
+
+val proguardLibrary by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
 
 dependencies {
     // LSP4J - Language Server Protocol implementation
@@ -43,6 +58,11 @@ dependencies {
 
     // Classpath Scanning - For indexing all classes in the project and dependencies
     implementation(libs.classgraph)
+
+    // ProGuard analysis-only library jars (not packaged): used to complete class hierarchies for excluded optional deps.
+    add("proguardLibrary", "org.openrewrite.tools:jgit:1.3.0")
+    add("proguardLibrary", "net.java.dev.jna:jna:5.18.1")
+    add("proguardLibrary", "net.java.dev.jna:jna-platform:5.18.1")
 
     // Testing - Kotlin/Java
     testImplementation(libs.kotlin.test)
@@ -430,24 +450,37 @@ abstract class SmokeShadowJarTask
             smokeFile.writeText(
                 """
                 // Minimal Groovy file used for jar smoke checks
-                class Smoke {
+                class Smoke {  
                   static void main(String[] args) {
-                    println "ok"
+                    println "ok"  
                   }
                 }
                 """.trimIndent(),
             )
 
-            execOperations.exec {
-                commandLine("java", "-jar", jar.absolutePath, "version")
+            fun runJar(vararg args: String): String {
+                val stdout = ByteArrayOutputStream()
+                val stderr = ByteArrayOutputStream()
+                execOperations.exec {
+                    commandLine(listOf("java", "-jar", jar.absolutePath) + args)
+                    standardOutput = stdout
+                    errorOutput = stderr
+                }
+                return stdout.toString(Charsets.UTF_8)
             }
 
-            execOperations.exec {
-                commandLine("java", "-jar", jar.absolutePath, "format", smokeFile.absolutePath)
+            val versionOut = runJar("version")
+            if (!versionOut.contains("groovy-lsp version")) {
+                throw GradleException(
+                    "Smoke check failed: 'version' output did not contain expected marker. Output=$versionOut",
+                )
             }
 
-            execOperations.exec {
-                commandLine("java", "-jar", jar.absolutePath, "check", smokeFile.absolutePath)
+            runJar("format", smokeFile.absolutePath)
+
+            val checkOut = runJar("check", smokeFile.absolutePath)
+            if (checkOut.isBlank()) {
+                throw GradleException("Smoke check failed: 'check' produced no diagnostics output.")
             }
         }
     }
@@ -458,4 +491,58 @@ tasks.register<SmokeShadowJarTask>("smokeShadowJar") {
     dependsOn(shadowJarTask)
     jarFile.set(shadowJarTask.flatMap { it.archiveFile })
     smokeDir.set(layout.buildDirectory.dir("tmp/smoke"))
+}
+
+val proguardEnabled =
+    providers
+        .gradleProperty("proguard")
+        .map { it.toBooleanStrict() }
+        .orElse(false)
+
+val proguardOutJar =
+    layout.buildDirectory.file("libs/groovy-lsp-${project.version}-all-proguard.jar")
+
+tasks.register<proguard.gradle.ProGuardTask>("proguardShadowJar") {
+    group = "build"
+    description = "Shrink the shaded uber jar with ProGuard (enable with -Pproguard=true)."
+    dependsOn(shadowJarTask)
+    enabled = proguardEnabled.get()
+    notCompatibleWithConfigurationCache("ProGuard task is not configuration-cache compatible.")
+
+    val jar = shadowJarTask.flatMap { it.archiveFile }.get().asFile
+    val outJar = proguardOutJar.get().asFile
+    outJar.parentFile.mkdirs()
+
+    injars(jar)
+    outjars(outJar)
+
+    val javaHome = file(System.getProperty("java.home"))
+    val jmodsDir =
+        when {
+            javaHome.resolve("jmods").isDirectory -> javaHome.resolve("jmods")
+            javaHome.parentFile?.resolve("jmods")?.isDirectory == true -> javaHome.parentFile.resolve("jmods")
+            else -> error("Could not locate JDK 'jmods' under java.home=$javaHome")
+        }
+
+    libraryjars(fileTree(jmodsDir) { include("*.jmod") })
+    libraryjars(proguardLibrary)
+    configuration(file("proguard-rules.pro"))
+}
+
+tasks.register<ReportJarCompositionTask>("reportProguardJarComposition") {
+    group = "reporting"
+    description = "Report size breakdown of the ProGuard-shrunk uber jar."
+    dependsOn("proguardShadowJar")
+    enabled = proguardEnabled.get()
+    jarFile.set(proguardOutJar)
+    reportFile.set(layout.buildDirectory.file("reports/jar/groovy-lsp-proguard-composition.txt"))
+}
+
+tasks.register<SmokeShadowJarTask>("smokeProguardJar") {
+    group = "verification"
+    description = "Smoke-test the ProGuard-shrunk uber jar."
+    dependsOn("proguardShadowJar")
+    enabled = proguardEnabled.get()
+    jarFile.set(proguardOutJar)
+    smokeDir.set(layout.buildDirectory.dir("tmp/smoke-proguard"))
 }
