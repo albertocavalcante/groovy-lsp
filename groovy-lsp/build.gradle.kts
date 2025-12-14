@@ -1,4 +1,6 @@
+import org.gradle.process.ExecOperations
 import java.util.zip.ZipFile
+import javax.inject.Inject
 
 plugins {
     kotlin("jvm")
@@ -385,4 +387,51 @@ tasks.register("jarReports") {
     group = "reporting"
     description = "Generate jar and dependency size reports."
     dependsOn("reportShadowJarComposition", "reportRuntimeClasspathArtifacts")
+}
+
+abstract class SmokeShadowJarTask
+    @Inject
+    constructor(
+        private val execOperations: ExecOperations,
+    ) : DefaultTask() {
+        @get:InputFile
+        abstract val jarFile: RegularFileProperty
+
+        @get:OutputDirectory
+        abstract val smokeDir: DirectoryProperty
+
+        @TaskAction
+        fun run() {
+            val jar = jarFile.get().asFile
+            val dir = smokeDir.get().asFile
+            dir.mkdirs()
+
+            val smokeFile = dir.resolve("Smoke.groovy")
+            smokeFile.writeText(
+                """
+                // Minimal Groovy file used for jar smoke checks
+                class Smoke {
+                  static void main(String[] args) {
+                    println "ok"
+                  }
+                }
+                """.trimIndent(),
+            )
+
+            execOperations.exec {
+                commandLine("java", "-jar", jar.absolutePath, "version")
+            }
+
+            execOperations.exec {
+                commandLine("java", "-jar", jar.absolutePath, "check", smokeFile.absolutePath)
+            }
+        }
+    }
+
+tasks.register<SmokeShadowJarTask>("smokeShadowJar") {
+    group = "verification"
+    description = "Build and smoke-test the shaded uber jar (version + check)."
+    dependsOn(shadowJarTask)
+    jarFile.set(shadowJarTask.flatMap { it.archiveFile })
+    smokeDir.set(layout.buildDirectory.dir("tmp/smoke"))
 }
