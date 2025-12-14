@@ -164,13 +164,13 @@ private fun fixTrailingWhitespace(context: FixContext): TextEdit? {
         return null
     }
 
-    // Create TextEdit to replace the entire line with the trimmed version
+    // Create TextEdit to remove only the trailing whitespace (minimal edit)
     val range = Range(
-        Position(lineNumber, 0),
+        Position(lineNumber, trimmedLine.length),
         Position(lineNumber, line.length),
     )
 
-    return TextEdit(range, trimmedLine)
+    return TextEdit(range, "")
 }
 
 // Placeholder fix handler implementations - will be implemented in later tasks

@@ -32,10 +32,10 @@ class WhitespaceFixHandlersTest {
      * **Validates: Requirements 2.1**
      *
      * For any line containing trailing whitespace characters, applying the TrailingWhitespace fix
-     * should result in a line where `line == line.trimEnd()`.
+     * should result in a TextEdit that removes only the trailing whitespace (minimal edit).
      */
     @Property(tries = 100)
-    fun `property - trailing whitespace removal produces trimmed line`(
+    fun `property - trailing whitespace removal produces minimal edit`(
         @ForAll("linesWithTrailingWhitespace") lineWithWhitespace: String,
     ): Boolean {
         // Skip lines that are only whitespace (edge case handled separately)
@@ -59,13 +59,14 @@ class WhitespaceFixHandlersTest {
         val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
         val textEdit = handler(context)
 
-        // If handler returns a TextEdit, the newText should be the trimmed version
+        // Handler should always produce a fix for lines with trailing whitespace
         return if (textEdit != null) {
-            val expectedTrimmed = lineWithWhitespace.trimEnd()
-            textEdit.newText == expectedTrimmed
+            // Minimal edit: newText should be empty (we're deleting, not replacing)
+            textEdit.newText == ""
         } else {
-            // Handler may return null for edge cases, which is acceptable
-            true
+            // The handler should always produce a fix for the generated lines.
+            // Fail the property test if it returns null unexpectedly.
+            false
         }
     }
 
@@ -74,16 +75,17 @@ class WhitespaceFixHandlersTest {
      * **Feature: codenarc-lint-fixes, Property 3: Trailing Whitespace Removal**
      * **Validates: Requirements 2.1**
      *
-     * The TextEdit range should cover the entire line being fixed.
+     * The TextEdit range should cover only the trailing whitespace portion (minimal edit).
      */
     @Property(tries = 100)
-    fun `property - trailing whitespace fix range covers entire line`(
+    fun `property - trailing whitespace fix range covers only whitespace`(
         @ForAll("linesWithTrailingWhitespace") lineWithWhitespace: String,
     ): Boolean {
         if (lineWithWhitespace.isBlank()) return true
 
         val content = lineWithWhitespace
         val lines = content.lines()
+        val trimmedLength = lineWithWhitespace.trimEnd().length
         val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
             code = "TrailingWhitespace",
             message = "Line has trailing whitespace",
@@ -100,13 +102,15 @@ class WhitespaceFixHandlersTest {
         val textEdit = handler(context)
 
         return if (textEdit != null) {
-            // Range should start at beginning of line and end at end of line
+            // Range should start at end of trimmed content and end at end of line
             textEdit.range.start.line == 0 &&
-                textEdit.range.start.character == 0 &&
+                textEdit.range.start.character == trimmedLength &&
                 textEdit.range.end.line == 0 &&
                 textEdit.range.end.character == lineWithWhitespace.length
         } else {
-            true
+            // The handler should always produce a fix for the generated lines.
+            // Fail the property test if it returns null unexpectedly.
+            false
         }
     }
 
@@ -143,6 +147,7 @@ class WhitespaceFixHandlersTest {
     fun `trailing whitespace handler removes spaces from end of line`() {
         val content = "def x = 1   "
         val lines = content.lines()
+        val trimmedLength = content.trimEnd().length // 9
         val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
             code = "TrailingWhitespace",
             message = "Line has trailing whitespace",
@@ -159,14 +164,20 @@ class WhitespaceFixHandlersTest {
         val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
         val textEdit = assertNotNull(handler(context), "Handler should return a TextEdit")
 
-        assertEquals("def x = 1", textEdit.newText, "Trailing whitespace should be removed")
-        assertEquals(Range(Position(0, 0), Position(0, content.length)), textEdit.range)
+        // Minimal edit: delete trailing whitespace only
+        assertEquals("", textEdit.newText, "newText should be empty for deletion")
+        assertEquals(
+            Range(Position(0, trimmedLength), Position(0, content.length)),
+            textEdit.range,
+            "Range should cover only trailing whitespace",
+        )
     }
 
     @Test
     fun `trailing whitespace handler removes tabs from end of line`() {
         val content = "def x = 1\t\t"
         val lines = content.lines()
+        val trimmedLength = content.trimEnd().length
         val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
             code = "TrailingWhitespace",
             message = "Line has trailing whitespace",
@@ -182,7 +193,8 @@ class WhitespaceFixHandlersTest {
         val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
         val textEdit = assertNotNull(handler(context), "Handler should return a TextEdit")
 
-        assertEquals("def x = 1", textEdit.newText, "Trailing tabs should be removed")
+        assertEquals("", textEdit.newText, "newText should be empty for deletion")
+        assertEquals(trimmedLength, textEdit.range.start.character, "Range should start after trimmed content")
     }
 
     @Test
@@ -207,13 +219,17 @@ class WhitespaceFixHandlersTest {
             "Handler should return a TextEdit for whitespace-only lines",
         )
 
-        assertEquals("", textEdit.newText, "Whitespace-only line should become empty")
+        // For whitespace-only lines, range starts at 0 (trimmed length is 0)
+        assertEquals("", textEdit.newText, "newText should be empty for deletion")
+        assertEquals(0, textEdit.range.start.character, "Range should start at 0 for whitespace-only line")
+        assertEquals(content.length, textEdit.range.end.character, "Range should end at line length")
     }
 
     @Test
     fun `trailing whitespace handler handles mixed spaces and tabs`() {
         val content = "println 'test' \t \t"
         val lines = content.lines()
+        val trimmedLength = content.trimEnd().length
         val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
             code = "TrailingWhitespace",
             message = "Line has trailing whitespace",
@@ -229,7 +245,8 @@ class WhitespaceFixHandlersTest {
         val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
         val textEdit = assertNotNull(handler(context), "Handler should return a TextEdit")
 
-        assertEquals("println 'test'", textEdit.newText, "Mixed trailing whitespace should be removed")
+        assertEquals("", textEdit.newText, "newText should be empty for deletion")
+        assertEquals(trimmedLength, textEdit.range.start.character, "Range should start after trimmed content")
     }
 
     @Test
@@ -258,12 +275,14 @@ class WhitespaceFixHandlersTest {
     fun `trailing whitespace handler handles multiline content`() {
         val content = "def x = 1\ndef y = 2   \ndef z = 3"
         val lines = content.lines()
+        val line1 = lines[1] // "def y = 2   "
+        val trimmedLength = line1.trimEnd().length
         val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
             code = "TrailingWhitespace",
             message = "Line has trailing whitespace",
             line = 1, // Second line has trailing whitespace
             startChar = 0,
-            endChar = lines[1].length,
+            endChar = line1.length,
         )
 
         val handler = assertNotNull(
@@ -273,7 +292,31 @@ class WhitespaceFixHandlersTest {
         val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
         val textEdit = assertNotNull(handler(context), "Handler should return a TextEdit")
 
-        assertEquals("def y = 2", textEdit.newText, "Trailing whitespace should be removed from line 1")
+        assertEquals("", textEdit.newText, "newText should be empty for deletion")
         assertEquals(1, textEdit.range.start.line, "Range should be on line 1")
+        assertEquals(trimmedLength, textEdit.range.start.character, "Range should start after trimmed content")
+        assertEquals(line1.length, textEdit.range.end.character, "Range should end at line length")
+    }
+
+    @Test
+    fun `trailing whitespace handler returns null for line without trailing whitespace`() {
+        val content = "def x = 1"
+        val lines = content.lines()
+        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
+            code = "TrailingWhitespace",
+            message = "Line has trailing whitespace",
+            line = 0,
+            startChar = 0,
+            endChar = content.length,
+        )
+
+        val handler = assertNotNull(
+            FixHandlerRegistry.getHandler("TrailingWhitespace"),
+            "TrailingWhitespace handler should be registered",
+        )
+        val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
+        val textEdit = handler(context)
+
+        assertNull(textEdit, "Handler should return null when no trailing whitespace exists")
     }
 }
