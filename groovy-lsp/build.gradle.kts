@@ -146,6 +146,26 @@ tasks.shadowJar {
 
     // Merge service files for proper SLF4J and other service provider bindings
     mergeServiceFiles()
+
+    val minimizeEnabled =
+        providers
+            .gradleProperty("shadowMinimize")
+            .map { it.toBooleanStrict() }
+            .orElse(true)
+
+    if (minimizeEnabled.get()) {
+        // Reduce jar size while keeping reflection-heavy libraries intact.
+        minimize {
+            exclude(dependency("org.apache.groovy:.*"))
+            exclude(dependency("org.codehaus.groovy:.*"))
+            exclude(dependency("org.codenarc:.*"))
+            exclude(dependency("org.gmetrics:.*"))
+            exclude(dependency("org.gradle:gradle-tooling-api"))
+            exclude(dependency("org.eclipse.lsp4j:.*"))
+            exclude(dependency("io.github.classgraph:classgraph"))
+            exclude(dependency("ch.qos.logback:.*"))
+        }
+    }
 }
 
 // Fix task dependencies for Gradle 9
