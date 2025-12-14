@@ -16,6 +16,8 @@ import com.github.albertocavalcante.groovyparser.ast.resolveToDefinition
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.codehaus.groovy.ast.ASTNode
+import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.ast.ImportNode
 import org.codehaus.groovy.ast.ModuleNode
 import org.codehaus.groovy.ast.expr.ConstantExpression
 import org.codehaus.groovy.ast.expr.MethodCallExpression
@@ -146,6 +148,13 @@ class HoverProvider(
         visitor: GroovyAstModel,
         symbolTable: com.github.albertocavalcante.groovyparser.ast.SymbolTable,
     ): ASTNode = when (node) {
+        is ClassNode -> {
+            // For hover, prefer the import statement container when hovering inside an import.
+            // This provides a more intuitive hover (shows the full import text), while definition still
+            // resolves the referenced class via definition/type definition.
+            val parent = visitor.getParent(node)
+            if (parent is ImportNode) parent else node
+        }
         is VariableExpression -> resolveVariable(node, visitor, symbolTable)
         is ConstantExpression -> resolveConstant(node, visitor)
         else -> node

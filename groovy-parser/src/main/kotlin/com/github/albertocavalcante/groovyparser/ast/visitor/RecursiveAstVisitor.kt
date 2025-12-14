@@ -82,12 +82,21 @@ class RecursiveAstVisitor(private val tracker: NodeRelationshipTracker) : Groovy
     private fun visitImport(importNode: ImportNode) {
         track(importNode) {
             visitAnnotations(importNode)
+            // Track the imported type so position queries on the imported class name work.
+            // This enables go-to-definition on import statements (e.g., `import org.junit.Test`).
+            val type = importNode.type
+            if (type != null) {
+                track(type) { /* no-op */ }
+            }
         }
     }
 
     private fun visitClass(classNode: ClassNode) {
         track(classNode) {
             visitAnnotations(classNode)
+            // Track type references in the class header so navigation works for `extends` and `implements`.
+            classNode.superClass?.let { track(it) { /* no-op */ } }
+            classNode.interfaces?.forEach { iface -> track(iface) { /* no-op */ } }
             classNode.properties?.forEach { visitProperty(it) }
             classNode.fields.forEach { visitField(it) }
             classNode.methods.forEach { visitMethod(it) }

@@ -12,6 +12,7 @@ import com.github.albertocavalcante.groovyparser.ast.resolveToDefinition
 import com.github.albertocavalcante.groovyparser.ast.symbols.Symbol
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.ast.ImportNode
 import org.codehaus.groovy.ast.ModuleNode
 import org.codehaus.groovy.ast.expr.ClassExpression
 import org.codehaus.groovy.ast.expr.ConstructorCallExpression
@@ -218,6 +219,7 @@ class DefinitionResolver(
         is ClassNode -> targetNode.name
         is ConstructorCallExpression -> targetNode.type.name
         is ClassExpression -> targetNode.type.name
+        is ImportNode -> targetNode.type?.name ?: targetNode.className
         else -> null
     }
 

@@ -88,7 +88,19 @@ class AstPositionQuery(private val tracker: NodeRelationshipTracker) {
     private fun ASTNode.containsPosition(line: Int, character: Int): Boolean {
         // If we don't have end coordinates, assume it's a single point or small range
         val endLine = if (lastLineNumber > 0) lastLineNumber else lineNumber
-        val endColumn = if (lastColumnNumber > 0) lastColumnNumber else columnNumber + 1 // Minimum 1 char width
+        val endColumn = if (lastColumnNumber > 0) {
+            lastColumnNumber
+        } else {
+            // Many Groovy AST nodes only provide a start column.
+            // Use a token-length heuristic for common identifier nodes to make "go to definition"
+            // clickable anywhere within the identifier (not just the first character).
+            val tokenLen = tokenLengthHint()
+            if (tokenLen != null && tokenLen > 0) {
+                columnNumber + tokenLen - 1
+            } else {
+                columnNumber + 1 // Minimum 1 char width
+            }
+        }
 
         // Check if position is within the node's bounds using Groovy 1-based coordinates
         return when {
@@ -113,5 +125,15 @@ class AstPositionQuery(private val tracker: NodeRelationshipTracker) {
                 true
             }
         }
+    }
+
+    private fun ASTNode.tokenLengthHint(): Int? = when (this) {
+        is org.codehaus.groovy.ast.ClassNode -> this.nameWithoutPackage.length
+        is org.codehaus.groovy.ast.expr.VariableExpression -> this.name.length
+        is org.codehaus.groovy.ast.ImportNode -> {
+            this.type?.nameWithoutPackage?.length
+                ?: this.className?.substringAfterLast('.')?.length
+        }
+        else -> null
     }
 }
