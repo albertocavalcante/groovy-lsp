@@ -19,9 +19,8 @@ import kotlin.io.path.exists
  * on the classpath for compilation. Future phases will add source
  * JAR support and on-demand downloading.
  */
-class GradleDependencyResolver(
-    private val connectionFactory: GradleConnectionFactory = GradleConnectionPool,
-) : DependencyResolver {
+class GradleDependencyResolver(private val connectionFactory: GradleConnectionFactory = GradleConnectionPool) :
+    DependencyResolver {
     private val logger = LoggerFactory.getLogger(GradleDependencyResolver::class.java)
 
     /**
@@ -67,7 +66,10 @@ class GradleDependencyResolver(
             return retryAttempt.getOrThrow()
         }
 
-        logGradleResolutionFailure(retryAttempt.exceptionOrNull() ?: failure, "Gradle dependency resolution failed (retry)")
+        logGradleResolutionFailure(
+            retryAttempt.exceptionOrNull() ?: failure,
+            "Gradle dependency resolution failed (retry)",
+        )
         return WorkspaceResolution(emptyList(), emptyList())
     }
 
