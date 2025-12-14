@@ -423,6 +423,10 @@ abstract class SmokeShadowJarTask
             }
 
             execOperations.exec {
+                commandLine("java", "-jar", jar.absolutePath, "format", smokeFile.absolutePath)
+            }
+
+            execOperations.exec {
                 commandLine("java", "-jar", jar.absolutePath, "check", smokeFile.absolutePath)
             }
         }
