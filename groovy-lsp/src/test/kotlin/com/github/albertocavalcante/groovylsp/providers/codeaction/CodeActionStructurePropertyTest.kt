@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:function-naming")
+
 package com.github.albertocavalcante.groovylsp.providers.codeaction
 
 import net.jqwik.api.Arbitraries

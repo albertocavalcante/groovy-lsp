@@ -10,7 +10,6 @@ import net.jqwik.api.Property
 import net.jqwik.api.Provide
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 /**
@@ -174,47 +173,9 @@ class ConventionFixHandlersTest {
         assertEquals(publicIndex + PUBLIC_KEYWORD_LENGTH, textEdit.range.end.character)
     }
 
-    @Test
-    fun `public modifier handler returns null for out of bounds line`() {
-        val content = "public class Foo {}"
-        val lines = content.lines()
-        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
-            code = "UnnecessaryPublicModifier",
-            message = "The public keyword is unnecessary",
-            line = 5, // Out of bounds
-            startChar = 0,
-            endChar = PUBLIC_KEYWORD_LENGTH,
-        )
-
-        val handler = FixHandlerRegistry.getHandler("UnnecessaryPublicModifier")
-        assertNotNull(handler, "UnnecessaryPublicModifier handler should be registered")
-
-        val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
-        val textEdit = handler!!(context)
-
-        assertNull(textEdit, "Handler should return null for out of bounds line")
-    }
-
-    @Test
-    fun `public modifier handler returns null for invalid range`() {
-        val content = "class Foo {}" // No public modifier, range exceeds line length
-        val lines = content.lines()
-        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
-            code = "UnnecessaryPublicModifier",
-            message = "The public keyword is unnecessary",
-            line = 0,
-            startChar = 0,
-            endChar = PUBLIC_KEYWORD_LENGTH + content.length, // Range exceeds line length
-        )
-
-        val handler = FixHandlerRegistry.getHandler("UnnecessaryPublicModifier")
-        assertNotNull(handler, "UnnecessaryPublicModifier handler should be registered")
-
-        val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
-        val textEdit = handler!!(context)
-
-        assertNull(textEdit, "Handler should return null for invalid range")
-    }
+    // Note: Range validation tests (out of bounds, invalid range) are now handled
+    // by RangeValidationTest.kt and RangeValidationPropertyTest.kt since validation
+    // is centralized in LintFixAction.isValidRange()
 
     // ========================================================================
     // Property Tests for UnnecessaryDefInVariableDeclaration
@@ -363,47 +324,9 @@ class ConventionFixHandlersTest {
         assertEquals(defIndex + DEF_KEYWORD_LENGTH, textEdit.range.end.character)
     }
 
-    @Test
-    fun `def handler returns null for out of bounds line`() {
-        val content = "def String x"
-        val lines = content.lines()
-        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
-            code = "UnnecessaryDefInVariableDeclaration",
-            message = "The def keyword is unnecessary",
-            line = 5, // Out of bounds
-            startChar = 0,
-            endChar = DEF_KEYWORD_LENGTH,
-        )
-
-        val handler = FixHandlerRegistry.getHandler("UnnecessaryDefInVariableDeclaration")
-        assertNotNull(handler, "UnnecessaryDefInVariableDeclaration handler should be registered")
-
-        val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
-        val textEdit = handler!!(context)
-
-        assertNull(textEdit, "Handler should return null for out of bounds line")
-    }
-
-    @Test
-    fun `def handler returns null for invalid range`() {
-        val content = "String x" // No def keyword, range exceeds line length
-        val lines = content.lines()
-        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
-            code = "UnnecessaryDefInVariableDeclaration",
-            message = "The def keyword is unnecessary",
-            line = 0,
-            startChar = 0,
-            endChar = DEF_KEYWORD_LENGTH + content.length, // Range exceeds line length
-        )
-
-        val handler = FixHandlerRegistry.getHandler("UnnecessaryDefInVariableDeclaration")
-        assertNotNull(handler, "UnnecessaryDefInVariableDeclaration handler should be registered")
-
-        val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
-        val textEdit = handler!!(context)
-
-        assertNull(textEdit, "Handler should return null for invalid range")
-    }
+    // Note: Range validation tests (out of bounds, invalid range) are now handled
+    // by RangeValidationTest.kt and RangeValidationPropertyTest.kt since validation
+    // is centralized in LintFixAction.isValidRange()
 
     // ========================================================================
     // Property Tests for UnnecessaryGetter
@@ -561,48 +484,6 @@ class ConventionFixHandlersTest {
         assertEquals(getterStart, textEdit.range.start.character)
         assertEquals(0, textEdit.range.end.line)
         assertEquals(getterEnd, textEdit.range.end.character)
-    }
-
-    @Test
-    fun `getter handler returns null for out of bounds line`() {
-        val content = "obj.getName()"
-        val lines = content.lines()
-        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
-            code = "UnnecessaryGetter",
-            message = "Unnecessary getter call",
-            line = 5, // Out of bounds
-            startChar = 4,
-            endChar = 13,
-        )
-
-        val handler = FixHandlerRegistry.getHandler("UnnecessaryGetter")
-        assertNotNull(handler, "UnnecessaryGetter handler should be registered")
-
-        val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
-        val textEdit = handler!!(context)
-
-        assertNull(textEdit, "Handler should return null for out of bounds line")
-    }
-
-    @Test
-    fun `getter handler returns null for invalid range`() {
-        val content = "obj.x" // No getter call, range exceeds line length
-        val lines = content.lines()
-        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
-            code = "UnnecessaryGetter",
-            message = "Unnecessary getter call",
-            line = 0,
-            startChar = 4,
-            endChar = 50, // Range exceeds line length
-        )
-
-        val handler = FixHandlerRegistry.getHandler("UnnecessaryGetter")
-        assertNotNull(handler, "UnnecessaryGetter handler should be registered")
-
-        val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
-        val textEdit = handler!!(context)
-
-        assertNull(textEdit, "Handler should return null for invalid range")
     }
 
     @Test
@@ -782,48 +663,6 @@ class ConventionFixHandlersTest {
     }
 
     @Test
-    fun `setter handler returns null for out of bounds line`() {
-        val content = "obj.setName(value)"
-        val lines = content.lines()
-        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
-            code = "UnnecessarySetter",
-            message = "Unnecessary setter call",
-            line = 5, // Out of bounds
-            startChar = 4,
-            endChar = 18,
-        )
-
-        val handler = FixHandlerRegistry.getHandler("UnnecessarySetter")
-        assertNotNull(handler, "UnnecessarySetter handler should be registered")
-
-        val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
-        val textEdit = handler!!(context)
-
-        assertNull(textEdit, "Handler should return null for out of bounds line")
-    }
-
-    @Test
-    fun `setter handler returns null for invalid range`() {
-        val content = "obj.x" // No setter call, range exceeds line length
-        val lines = content.lines()
-        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
-            code = "UnnecessarySetter",
-            message = "Unnecessary setter call",
-            line = 0,
-            startChar = 4,
-            endChar = 50, // Range exceeds line length
-        )
-
-        val handler = FixHandlerRegistry.getHandler("UnnecessarySetter")
-        assertNotNull(handler, "UnnecessarySetter handler should be registered")
-
-        val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
-        val textEdit = handler!!(context)
-
-        assertNull(textEdit, "Handler should return null for invalid range")
-    }
-
-    @Test
     fun `setter handler handles setID() correctly`() {
         val content = "user.setID(id)"
         val lines = content.lines()
@@ -945,48 +784,6 @@ class ConventionFixHandlersTest {
         assertEquals(classLiteralStart, textEdit.range.start.character)
         assertEquals(0, textEdit.range.end.line)
         assertEquals(classLiteralEnd, textEdit.range.end.character)
-    }
-
-    @Test
-    fun `dotClass handler returns null for out of bounds line`() {
-        val content = "String.class"
-        val lines = content.lines()
-        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
-            code = "UnnecessaryDotClass",
-            message = "String.class can be simplified to String",
-            line = 5, // Out of bounds
-            startChar = 0,
-            endChar = 12,
-        )
-
-        val handler = FixHandlerRegistry.getHandler("UnnecessaryDotClass")
-        assertNotNull(handler, "UnnecessaryDotClass handler should be registered")
-
-        val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
-        val textEdit = handler!!(context)
-
-        assertNull(textEdit, "Handler should return null for out of bounds line")
-    }
-
-    @Test
-    fun `dotClass handler returns null for invalid range`() {
-        val content = "String" // No .class suffix, range exceeds line length
-        val lines = content.lines()
-        val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
-            code = "UnnecessaryDotClass",
-            message = "String.class can be simplified to String",
-            line = 0,
-            startChar = 0,
-            endChar = 50, // Range exceeds line length
-        )
-
-        val handler = FixHandlerRegistry.getHandler("UnnecessaryDotClass")
-        assertNotNull(handler, "UnnecessaryDotClass handler should be registered")
-
-        val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
-        val textEdit = handler!!(context)
-
-        assertNull(textEdit, "Handler should return null for invalid range")
     }
 
     @Test

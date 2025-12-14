@@ -104,6 +104,14 @@ class LintFixAction {
         val endLine = range.end.line
         val lineCount = lines.size
 
+        // Validate start and end line order
+        if (startLine > endLine) {
+            logger.warn(
+                "Invalid range for rule '$ruleName': start line $startLine > end line $endLine, skipping fix",
+            )
+            return false
+        }
+
         // Validate line numbers are non-negative
         if (startLine < 0 || endLine < 0) {
             logger.warn(
@@ -130,35 +138,43 @@ class LintFixAction {
             return false
         }
 
-        // Validate character positions for single-line ranges
-        if (startLine == endLine) {
-            val lineLength = lines[startLine].length
-            val startChar = range.start.character
-            val endChar = range.end.character
+        // Validate character positions
+        val startLineLength = lines[startLine].length
+        val endLineLength = lines[endLine].length
+        val startChar = range.start.character
+        val endChar = range.end.character
 
-            if (startChar < 0) {
-                logger.warn(
-                    "Invalid range for rule '$ruleName': negative start character " +
-                        "$startChar on line $startLine, skipping fix",
-                )
-                return false
-            }
+        if (startChar < 0) {
+            logger.warn(
+                "Invalid range for rule '$ruleName': negative start character " +
+                    "$startChar on line $startLine, skipping fix",
+            )
+            return false
+        }
 
-            if (endChar > lineLength) {
-                logger.warn(
-                    "Invalid range for rule '$ruleName': end character $endChar exceeds " +
-                        "line length $lineLength on line $startLine, skipping fix",
-                )
-                return false
-            }
+        if (startChar > startLineLength) {
+            logger.warn(
+                "Invalid range for rule '$ruleName': start character $startChar exceeds " +
+                    "line length $startLineLength on line $startLine, skipping fix",
+            )
+            return false
+        }
 
-            if (startChar > endChar) {
-                logger.warn(
-                    "Invalid range for rule '$ruleName': start character $startChar > " +
-                        "end character $endChar on line $startLine, skipping fix",
-                )
-                return false
-            }
+        if (endChar > endLineLength) {
+            logger.warn(
+                "Invalid range for rule '$ruleName': end character $endChar exceeds " +
+                    "line length $endLineLength on line $endLine, skipping fix",
+            )
+            return false
+        }
+
+        // For single-line ranges, validate start <= end character
+        if (startLine == endLine && startChar > endChar) {
+            logger.warn(
+                "Invalid range for rule '$ruleName': start character $startChar > " +
+                    "end character $endChar on line $startLine, skipping fix",
+            )
+            return false
         }
 
         return true

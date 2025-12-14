@@ -413,26 +413,10 @@ private fun fixUnnecessaryPublicModifier(context: FixContext): TextEdit? {
  * @return A TextEdit that removes "def ", or null if the fix cannot be applied
  */
 private fun fixUnnecessaryDef(context: FixContext): TextEdit? {
-    val range = context.diagnostic.range
-    val lineNumber = range.start.line
-
-    // Validate line number is within bounds
-    if (lineNumber < 0 || lineNumber >= context.lines.size) {
-        return null
-    }
-
-    val line = context.lines[lineNumber]
-    val startIndex = range.start.character
-    val endIndex = range.end.character
-
-    // Validate that the diagnostic's range is within the line's bounds
-    if (startIndex < 0 || endIndex > line.length || startIndex > endIndex) {
-        return null
-    }
-
+    // Range validation is handled by LintFixAction.isValidRange() before this handler is called.
     // Use the diagnostic's range directly to ensure the fix is applied
     // to the correct location. CodeNarc provides the precise location of the violation.
-    return TextEdit(range, "")
+    return TextEdit(context.diagnostic.range, "")
 }
 
 /**
@@ -454,28 +438,18 @@ private fun fixUnnecessaryDef(context: FixContext): TextEdit? {
  * @return A TextEdit that replaces the getter call with property access, or null if the fix cannot be applied
  */
 private fun fixUnnecessaryGetter(context: FixContext): TextEdit? {
+    // Range validation is handled by LintFixAction.isValidRange() before this handler is called.
     val range = context.diagnostic.range
     val lineNumber = range.start.line
-
-    // Validate line number is within bounds
-    if (lineNumber < 0 || lineNumber >= context.lines.size) {
-        return null
-    }
-
     val line = context.lines[lineNumber]
     val startIndex = range.start.character
     val endIndex = range.end.character
-
-    // Validate that the diagnostic's range is within the line's bounds
-    if (startIndex < 0 || endIndex > line.length || startIndex >= endIndex) {
-        return null
-    }
 
     // Extract the getter call from the line using the diagnostic range
     val getterCall = line.substring(startIndex, endIndex)
 
     // Parse the getter call to extract the property name
-    // Expected format: "getXxx()" or "getXxx()" with possible arguments
+    // Expected format: "getXxx()" (zero-argument getter call only)
     val getterPattern = Regex("""^get([A-Z].*)?\(\)$""")
     val match = getterPattern.matchEntire(getterCall) ?: return null
 
@@ -522,22 +496,12 @@ private fun fixUnnecessaryGetter(context: FixContext): TextEdit? {
  * @return A TextEdit that replaces the setter call with property assignment, or null if the fix cannot be applied
  */
 private fun fixUnnecessarySetter(context: FixContext): TextEdit? {
+    // Range validation is handled by LintFixAction.isValidRange() before this handler is called.
     val range = context.diagnostic.range
     val lineNumber = range.start.line
-
-    // Validate line number is within bounds
-    if (lineNumber < 0 || lineNumber >= context.lines.size) {
-        return null
-    }
-
     val line = context.lines[lineNumber]
     val startIndex = range.start.character
     val endIndex = range.end.character
-
-    // Validate that the diagnostic's range is within the line's bounds
-    if (startIndex < 0 || endIndex > line.length || startIndex >= endIndex) {
-        return null
-    }
 
     // Extract the setter call from the line using the diagnostic range
     val setterCall = line.substring(startIndex, endIndex)
@@ -595,22 +559,12 @@ private fun fixUnnecessarySetter(context: FixContext): TextEdit? {
  * @return A TextEdit that removes ".class" suffix, or null if the fix cannot be applied
  */
 private fun fixUnnecessaryDotClass(context: FixContext): TextEdit? {
+    // Range validation is handled by LintFixAction.isValidRange() before this handler is called.
     val range = context.diagnostic.range
     val lineNumber = range.start.line
-
-    // Validate line number is within bounds
-    if (lineNumber < 0 || lineNumber >= context.lines.size) {
-        return null
-    }
-
     val line = context.lines[lineNumber]
     val startIndex = range.start.character
     val endIndex = range.end.character
-
-    // Validate that the diagnostic's range is within the line's bounds
-    if (startIndex < 0 || endIndex > line.length || startIndex >= endIndex) {
-        return null
-    }
 
     // Extract the class literal from the line using the diagnostic range
     val classLiteral = line.substring(startIndex, endIndex)
