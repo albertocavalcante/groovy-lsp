@@ -19,6 +19,11 @@ import org.junit.jupiter.api.Test
  */
 class ConventionFixHandlersTest {
 
+    companion object {
+        /** Length of "public " keyword including trailing space */
+        private const val PUBLIC_KEYWORD_LENGTH = 7
+    }
+
     // ========================================================================
     // Property Tests for UnnecessaryPublicModifier
     // ========================================================================
@@ -47,7 +52,7 @@ class ConventionFixHandlersTest {
             message = "The public keyword is unnecessary for method declarations",
             line = 0,
             startChar = publicIndex,
-            endChar = publicIndex + 7, // "public " is 7 characters
+            endChar = publicIndex + PUBLIC_KEYWORD_LENGTH,
         )
 
         val handler = FixHandlerRegistry.getHandler("UnnecessaryPublicModifier")
@@ -57,10 +62,10 @@ class ConventionFixHandlersTest {
         val textEdit = handler!!(context)
 
         return if (textEdit != null) {
-            // The fix should remove "public " (7 characters)
+            // The fix should remove "public " using the diagnostic range
             textEdit.newText == "" &&
                 textEdit.range.start.character == publicIndex &&
-                textEdit.range.end.character == publicIndex + 7
+                textEdit.range.end.character == publicIndex + PUBLIC_KEYWORD_LENGTH
         } else {
             // Handler should produce a fix for valid declarations with public modifier
             false
@@ -96,7 +101,7 @@ class ConventionFixHandlersTest {
             message = "The public keyword is unnecessary for class declarations",
             line = 0,
             startChar = 0,
-            endChar = 7,
+            endChar = PUBLIC_KEYWORD_LENGTH,
         )
 
         val handler = FixHandlerRegistry.getHandler("UnnecessaryPublicModifier")
@@ -110,7 +115,7 @@ class ConventionFixHandlersTest {
         assertEquals(0, textEdit.range.start.line)
         assertEquals(0, textEdit.range.start.character)
         assertEquals(0, textEdit.range.end.line)
-        assertEquals(7, textEdit.range.end.character) // "public " is 7 chars
+        assertEquals(PUBLIC_KEYWORD_LENGTH, textEdit.range.end.character)
     }
 
     @Test
@@ -122,7 +127,7 @@ class ConventionFixHandlersTest {
             message = "The public keyword is unnecessary for method declarations",
             line = 0,
             startChar = 0,
-            endChar = 7,
+            endChar = PUBLIC_KEYWORD_LENGTH,
         )
 
         val handler = FixHandlerRegistry.getHandler("UnnecessaryPublicModifier")
@@ -136,7 +141,7 @@ class ConventionFixHandlersTest {
         assertEquals(0, textEdit.range.start.line)
         assertEquals(0, textEdit.range.start.character)
         assertEquals(0, textEdit.range.end.line)
-        assertEquals(7, textEdit.range.end.character)
+        assertEquals(PUBLIC_KEYWORD_LENGTH, textEdit.range.end.character)
     }
 
     @Test
@@ -149,7 +154,7 @@ class ConventionFixHandlersTest {
             message = "The public keyword is unnecessary for method declarations",
             line = 0,
             startChar = publicIndex,
-            endChar = publicIndex + 7,
+            endChar = publicIndex + PUBLIC_KEYWORD_LENGTH,
         )
 
         val handler = FixHandlerRegistry.getHandler("UnnecessaryPublicModifier")
@@ -163,7 +168,7 @@ class ConventionFixHandlersTest {
         assertEquals(0, textEdit.range.start.line)
         assertEquals(publicIndex, textEdit.range.start.character)
         assertEquals(0, textEdit.range.end.line)
-        assertEquals(publicIndex + 7, textEdit.range.end.character)
+        assertEquals(publicIndex + PUBLIC_KEYWORD_LENGTH, textEdit.range.end.character)
     }
 
     @Test
@@ -175,7 +180,7 @@ class ConventionFixHandlersTest {
             message = "The public keyword is unnecessary",
             line = 5, // Out of bounds
             startChar = 0,
-            endChar = 7,
+            endChar = PUBLIC_KEYWORD_LENGTH,
         )
 
         val handler = FixHandlerRegistry.getHandler("UnnecessaryPublicModifier")
@@ -188,15 +193,15 @@ class ConventionFixHandlersTest {
     }
 
     @Test
-    fun `public modifier handler returns null when public not found in line`() {
-        val content = "class Foo {}" // No public modifier
+    fun `public modifier handler returns null for invalid range`() {
+        val content = "class Foo {}" // No public modifier, range exceeds line length
         val lines = content.lines()
         val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
             code = "UnnecessaryPublicModifier",
             message = "The public keyword is unnecessary",
             line = 0,
             startChar = 0,
-            endChar = 7,
+            endChar = PUBLIC_KEYWORD_LENGTH + content.length, // Range exceeds line length
         )
 
         val handler = FixHandlerRegistry.getHandler("UnnecessaryPublicModifier")
@@ -205,6 +210,6 @@ class ConventionFixHandlersTest {
         val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
         val textEdit = handler!!(context)
 
-        assertNull(textEdit, "Handler should return null when public modifier not found")
+        assertNull(textEdit, "Handler should return null for invalid range")
     }
 }

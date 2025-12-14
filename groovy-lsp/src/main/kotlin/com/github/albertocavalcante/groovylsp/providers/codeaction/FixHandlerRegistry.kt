@@ -371,7 +371,8 @@ private fun fixRemoveImportLine(context: FixContext): TextEdit? {
  * @return A TextEdit that removes "public ", or null if the fix cannot be applied
  */
 private fun fixUnnecessaryPublicModifier(context: FixContext): TextEdit? {
-    val lineNumber = context.diagnostic.range.start.line
+    val range = context.diagnostic.range
+    val lineNumber = range.start.line
 
     // Validate line number is within bounds
     if (lineNumber < 0 || lineNumber >= context.lines.size) {
@@ -379,22 +380,18 @@ private fun fixUnnecessaryPublicModifier(context: FixContext): TextEdit? {
     }
 
     val line = context.lines[lineNumber]
+    val startIndex = range.start.character
+    val endIndex = range.end.character
 
-    // Find "public " in the line - we need to remove "public " (with trailing space)
-    val publicPattern = "public "
-    val publicIndex = line.indexOf(publicPattern)
-
-    // If "public " is not found, we cannot apply the fix
-    if (publicIndex == -1) {
+    // Validate that the diagnostic's range is within the line's bounds
+    if (startIndex < 0 || endIndex > line.length || startIndex > endIndex) {
         return null
     }
 
-    // Create TextEdit to remove "public " (7 characters including the space)
-    val range = Range(
-        Position(lineNumber, publicIndex),
-        Position(lineNumber, publicIndex + publicPattern.length),
-    )
-
+    // Use the diagnostic's range directly to ensure the fix is applied
+    // to the correct location, even if "public" appears multiple times on the line
+    // (e.g., in a string literal before the actual modifier).
+    // CodeNarc provides the precise location of the violation.
     return TextEdit(range, "")
 }
 
