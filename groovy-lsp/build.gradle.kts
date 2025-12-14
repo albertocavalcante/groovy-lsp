@@ -1,3 +1,5 @@
+import java.util.zip.ZipFile
+
 plugins {
     kotlin("jvm")
     groovy
@@ -21,17 +23,8 @@ dependencies {
 
     // Groovy - For AST parsing and analysis
     implementation(libs.groovy.core)
-    // Add additional Groovy modules that might be needed for compilation
-    implementation(libs.groovy.ant)
-    implementation(libs.groovy.console)
-    implementation(libs.groovy.json) // Required for CodeNarc JsonSlurper
+    // Additional Groovy modules needed by runtime features
     implementation(libs.groovy.groovydoc)
-
-    // CodeNarc - Static analysis for Groovy (Groovy 4.x compatible version)
-    // CodeNarc is now a transitive dependency of the diagnostics module, but kept here for
-    // backward compatibility if any direct usages remain during refactoring
-    implementation(libs.codenarc)
-    implementation(libs.gmetrics) // Required for complexity rules
 
     // Gradle Tooling API - For dependency resolution
     implementation(libs.gradle.tooling.api)
@@ -44,7 +37,7 @@ dependencies {
 
     // Logging
     implementation(libs.slf4j.api)
-    implementation(libs.logback.classic)
+    runtimeOnly(libs.logback.classic)
 
     // Classpath Scanning - For indexing all classes in the project and dependencies
     implementation(libs.classgraph)
@@ -214,6 +207,134 @@ tasks.processResources {
     from(layout.buildDirectory.dir("generated/resources"))
 }
 
+abstract class ReportJarCompositionTask : DefaultTask() {
+    @get:InputFile
+    abstract val jarFile: RegularFileProperty
+
+    @get:OutputFile
+    abstract val reportFile: RegularFileProperty
+
+    @TaskAction
+    fun generate() {
+        val jar = jarFile.get().asFile
+        ZipFile(jar).use { zip ->
+            val entries = zip.entries().toList().filterNot { it.isDirectory }
+
+            fun prefix(
+                name: String,
+                segments: Int,
+            ): String {
+                val parts = name.split('/').filter { it.isNotBlank() }
+                if (parts.isEmpty()) return name
+                return parts.take(segments).joinToString("/")
+            }
+
+            val byPrefix1Compressed = mutableMapOf<String, Long>()
+            val byPrefix3Compressed = mutableMapOf<String, Long>()
+            val byPrefix1Uncompressed = mutableMapOf<String, Long>()
+            val byPrefix3Uncompressed = mutableMapOf<String, Long>()
+
+            val largestByUncompressed =
+                entries
+                    .map { entry -> entry.size.coerceAtLeast(0) to entry.name }
+                    .sortedByDescending { it.first }
+                    .take(60)
+
+            val largestByCompressed =
+                entries
+                    .map { entry -> entry.compressedSize.coerceAtLeast(0) to entry.name }
+                    .sortedByDescending { it.first }
+                    .take(60)
+
+            var totalUncompressed = 0L
+            var totalCompressed = 0L
+
+            for (entry in entries) {
+                val uncompressed = entry.size.coerceAtLeast(0)
+                val compressed = entry.compressedSize.coerceAtLeast(0)
+                totalUncompressed += uncompressed
+                totalCompressed += compressed
+
+                val p1 = prefix(entry.name, 1)
+                val p3 = prefix(entry.name, 3)
+                byPrefix1Uncompressed[p1] = (byPrefix1Uncompressed[p1] ?: 0L) + uncompressed
+                byPrefix3Uncompressed[p3] = (byPrefix3Uncompressed[p3] ?: 0L) + uncompressed
+                byPrefix1Compressed[p1] = (byPrefix1Compressed[p1] ?: 0L) + compressed
+                byPrefix3Compressed[p3] = (byPrefix3Compressed[p3] ?: 0L) + compressed
+            }
+
+            fun formatBytes(bytes: Long): String = "%,d".format(bytes)
+
+            fun top(
+                map: Map<String, Long>,
+                limit: Int,
+            ): List<Pair<String, Long>> =
+                map.entries
+                    .sortedWith(compareByDescending<Map.Entry<String, Long>> { it.value }.thenBy { it.key })
+                    .take(limit)
+                    .map { it.key to it.value }
+
+            val out = reportFile.get().asFile
+            out.parentFile.mkdirs()
+            out.writeText(
+                buildString {
+                    appendLine("Jar: ${jar.name}")
+                    appendLine("JarSizeBytes: ${formatBytes(jar.length())}")
+                    appendLine("Entries: ${entries.size}")
+                    appendLine("TotalUncompressedBytes: ${formatBytes(totalUncompressed)}")
+                    appendLine("TotalCompressedBytes: ${formatBytes(totalCompressed)}")
+                    appendLine()
+
+                    appendLine("TopPrefix1CompressedBytes:")
+                    for ((p, b) in top(byPrefix1Compressed, 40)) appendLine("${formatBytes(b)}\t$p")
+                    appendLine()
+
+                    appendLine("TopPrefix3CompressedBytes:")
+                    for ((p, b) in top(byPrefix3Compressed, 60)) appendLine("${formatBytes(b)}\t$p")
+                    appendLine()
+
+                    appendLine("TopPrefix1UncompressedBytes:")
+                    for ((p, b) in top(byPrefix1Uncompressed, 40)) appendLine("${formatBytes(b)}\t$p")
+                    appendLine()
+
+                    appendLine("TopPrefix3UncompressedBytes:")
+                    for ((p, b) in top(byPrefix3Uncompressed, 60)) appendLine("${formatBytes(b)}\t$p")
+                    appendLine()
+
+                    appendLine("LargestEntriesUncompressedBytes:")
+                    for ((b, name) in largestByUncompressed) appendLine("${formatBytes(b)}\t$name")
+                    appendLine()
+
+                    appendLine("LargestEntriesCompressedBytes:")
+                    for ((b, name) in largestByCompressed) appendLine("${formatBytes(b)}\t$name")
+                },
+            )
+        }
+    }
+}
+
+abstract class ReportRuntimeClasspathArtifactsTask : DefaultTask() {
+    @get:InputFiles
+    abstract val runtimeClasspathFiles: ConfigurableFileCollection
+
+    @get:OutputFile
+    abstract val reportFile: RegularFileProperty
+
+    @TaskAction
+    fun generate() {
+        val out = reportFile.get().asFile
+        out.parentFile.mkdirs()
+        out.writeText(
+            buildString {
+                appendLine("file,sizeBytes")
+                for (file in runtimeClasspathFiles.files.sortedBy { it.name }) {
+                    appendLine("${file.name},${file.length()}")
+                }
+            },
+        )
+    }
+}
+
 // Helper task to print classpath for debugging
 tasks.register("printClasspath") {
     doLast {
@@ -241,4 +362,27 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
     }
+}
+
+val shadowJarTask = tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar")
+
+tasks.register<ReportJarCompositionTask>("reportShadowJarComposition") {
+    group = "reporting"
+    description = "Report size breakdown of the shaded groovy-lsp uber jar."
+    dependsOn(shadowJarTask)
+    jarFile.set(shadowJarTask.flatMap { it.archiveFile })
+    reportFile.set(layout.buildDirectory.file("reports/jar/groovy-lsp-shadow-composition.txt"))
+}
+
+tasks.register<ReportRuntimeClasspathArtifactsTask>("reportRuntimeClasspathArtifacts") {
+    group = "reporting"
+    description = "Report resolved runtimeClasspath artifacts with file sizes."
+    runtimeClasspathFiles.from(configurations.named("runtimeClasspath"))
+    reportFile.set(layout.buildDirectory.file("reports/dependencies/runtimeClasspath-artifacts.csv"))
+}
+
+tasks.register("jarReports") {
+    group = "reporting"
+    description = "Generate jar and dependency size reports."
+    dependsOn("reportShadowJarComposition", "reportRuntimeClasspathArtifacts")
 }

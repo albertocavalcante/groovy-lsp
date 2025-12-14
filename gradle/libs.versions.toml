@@ -30,6 +30,7 @@ jackson = "2.20.1"
 jqwik = "1.9.3"
 jsonPath = "2.10.0"
 classgraph = "4.8.184"
+dependencyAnalysis = "3.5.1"
 
 [libraries]
 # Plugins (libraries for plugins block)
@@ -95,4 +96,4 @@ sonarqube = { id = "org.sonarqube", version.ref = "sonarqube" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 gitHooks = { id = "org.danilopianini.gradle-pre-commit-git-hooks", version.ref = "gitHooks" }
 jmh = { id = "me.champeau.jmh", version.ref = "jmh" }
-
+dependency-analysis = { id = "com.autonomousapps.dependency-analysis", version.ref = "dependencyAnalysis" }
