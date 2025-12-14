@@ -732,10 +732,10 @@ class WhitespaceFixHandlersTest {
         val content = "def x = 1\n\n\n"
         val lines = content.lines()
         // Lines: ["def x = 1", "", "", ""]
-        // Blank lines are at indices 1, 2 (2 blank lines, plus empty string at end)
+        // Blank lines are at indices 1, 2, 3 (3 blank lines total)
         val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
             code = "ConsecutiveBlankLines",
-            message = "File has 2 consecutive blank lines",
+            message = "File has 3 consecutive blank lines",
             line = 1, // First blank line
             startChar = 0,
             endChar = 0,
@@ -749,9 +749,10 @@ class WhitespaceFixHandlersTest {
         val context = FixContext(diagnostic, content, lines, "file:///test.groovy")
         val textEdit = assertNotNull(handler(context), "Handler should return a TextEdit")
 
-        // Should remove 1 blank line (keep 1)
+        // Should remove 2 blank lines (keep 1), range covers lines 2-3
         assertEquals("", textEdit.newText, "newText should be empty for deletion")
         assertEquals(2, textEdit.range.start.line, "Range should start at second blank line")
+        assertEquals(4, textEdit.range.end.line, "Range should end at line after last blank line")
     }
 
     @Test

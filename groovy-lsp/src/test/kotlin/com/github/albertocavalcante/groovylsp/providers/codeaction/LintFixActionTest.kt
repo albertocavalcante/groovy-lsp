@@ -170,19 +170,21 @@ class LintFixActionTest {
 
     @Test
     fun `returns empty list when handler returns null`() {
-        // Use a rule with a placeholder handler that returns null
+        // Use ConsecutiveBlankLines with content that has only 1 blank line (not consecutive)
+        // The handler returns null when there are no consecutive blank lines to fix
         val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
-            code = "ConsecutiveBlankLines", // This handler still returns null (placeholder)
+            code = "ConsecutiveBlankLines",
             message = "Found consecutive blank lines",
+            line = 1, // Point to the single blank line
         )
 
         val actions = lintFixAction.createLintFixActions(
             testUri,
             listOf(diagnostic),
-            "def x = 1\n\n\ndef y = 2",
+            "def x = 1\n\ndef y = 2", // Only 1 blank line, not consecutive
         )
 
-        // Handler returns null, so no actions
+        // Handler returns null when there's only 1 blank line (nothing to reduce)
         assertTrue(actions.isEmpty())
     }
 
