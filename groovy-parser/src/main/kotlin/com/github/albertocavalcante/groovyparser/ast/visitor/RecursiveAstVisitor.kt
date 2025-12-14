@@ -273,7 +273,11 @@ class RecursiveAstVisitor(private val tracker: NodeRelationshipTracker) : Groovy
         }
 
         override fun visitConstructorCallExpression(call: ConstructorCallExpression) {
-            visitWithTracking(call) { super.visitConstructorCallExpression(it) }
+            track(call) {
+                // Track the referenced type so position queries inside `new TypeName(...)` can resolve to the type.
+                track(call.type) { /* no-op */ }
+                super.visitConstructorCallExpression(call)
+            }
         }
 
         override fun visitPropertyExpression(expression: PropertyExpression) {

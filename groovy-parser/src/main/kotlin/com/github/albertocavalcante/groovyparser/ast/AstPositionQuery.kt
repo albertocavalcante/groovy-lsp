@@ -129,7 +129,27 @@ class AstPositionQuery(private val tracker: NodeRelationshipTracker) {
 
     private fun ASTNode.tokenLengthHint(): Int? = when (this) {
         is org.codehaus.groovy.ast.ClassNode -> this.nameWithoutPackage.length
-        is org.codehaus.groovy.ast.expr.VariableExpression -> this.name.length
+        is org.codehaus.groovy.ast.expr.VariableExpression ->
+            when (this.name) {
+                // Avoid widening implicit receivers like `this` / `super`, which can otherwise "steal" the cursor
+                // from adjacent call sites (e.g., hovering `println(...)` returning hover for `this`).
+                "this",
+                "super",
+                -> null
+
+                else -> this.name.length
+            }
+        is org.codehaus.groovy.ast.expr.ConstructorCallExpression -> this.type.nameWithoutPackage.length
+        is org.codehaus.groovy.ast.expr.ClassExpression -> this.type.nameWithoutPackage.length
+        is org.codehaus.groovy.ast.expr.MethodCallExpression -> {
+            val methodName =
+                when (val methodExpr = this.method) {
+                    is org.codehaus.groovy.ast.expr.ConstantExpression -> methodExpr.text
+                    is org.codehaus.groovy.ast.expr.VariableExpression -> methodExpr.name
+                    else -> null
+                }
+            methodName?.length
+        }
         is org.codehaus.groovy.ast.ImportNode -> {
             this.type?.nameWithoutPackage?.length
                 ?: this.className?.substringAfterLast('.')?.length

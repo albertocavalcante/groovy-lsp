@@ -16,6 +16,44 @@ class AstPositionQueryTest {
     private val fixture = ParserTestFixture()
 
     @Test
+    fun `find constructor call type name`() {
+        val code = """
+            package com.example
+
+            import com.lesfurets.jenkins.unit.declarative.GenericPipelineDeclaration
+
+            class DependencyTest {
+                def test() {
+                    new GenericPipelineDeclaration()
+                }
+            }
+        """.trimIndent()
+
+        val result = fixture.parse(code)
+        assertNotNull(result.astVisitor, "Expected visitor even if compilation has diagnostics")
+        val visitor = result.astVisitor!!
+        val uri = java.net.URI.create("file:///Test.groovy")
+
+        val targetLine = code.lines().indexOfFirst { it.contains("new GenericPipelineDeclaration") }
+        assertTrue(targetLine >= 0, "Expected constructor call line to exist")
+
+        val col = code.lines()[targetLine].indexOf("GenericPipelineDeclaration")
+        assertTrue(col >= 0, "Expected type name on constructor call line")
+
+        val node = visitor.getNodeAt(uri, targetLine, col + 5) // inside identifier
+        assertNotNull(node, "Should find node at constructor type position")
+
+        val isConstructorOrType =
+            node is org.codehaus.groovy.ast.expr.ConstructorCallExpression ||
+                (node is org.codehaus.groovy.ast.ClassNode && node.nameWithoutPackage == "GenericPipelineDeclaration")
+
+        assertTrue(
+            isConstructorOrType,
+            "Expected ConstructorCallExpression or referenced ClassNode but got ${node?.javaClass?.simpleName}",
+        )
+    }
+
+    @Test
     fun `find node at import class name`() {
         val code = """
             import org.junit.Test
