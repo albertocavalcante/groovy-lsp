@@ -64,6 +64,11 @@ class LintFixAction {
             return null
         }
 
+        // Validate diagnostic range before invoking handler
+        if (!isValidRange(diagnostic, lines, ruleName)) {
+            return null
+        }
+
         // Create context and invoke handler
         val context = FixContext(diagnostic, content, lines, uriString)
         val textEdit = handler(context) ?: run {
@@ -75,6 +80,88 @@ class LintFixAction {
         val title = FixHandlerRegistry.getTitle(ruleName)
         logger.debug("Created lint fix action for rule: $ruleName")
         return createCodeAction(uriString, title, textEdit, diagnostic)
+    }
+
+    /**
+     * Validates that the diagnostic range is within bounds of the source content.
+     *
+     * **Feature: codenarc-lint-fixes, Property 11: Range Bounds Validation**
+     * **Validates: Requirements 5.1, 5.2, 5.3**
+     *
+     * @param diagnostic The diagnostic to validate
+     * @param lines The source content split into lines
+     * @param ruleName The rule name for logging purposes
+     * @return true if the range is valid, false otherwise
+     */
+    @Suppress("ReturnCount") // Multiple early returns for clarity in validation chain
+    private fun isValidRange(diagnostic: Diagnostic, lines: List<String>, ruleName: String): Boolean {
+        val range = diagnostic.range ?: run {
+            logger.warn("Diagnostic for rule '$ruleName' has null range, skipping fix")
+            return false
+        }
+
+        val startLine = range.start.line
+        val endLine = range.end.line
+        val lineCount = lines.size
+
+        // Validate line numbers are non-negative
+        if (startLine < 0 || endLine < 0) {
+            logger.warn(
+                "Invalid range for rule '$ruleName': negative line number " +
+                    "(startLine=$startLine, endLine=$endLine), skipping fix",
+            )
+            return false
+        }
+
+        // Validate line numbers are within bounds
+        if (startLine >= lineCount) {
+            logger.warn(
+                "Invalid range for rule '$ruleName': start line $startLine exceeds " +
+                    "source line count $lineCount, skipping fix",
+            )
+            return false
+        }
+
+        if (endLine >= lineCount) {
+            logger.warn(
+                "Invalid range for rule '$ruleName': end line $endLine exceeds " +
+                    "source line count $lineCount, skipping fix",
+            )
+            return false
+        }
+
+        // Validate character positions for single-line ranges
+        if (startLine == endLine) {
+            val lineLength = lines[startLine].length
+            val startChar = range.start.character
+            val endChar = range.end.character
+
+            if (startChar < 0) {
+                logger.warn(
+                    "Invalid range for rule '$ruleName': negative start character " +
+                        "$startChar on line $startLine, skipping fix",
+                )
+                return false
+            }
+
+            if (endChar > lineLength) {
+                logger.warn(
+                    "Invalid range for rule '$ruleName': end character $endChar exceeds " +
+                        "line length $lineLength on line $startLine, skipping fix",
+                )
+                return false
+            }
+
+            if (startChar > endChar) {
+                logger.warn(
+                    "Invalid range for rule '$ruleName': start character $startChar > " +
+                        "end character $endChar on line $startLine, skipping fix",
+                )
+                return false
+            }
+        }
+
+        return true
     }
 
     /**
