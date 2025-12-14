@@ -172,14 +172,14 @@ class LintFixActionTest {
     fun `returns empty list when handler returns null`() {
         // Use a rule with a placeholder handler that returns null
         val diagnostic = TestDiagnosticFactory.createCodeNarcDiagnostic(
-            code = "UnnecessarySemicolon", // This handler still returns null
-            message = "Found unnecessary semicolon",
+            code = "ConsecutiveBlankLines", // This handler still returns null (placeholder)
+            message = "Found consecutive blank lines",
         )
 
         val actions = lintFixAction.createLintFixActions(
             testUri,
             listOf(diagnostic),
-            "def x = 1;\n",
+            "def x = 1\n\n\ndef y = 2",
         )
 
         // Handler returns null, so no actions
@@ -202,6 +202,8 @@ class LintFixActionTest {
                 code = "UnnecessarySemicolon",
                 message = "Found unnecessary semicolon",
                 line = 1,
+                startChar = 9, // Position of ';' in "def y = 2;"
+                endChar = 10,
             ),
             TestDiagnosticFactory.createCodeNarcDiagnostic(
                 code = "UnknownRule",
@@ -221,10 +223,13 @@ class LintFixActionTest {
         val actions = lintFixAction.createLintFixActions(testUri, diagnostics, content)
 
         // TrailingWhitespace handler is implemented, so expect 1 action
-        // UnnecessarySemicolon handler returns null (placeholder)
+        // UnnecessarySemicolon handler is now implemented, so expect 1 action
         // UnknownRule has no handler
         // PMD source is filtered out
-        assertTrue(actions.size == 1, "Expected 1 action for TrailingWhitespace, got ${actions.size}")
+        assertTrue(
+            actions.size == 2,
+            "Expected 2 actions for TrailingWhitespace and UnnecessarySemicolon, got ${actions.size}",
+        )
     }
 
     @Test
