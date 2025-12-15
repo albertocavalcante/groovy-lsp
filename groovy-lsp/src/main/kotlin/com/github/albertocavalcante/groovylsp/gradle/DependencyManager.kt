@@ -80,7 +80,7 @@ class DependencyManager(private val buildToolManager: BuildToolManager, private 
                         logger.info("No supported build tool detected for: $workspaceRoot")
                         onProgress?.invoke(PROGRESS_COMPLETE, "No build tool detected")
 
-                        val emptyResolution = WorkspaceResolution(emptyList(), emptyList())
+                        val emptyResolution = WorkspaceResolution(emptyList(), listOf(workspaceRoot))
                         dependencies.set(emptyResolution.dependencies)
                         sourceDirs.set(emptyResolution.sourceDirectories)
                         state.set(State.COMPLETED)
