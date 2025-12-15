@@ -105,58 +105,47 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
     ): WorkspaceResolution {
         val connection = connectionFactory.getConnection(projectDir, gradleUserHomeDir)
 
-        try {
-            val modelBuilder = connection.model(IdeaProject::class.java)
-                .withArguments(
-                    "-Dorg.gradle.daemon=true",
-                    "-Dorg.gradle.parallel=true",
-                    "-Dorg.gradle.configureondemand=true",
-                    "-Dorg.gradle.vfs.watch=true",
-                )
-                .setJvmArguments("-Xmx1g", "-XX:+UseG1GC")
+        val modelBuilder = connection.model(IdeaProject::class.java)
+            .withArguments(
+                "-Dorg.gradle.daemon=true",
+                "-Dorg.gradle.parallel=true",
+                "-Dorg.gradle.configureondemand=true",
+                "-Dorg.gradle.vfs.watch=true",
+            )
+            .setJvmArguments("-Xmx1g", "-XX:+UseG1GC")
 
-            // Add progress listener to track Gradle distribution downloads
-            if (onDownloadProgress != null) {
-                modelBuilder.addProgressListener({ event ->
-                    when (event) {
-                        is FileDownloadStartEvent -> {
-                            val uri = event.descriptor.uri.toString()
-                            // Detect Gradle distribution download (can take 60-120s on cold CI)
-                            // Matches: gradle-X.Y.Z-bin.zip, gradle-X.Y.Z-all.zip, etc.
-                            // FIXME: Detection is fragile - may need more robust pattern matching
-                            if (uri.contains("/gradle-") && uri.endsWith(".zip")) {
-                                logger.info("Detected Gradle distribution download: $uri")
-                                onDownloadProgress("Downloading Gradle distribution (this may take a few minutes)...")
-                            }
+        // Add progress listener to track Gradle distribution downloads
+        if (onDownloadProgress != null) {
+            modelBuilder.addProgressListener({ event ->
+                when (event) {
+                    is FileDownloadStartEvent -> {
+                        val uri = event.descriptor.uri.toString()
+                        // Detect Gradle distribution download (can take 60-120s on cold CI)
+                        // Matches: gradle-X.Y.Z-bin.zip, gradle-X.Y.Z-all.zip, etc.
+                        // FIXME: Detection is fragile - may need more robust pattern matching
+                        if (uri.contains("/gradle-") && uri.endsWith(".zip")) {
+                            logger.info("Detected Gradle distribution download: $uri")
+                            onDownloadProgress("Downloading Gradle distribution (this may take a few minutes)...")
                         }
                     }
-                }, OperationType.FILE_DOWNLOAD)
-            }
-
-            val ideaProject = modelBuilder.get()
-
-            val dependencies = mutableSetOf<Path>()
-            val sourceDirectories = mutableSetOf<Path>()
-
-            ideaProject.modules.forEach { module ->
-                processModule(module, dependencies, sourceDirectories)
-            }
-
-            logger.info("Resolved ${dependencies.size} dependencies and ${sourceDirectories.size} source directories")
-            return WorkspaceResolution(
-                dependencies = dependencies.toList(),
-                sourceDirectories = sourceDirectories.toList(),
-            )
-        } finally {
-            // Connection is managed by the pool usually, but if it was created ad-hoc it might need closing?
-            // GradleConnectionPool implementation handles caching.
-            // But if we used a factory that creates new connections, we might need to close it.
-            // The original implementation didn't close it explicitly here, relying on pool behavior or finalize?
-            // Checking GradleConnectionPool.getConnection: it returns a connection from map.
-            // So we should NOT close it here if we want to reuse it.
-            // If we want to support resource cleanup, we might need a release mechanism.
-            // For now, mirroring original behavior.
+                }
+            }, OperationType.FILE_DOWNLOAD)
         }
+
+        val ideaProject = modelBuilder.get()
+
+        val dependencies = mutableSetOf<Path>()
+        val sourceDirectories = mutableSetOf<Path>()
+
+        ideaProject.modules.forEach { module ->
+            processModule(module, dependencies, sourceDirectories)
+        }
+
+        logger.info("Resolved ${dependencies.size} dependencies and ${sourceDirectories.size} source directories")
+        return WorkspaceResolution(
+            dependencies = dependencies.toList(),
+            sourceDirectories = sourceDirectories.toList(),
+        )
     }
 
     private fun shouldRetryWithIsolatedGradleUserHome(error: Throwable): Boolean {
