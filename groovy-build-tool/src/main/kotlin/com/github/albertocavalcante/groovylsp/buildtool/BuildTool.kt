@@ -22,4 +22,15 @@ interface BuildTool {
      * @return The resolved workspace dependencies and source directories.
      */
     fun resolve(workspaceRoot: Path, onProgress: ((String) -> Unit)? = null): WorkspaceResolution
+
+    /**
+     * Creates a file watcher for this build tool.
+     * @param coroutineScope The scope to launch the watcher in.
+     * @param onChange Callback triggered when a build file changes.
+     * @return A watcher instance, or null if file watching is not supported.
+     */
+    fun createWatcher(
+        coroutineScope: kotlinx.coroutines.CoroutineScope,
+        onChange: (Path) -> Unit,
+    ): BuildToolFileWatcher? = null
 }

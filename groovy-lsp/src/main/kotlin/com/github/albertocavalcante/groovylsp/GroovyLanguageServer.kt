@@ -1,8 +1,8 @@
 package com.github.albertocavalcante.groovylsp
 
 import com.github.albertocavalcante.groovylsp.buildtool.BuildToolManager
+import com.github.albertocavalcante.groovylsp.buildtool.gradle.GradleBuildTool
 import com.github.albertocavalcante.groovylsp.buildtool.gradle.GradleConnectionPool
-import com.github.albertocavalcante.groovylsp.buildtool.gradle.GradleDependencyResolver
 import com.github.albertocavalcante.groovylsp.buildtool.maven.MavenBuildTool
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
 import com.github.albertocavalcante.groovylsp.config.ServerConfiguration
@@ -53,7 +53,7 @@ class GroovyLanguageServer :
     // Async dependency management
     private val buildToolManager = BuildToolManager(
         listOf(
-            GradleDependencyResolver(),
+            GradleBuildTool(),
             MavenBuildTool(),
         ),
     )

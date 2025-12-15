@@ -52,7 +52,7 @@ class GradleDependencyResolverRetryTest {
             connections[callCount++]
         }
 
-        val resolver = GradleDependencyResolver(connectionFactory)
+        val resolver = GradleBuildTool(connectionFactory)
 
         val result = resolver.resolve(workspaceRoot = projectDir, onProgress = null)
 
@@ -89,7 +89,7 @@ class GradleDependencyResolverRetryTest {
 
         every { connectionFactory.getConnection(any(), any()) } returns connection
 
-        val resolver = GradleDependencyResolver(connectionFactory)
+        val resolver = GradleBuildTool(connectionFactory)
         resolver.resolve(workspaceRoot = projectDir, onProgress = null)
 
         verify(exactly = 1) { connectionFactory.getConnection(any(), any()) }

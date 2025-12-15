@@ -1,6 +1,6 @@
 package com.github.albertocavalcante.groovylsp.integration
 
-import com.github.albertocavalcante.groovylsp.buildtool.gradle.GradleDependencyResolver
+import com.github.albertocavalcante.groovylsp.buildtool.gradle.GradleBuildTool
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
 import kotlinx.coroutines.test.runTest
 import java.net.URI
@@ -20,7 +20,7 @@ class GradleDependencyIntegrationTest {
         // Use our test project which has known dependencies
         compilationService.workspaceManager.initializeWorkspace(testProjectPath)
 
-        val resolver = GradleDependencyResolver()
+        val resolver = GradleBuildTool()
         val resolution = resolver.resolve(testProjectPath, null)
         compilationService.workspaceManager.updateWorkspaceModel(
             testProjectPath,
@@ -53,7 +53,7 @@ class GradleDependencyIntegrationTest {
         // Initialize workspace with dependencies using test project
         compilationService.workspaceManager.initializeWorkspace(testProjectPath)
 
-        val resolver = GradleDependencyResolver()
+        val resolver = GradleBuildTool()
         val resolution = resolver.resolve(testProjectPath, null)
         compilationService.workspaceManager.updateWorkspaceModel(
             testProjectPath,

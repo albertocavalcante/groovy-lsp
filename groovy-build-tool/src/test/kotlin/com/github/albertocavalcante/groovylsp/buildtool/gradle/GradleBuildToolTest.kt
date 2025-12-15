@@ -4,11 +4,11 @@ import java.nio.file.Paths
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
-class GradleDependencyResolverTest {
+class GradleBuildToolTest {
 
     @Test
     fun `should resolve dependencies from gradle project using test resources`() {
-        val resolver = GradleDependencyResolver()
+        val resolver = GradleBuildTool()
         val testProjectPath = Paths.get("src/test/resources/test-gradle-project")
 
         // Use our test project which has known dependencies
@@ -41,7 +41,7 @@ class GradleDependencyResolverTest {
 
     @Test
     fun `should handle non-gradle project gracefully`() {
-        val resolver = GradleDependencyResolver()
+        val resolver = GradleBuildTool()
         val nonGradleProject = Paths.get("src/test/resources/non-gradle-project")
 
         val resolution = resolver.resolve(nonGradleProject, null)
@@ -52,7 +52,7 @@ class GradleDependencyResolverTest {
 
     @Test
     fun `should handle non-existent project gracefully`() {
-        val resolver = GradleDependencyResolver()
+        val resolver = GradleBuildTool()
         val nonExistentProject = Paths.get("non-existent-project")
 
         val resolution = resolver.resolve(nonExistentProject, null)

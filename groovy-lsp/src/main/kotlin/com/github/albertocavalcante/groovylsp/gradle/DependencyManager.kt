@@ -1,8 +1,8 @@
 package com.github.albertocavalcante.groovylsp.gradle
 
+import com.github.albertocavalcante.groovylsp.buildtool.BuildToolFileWatcher
 import com.github.albertocavalcante.groovylsp.buildtool.BuildToolManager
 import com.github.albertocavalcante.groovylsp.buildtool.WorkspaceResolution
-import com.github.albertocavalcante.groovylsp.buildtool.gradle.BuildFileWatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,7 +41,7 @@ class DependencyManager(private val buildToolManager: BuildToolManager, private 
     private var currentBuildToolName: String? = null
 
     // Build file watching
-    private var buildFileWatcher: BuildFileWatcher? = null
+    private var buildFileWatcher: BuildToolFileWatcher? = null
 
     /**
      * Starts asynchronous dependency resolution for the given workspace.
@@ -122,7 +122,7 @@ class DependencyManager(private val buildToolManager: BuildToolManager, private 
 
                     // Start build file watching if enabled
                     if (enableFileWatching) {
-                        tryStartBuildFileWatching(buildTool.name, workspaceRoot, onProgress, onComplete, onError)
+                        tryStartBuildFileWatching(buildTool, workspaceRoot, onProgress, onComplete, onError)
                     }
 
                     logger.info(
@@ -214,33 +214,16 @@ class DependencyManager(private val buildToolManager: BuildToolManager, private 
     }
 
     private fun tryStartBuildFileWatching(
-        toolName: String,
+        buildTool: com.github.albertocavalcante.groovylsp.buildtool.BuildTool,
         workspaceRoot: Path,
         onProgress: ((Int, String) -> Unit)?,
         onComplete: (WorkspaceResolution) -> Unit,
         onError: ((Exception) -> Unit)?,
     ) {
-        // Currently only Gradle has a specific file watcher implemented
-        if (toolName == "Gradle") {
-            startBuildFileWatching(workspaceRoot, onProgress, onComplete, onError)
-        }
-    }
-
-    /**
-     * Starts build file watching for automatic dependency refresh.
-     */
-    // FIXME: Replace with specific exception types (IOException, FileSystemException)
-    @Suppress("TooGenericExceptionCaught")
-    private fun startBuildFileWatching(
-        workspaceRoot: Path,
-        onProgress: ((Int, String) -> Unit)? = null,
-        onComplete: (WorkspaceResolution) -> Unit,
-        onError: ((Exception) -> Unit)? = null,
-    ) {
         try {
-            buildFileWatcher = BuildFileWatcher(
+            buildFileWatcher = buildTool.createWatcher(
                 coroutineScope = scope,
-                onBuildFileChanged = { changedProjectDir ->
+                onChange = { changedProjectDir ->
                     logger.info("Build file changed, refreshing dependencies for: $changedProjectDir")
                     onProgress?.invoke(0, "Build file changed, refreshing dependencies...")
 
@@ -259,7 +242,11 @@ class DependencyManager(private val buildToolManager: BuildToolManager, private 
             )
 
             buildFileWatcher?.startWatching(workspaceRoot)
-            logger.info("Started build file watching for: $workspaceRoot")
+            if (buildFileWatcher != null) {
+                logger.info("Started build file watching for: $workspaceRoot using ${buildTool.name}")
+            } else {
+                logger.info("Build file watching not supported by ${buildTool.name}")
+            }
         } catch (e: Exception) {
             logger.error("Failed to start build file watching", e)
             onError?.invoke(e)

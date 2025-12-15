@@ -22,10 +22,9 @@ import kotlin.io.path.exists
  * on the classpath for compilation. Future phases will add source
  * JAR support and on-demand downloading.
  */
-class GradleDependencyResolver(private val connectionFactory: GradleConnectionFactory = GradleConnectionPool) :
-    BuildTool {
+class GradleBuildTool(private val connectionFactory: GradleConnectionFactory = GradleConnectionPool) : BuildTool {
 
-    private val logger = LoggerFactory.getLogger(GradleDependencyResolver::class.java)
+    private val logger = LoggerFactory.getLogger(GradleBuildTool::class.java)
 
     override val name: String = "Gradle"
 
@@ -223,4 +222,10 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
             }
         }
     }
+
+    override fun createWatcher(
+        coroutineScope: kotlinx.coroutines.CoroutineScope,
+        onChange: (java.nio.file.Path) -> Unit,
+    ): com.github.albertocavalcante.groovylsp.buildtool.BuildToolFileWatcher =
+        GradleBuildFileWatcher(coroutineScope, onChange)
 }
