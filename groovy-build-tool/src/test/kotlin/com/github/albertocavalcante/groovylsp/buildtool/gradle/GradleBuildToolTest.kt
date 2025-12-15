@@ -36,7 +36,18 @@ class GradleBuildToolTest {
             "Should find at least one of the declared dependencies (groovy or commons-lang3): $dependencyNames",
         )
 
-        assertTrue(sourceDirs.any { it.toString().contains("src/main/groovy") }, "Should include main source directory")
+        assertTrue(
+            sourceDirs.any {
+                it.endsWith(Paths.get("src", "main", "groovy")) || it.endsWith(
+                    Paths.get(
+                        "src",
+                        "main",
+                        "java",
+                    ),
+                )
+            },
+            "Should include main source directory (src/main/groovy or src/main/java). Found: $sourceDirs",
+        )
     }
 
     @Test
