@@ -1,5 +1,7 @@
-package com.github.albertocavalcante.groovylsp.gradle
+package com.github.albertocavalcante.groovylsp.buildtool.gradle
 
+import com.github.albertocavalcante.groovylsp.buildtool.BuildTool
+import com.github.albertocavalcante.groovylsp.buildtool.WorkspaceResolution
 import org.gradle.tooling.events.OperationType
 import org.gradle.tooling.events.download.FileDownloadStartEvent
 import org.gradle.tooling.model.idea.IdeaModule
@@ -21,26 +23,48 @@ import kotlin.io.path.exists
  * JAR support and on-demand downloading.
  */
 class GradleDependencyResolver(private val connectionFactory: GradleConnectionFactory = GradleConnectionPool) :
-    DependencyResolver {
+    BuildTool {
+
     private val logger = LoggerFactory.getLogger(GradleDependencyResolver::class.java)
+
+    override val name: String = "Gradle"
+
+    /**
+     * Checks if the given directory is a Gradle project.
+     */
+    override fun canHandle(workspaceRoot: Path): Boolean {
+        val gradleFiles = listOf(
+            "build.gradle",
+            "build.gradle.kts",
+            "settings.gradle",
+            "settings.gradle.kts",
+        )
+
+        return gradleFiles.any { fileName ->
+            val candidate = workspaceRoot.resolve(fileName)
+            val present = candidate.exists()
+            logger.debug("Gradle probe: {} present={}", candidate, present)
+            present
+        }
+    }
 
     /**
      * Resolves all binary JAR dependencies from a Gradle project.
      *
-     * @param projectDir The root directory of the Gradle project
-     * @param onDownloadProgress Optional callback for download progress updates (e.g., Gradle distribution download)
-     * @return List of paths to dependency JAR files
+     * @param workspaceRoot The root directory of the Gradle project
+     * @param onProgress Optional callback for progress updates (e.g., Gradle distribution download)
+     * @return List of paths to dependency JAR files and source directories
      */
-    override fun resolve(projectDir: Path, onDownloadProgress: ((String) -> Unit)?): WorkspaceResolution {
-        if (!isGradleProject(projectDir)) {
-            logger.info("Not a Gradle project: $projectDir")
+    override fun resolve(workspaceRoot: Path, onProgress: ((String) -> Unit)?): WorkspaceResolution {
+        if (!canHandle(workspaceRoot)) {
+            logger.info("Not a Gradle project: $workspaceRoot")
             return WorkspaceResolution(emptyList(), emptyList())
         }
 
-        logger.info("Resolving Gradle dependencies for: $projectDir")
+        logger.info("Resolving Gradle dependencies for: $workspaceRoot")
 
         val defaultAttempt = runCatching {
-            resolveWithGradleUserHome(projectDir, gradleUserHomeDir = null, onDownloadProgress = onDownloadProgress)
+            resolveWithGradleUserHome(workspaceRoot, gradleUserHomeDir = null, onDownloadProgress = onProgress)
         }
 
         if (defaultAttempt.isSuccess) {
@@ -60,7 +84,7 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
 
         val isolatedUserHome = isolatedGradleUserHomeDir()
         val retryAttempt = runCatching {
-            resolveWithGradleUserHome(projectDir, isolatedUserHome.toFile(), onDownloadProgress)
+            resolveWithGradleUserHome(workspaceRoot, isolatedUserHome.toFile(), onProgress)
         }
 
         if (retryAttempt.isSuccess) {
@@ -80,47 +104,59 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
         onDownloadProgress: ((String) -> Unit)?,
     ): WorkspaceResolution {
         val connection = connectionFactory.getConnection(projectDir, gradleUserHomeDir)
-        val modelBuilder = connection.model(IdeaProject::class.java)
-            .withArguments(
-                "-Dorg.gradle.daemon=true",
-                "-Dorg.gradle.parallel=true",
-                "-Dorg.gradle.configureondemand=true",
-                "-Dorg.gradle.vfs.watch=true",
-            )
-            .setJvmArguments("-Xmx1g", "-XX:+UseG1GC")
 
-        // Add progress listener to track Gradle distribution downloads
-        if (onDownloadProgress != null) {
-            modelBuilder.addProgressListener({ event ->
-                when (event) {
-                    is FileDownloadStartEvent -> {
-                        val uri = event.descriptor.uri.toString()
-                        // Detect Gradle distribution download (can take 60-120s on cold CI)
-                        // Matches: gradle-X.Y.Z-bin.zip, gradle-X.Y.Z-all.zip, etc.
-                        // FIXME: Detection is fragile - may need more robust pattern matching
-                        if (uri.contains("/gradle-") && uri.endsWith(".zip")) {
-                            logger.info("Detected Gradle distribution download: $uri")
-                            onDownloadProgress("Downloading Gradle distribution (this may take a few minutes)...")
+        try {
+            val modelBuilder = connection.model(IdeaProject::class.java)
+                .withArguments(
+                    "-Dorg.gradle.daemon=true",
+                    "-Dorg.gradle.parallel=true",
+                    "-Dorg.gradle.configureondemand=true",
+                    "-Dorg.gradle.vfs.watch=true",
+                )
+                .setJvmArguments("-Xmx1g", "-XX:+UseG1GC")
+
+            // Add progress listener to track Gradle distribution downloads
+            if (onDownloadProgress != null) {
+                modelBuilder.addProgressListener({ event ->
+                    when (event) {
+                        is FileDownloadStartEvent -> {
+                            val uri = event.descriptor.uri.toString()
+                            // Detect Gradle distribution download (can take 60-120s on cold CI)
+                            // Matches: gradle-X.Y.Z-bin.zip, gradle-X.Y.Z-all.zip, etc.
+                            // FIXME: Detection is fragile - may need more robust pattern matching
+                            if (uri.contains("/gradle-") && uri.endsWith(".zip")) {
+                                logger.info("Detected Gradle distribution download: $uri")
+                                onDownloadProgress("Downloading Gradle distribution (this may take a few minutes)...")
+                            }
                         }
                     }
-                }
-            }, OperationType.FILE_DOWNLOAD)
+                }, OperationType.FILE_DOWNLOAD)
+            }
+
+            val ideaProject = modelBuilder.get()
+
+            val dependencies = mutableSetOf<Path>()
+            val sourceDirectories = mutableSetOf<Path>()
+
+            ideaProject.modules.forEach { module ->
+                processModule(module, dependencies, sourceDirectories)
+            }
+
+            logger.info("Resolved ${dependencies.size} dependencies and ${sourceDirectories.size} source directories")
+            return WorkspaceResolution(
+                dependencies = dependencies.toList(),
+                sourceDirectories = sourceDirectories.toList(),
+            )
+        } finally {
+            // Connection is managed by the pool usually, but if it was created ad-hoc it might need closing?
+            // GradleConnectionPool implementation handles caching.
+            // But if we used a factory that creates new connections, we might need to close it.
+            // The original implementation didn't close it explicitly here, relying on pool behavior or finalize?
+            // Checking GradleConnectionPool.getConnection: it returns a connection from map.
+            // So we should NOT close it here if we want to reuse it.
+            // If we want to support resource cleanup, we might need a release mechanism.
+            // For now, mirroring original behavior.
         }
-
-        val ideaProject = modelBuilder.get()
-
-        val dependencies = mutableSetOf<Path>()
-        val sourceDirectories = mutableSetOf<Path>()
-
-        ideaProject.modules.forEach { module ->
-            processModule(module, dependencies, sourceDirectories)
-        }
-
-        logger.info("Resolved ${dependencies.size} dependencies and ${sourceDirectories.size} source directories")
-        return WorkspaceResolution(
-            dependencies = dependencies.toList(),
-            sourceDirectories = sourceDirectories.toList(),
-        )
     }
 
     private fun shouldRetryWithIsolatedGradleUserHome(error: Throwable): Boolean {
@@ -196,25 +232,6 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
             root.testDirectories?.forEach { dir ->
                 dir.directory?.toPath()?.takeIf { it.exists() }?.let(sourceDirectories::add)
             }
-        }
-    }
-
-    /**
-     * Checks if the given directory is a Gradle project.
-     */
-    private fun isGradleProject(projectDir: Path): Boolean {
-        val gradleFiles = listOf(
-            "build.gradle",
-            "build.gradle.kts",
-            "settings.gradle",
-            "settings.gradle.kts",
-        )
-
-        return gradleFiles.any { fileName ->
-            val candidate = projectDir.resolve(fileName)
-            val present = candidate.exists()
-            logger.debug("Gradle probe: {} present={}", candidate, present)
-            present
         }
     }
 }

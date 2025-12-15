@@ -1,6 +1,5 @@
-package com.github.albertocavalcante.groovylsp.gradle
+package com.github.albertocavalcante.groovylsp.buildtool.gradle
 
-import kotlinx.coroutines.test.runTest
 import java.nio.file.Paths
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -8,7 +7,7 @@ import kotlin.test.assertTrue
 class GradleDependencyResolverTest {
 
     @Test
-    fun `should resolve dependencies from gradle project using test resources`() = runTest {
+    fun `should resolve dependencies from gradle project using test resources`() {
         val resolver = GradleDependencyResolver()
         val testProjectPath = Paths.get("src/test/resources/test-gradle-project")
 
@@ -41,7 +40,7 @@ class GradleDependencyResolverTest {
     }
 
     @Test
-    fun `should handle non-gradle project gracefully`() = runTest {
+    fun `should handle non-gradle project gracefully`() {
         val resolver = GradleDependencyResolver()
         val nonGradleProject = Paths.get("src/test/resources/non-gradle-project")
 
@@ -52,7 +51,7 @@ class GradleDependencyResolverTest {
     }
 
     @Test
-    fun `should handle non-existent project gracefully`() = runTest {
+    fun `should handle non-existent project gracefully`() {
         val resolver = GradleDependencyResolver()
         val nonExistentProject = Paths.get("non-existent-project")
 

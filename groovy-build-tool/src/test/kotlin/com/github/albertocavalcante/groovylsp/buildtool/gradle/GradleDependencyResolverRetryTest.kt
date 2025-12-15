@@ -1,4 +1,4 @@
-package com.github.albertocavalcante.groovylsp.gradle
+package com.github.albertocavalcante.groovylsp.buildtool.gradle
 
 import io.mockk.every
 import io.mockk.mockk
@@ -54,7 +54,7 @@ class GradleDependencyResolverRetryTest {
 
         val resolver = GradleDependencyResolver(connectionFactory)
 
-        val result = resolver.resolve(projectDir = projectDir, onDownloadProgress = null)
+        val result = resolver.resolve(workspaceRoot = projectDir, onProgress = null)
 
         assertEquals(0, result.dependencies.size)
         assertEquals(0, result.sourceDirectories.size)
@@ -90,7 +90,7 @@ class GradleDependencyResolverRetryTest {
         every { connectionFactory.getConnection(any(), any()) } returns connection
 
         val resolver = GradleDependencyResolver(connectionFactory)
-        resolver.resolve(projectDir = projectDir, onDownloadProgress = null)
+        resolver.resolve(workspaceRoot = projectDir, onProgress = null)
 
         verify(exactly = 1) { connectionFactory.getConnection(any(), any()) }
         verify { connectionFactory.getConnection(any(), null) }

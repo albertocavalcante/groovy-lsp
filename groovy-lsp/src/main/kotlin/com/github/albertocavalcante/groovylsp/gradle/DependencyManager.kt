@@ -1,5 +1,8 @@
 package com.github.albertocavalcante.groovylsp.gradle
 
+import com.github.albertocavalcante.groovylsp.buildtool.BuildToolManager
+import com.github.albertocavalcante.groovylsp.buildtool.WorkspaceResolution
+import com.github.albertocavalcante.groovylsp.buildtool.gradle.BuildFileWatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -17,7 +20,7 @@ private const val PROGRESS_COMPLETE = 100
  * Manages asynchronous dependency resolution to prevent blocking LSP initialization.
  * Allows for non-blocking dependency discovery with state tracking and callback support.
  */
-class DependencyManager(private val resolver: DependencyResolver, private val scope: CoroutineScope) {
+class DependencyManager(private val buildToolManager: BuildToolManager, private val scope: CoroutineScope) {
     /**
      * States of dependency resolution process.
      */
@@ -35,6 +38,7 @@ class DependencyManager(private val resolver: DependencyResolver, private val sc
     private val sourceDirs = AtomicReference<List<Path>>(emptyList())
     private var resolutionJob: Job? = null
     private var currentWorkspaceRoot: Path? = null
+    private var currentBuildToolName: String? = null
 
     // Build file watching
     private var buildFileWatcher: BuildFileWatcher? = null
@@ -70,12 +74,33 @@ class DependencyManager(private val resolver: DependencyResolver, private val sc
 
             resolutionJob = scope.launch(Dispatchers.IO) {
                 try {
-                    onProgress?.invoke(PROGRESS_CONNECTING, "Connecting to Gradle...")
+                    val buildTool = buildToolManager.detectBuildTool(workspaceRoot)
+
+                    if (buildTool == null) {
+                        logger.info("No supported build tool detected for: $workspaceRoot")
+                        onProgress?.invoke(PROGRESS_COMPLETE, "No build tool detected")
+
+                        val emptyResolution = WorkspaceResolution(emptyList(), emptyList())
+                        dependencies.set(emptyResolution.dependencies)
+                        sourceDirs.set(emptyResolution.sourceDirectories)
+                        state.set(State.COMPLETED)
+                        currentBuildToolName = null
+
+                        withContext(Dispatchers.Default) {
+                            onComplete(emptyResolution)
+                        }
+                        return@launch
+                    }
+
+                    currentBuildToolName = buildTool.name
+                    logger.info("Detected build tool: ${buildTool.name}")
+
+                    onProgress?.invoke(PROGRESS_CONNECTING, "Connecting to ${buildTool.name}...")
 
                     // Pass download progress through to resolver (e.g., Gradle distribution download)
-                    val resolution = resolver.resolve(
-                        projectDir = workspaceRoot,
-                        onDownloadProgress = { message ->
+                    val resolution = buildTool.resolve(
+                        workspaceRoot = workspaceRoot,
+                        onProgress = { message ->
                             // Forward download progress to the onProgress callback
                             onProgress?.invoke(PROGRESS_CONNECTING, message)
                         },
@@ -97,7 +122,7 @@ class DependencyManager(private val resolver: DependencyResolver, private val sc
 
                     // Start build file watching if enabled
                     if (enableFileWatching) {
-                        startBuildFileWatching(workspaceRoot, onProgress, onComplete, onError)
+                        tryStartBuildFileWatching(buildTool.name, workspaceRoot, onProgress, onComplete, onError)
                     }
 
                     logger.info(
@@ -138,6 +163,11 @@ class DependencyManager(private val resolver: DependencyResolver, private val sc
     fun getCurrentWorkspaceRoot(): Path? = currentWorkspaceRoot
 
     /**
+     * Gets the name of the currently active build tool.
+     */
+    fun getCurrentBuildToolName(): String? = currentBuildToolName
+
+    /**
      * Checks if dependencies are ready for use.
      */
     fun isDependenciesReady(): Boolean = state.get() == State.COMPLETED
@@ -164,6 +194,7 @@ class DependencyManager(private val resolver: DependencyResolver, private val sc
         sourceDirs.set(emptyList())
         state.set(State.NOT_STARTED)
         currentWorkspaceRoot = null
+        currentBuildToolName = null
         buildFileWatcher = null
         logger.debug("Dependency manager reset")
     }
@@ -176,9 +207,23 @@ class DependencyManager(private val resolver: DependencyResolver, private val sc
         val depCount = dependencies.get().size
         val sourceCount = sourceDirs.get().size
         val workspace = currentWorkspaceRoot?.fileName ?: "none"
+        val tool = currentBuildToolName ?: "none"
 
-        return "DependencyManager[state=$currentState, dependencies=$depCount, sources=$sourceCount, " +
+        return "DependencyManager[state=$currentState, tool=$tool, dependencies=$depCount, sources=$sourceCount, " +
             "workspace=$workspace]"
+    }
+
+    private fun tryStartBuildFileWatching(
+        toolName: String,
+        workspaceRoot: Path,
+        onProgress: ((Int, String) -> Unit)?,
+        onComplete: (WorkspaceResolution) -> Unit,
+        onError: ((Exception) -> Unit)?,
+    ) {
+        // Currently only Gradle has a specific file watcher implemented
+        if (toolName == "Gradle") {
+            startBuildFileWatching(workspaceRoot, onProgress, onComplete, onError)
+        }
     }
 
     /**

@@ -1,4 +1,4 @@
-package com.github.albertocavalcante.groovylsp.gradle
+package com.github.albertocavalcante.groovylsp.buildtool.gradle
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +21,7 @@ import kotlin.io.path.name
 private const val FILE_CHANGE_DELAY_MS = 500L
 
 /**
- * Watches Gradle build files for changes and triggers dependency re-resolution.
+ * Watches Gradle related build files for changes and triggers dependency re-resolution.
  * Monitors build.gradle, build.gradle.kts, settings.gradle, and settings.gradle.kts files.
  */
 class BuildFileWatcher(
@@ -34,6 +34,7 @@ class BuildFileWatcher(
     private var watchJob: Job? = null
     private val watchKeys = ConcurrentHashMap<WatchKey, Path>()
 
+    // TODO: Make this configurable or extendable for other build tools (pom.xml)
     private val buildFileNames = setOf(
         "build.gradle",
         "build.gradle.kts",

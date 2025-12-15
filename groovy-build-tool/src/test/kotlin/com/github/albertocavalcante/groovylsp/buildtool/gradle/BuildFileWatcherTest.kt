@@ -1,10 +1,9 @@
-package com.github.albertocavalcante.groovylsp.gradle
+package com.github.albertocavalcante.groovylsp.buildtool.gradle
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -40,7 +39,7 @@ class BuildFileWatcherTest {
 
     @Test
     @Timeout(5)
-    fun `should detect build gradle file creation`() = runTest {
+    fun `should detect build gradle file creation`() {
         // Use CountDownLatch for synchronization - no delays!
         val eventLatch = CountDownLatch(1)
 
@@ -77,7 +76,7 @@ class BuildFileWatcherTest {
 
     @Test
     @Timeout(5)
-    fun `should detect build gradle kts file modification`() = runTest {
+    fun `should detect build gradle kts file modification`() {
         val eventLatch = CountDownLatch(1)
 
         val buildFileWatcher = BuildFileWatcher(
@@ -116,7 +115,7 @@ class BuildFileWatcherTest {
 
     @Test
     @Timeout(5)
-    fun `should detect settings gradle file changes`() = runTest {
+    fun `should detect settings gradle file changes`() {
         val eventLatch = CountDownLatch(1)
 
         val buildFileWatcher = BuildFileWatcher(
@@ -150,7 +149,7 @@ class BuildFileWatcherTest {
 
     @Test
     @Timeout(5)
-    fun `should ignore non-build files`() = runTest {
+    fun `should ignore non-build files`() {
         val buildFileWatcher = BuildFileWatcher(
             coroutineScope = coroutineScope,
             onBuildFileChanged = { projectDir ->
@@ -178,7 +177,7 @@ class BuildFileWatcherTest {
 
     @Test
     @Timeout(5)
-    fun `should stop watching when requested`() = runTest {
+    fun `should stop watching when requested`() {
         val buildFileWatcher = BuildFileWatcher(
             coroutineScope = coroutineScope,
             onBuildFileChanged = { projectDir ->
@@ -208,7 +207,7 @@ class BuildFileWatcherTest {
 
     @Test
     @Timeout(5)
-    fun `should handle multiple file changes`() = runTest {
+    fun `should handle multiple file changes`() {
         val expectedEvents = 3
         val eventLatch = CountDownLatch(expectedEvents)
 
