@@ -8,6 +8,7 @@ import com.github.albertocavalcante.groovylsp.errors.InvalidPositionException
 import com.github.albertocavalcante.groovylsp.errors.NodeNotFoundAtPositionException
 import com.github.albertocavalcante.groovylsp.errors.SymbolResolutionException
 import com.github.albertocavalcante.groovylsp.errors.invalidPosition
+import com.github.albertocavalcante.groovylsp.providers.completion.JenkinsStepCompletionProvider
 import com.github.albertocavalcante.groovylsp.services.DocumentProvider
 import com.github.albertocavalcante.groovyparser.ast.GroovyAstModel
 import com.github.albertocavalcante.groovyparser.ast.findNodeAt
@@ -23,7 +24,11 @@ import org.codehaus.groovy.ast.expr.ConstantExpression
 import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.codehaus.groovy.ast.expr.VariableExpression
 import org.eclipse.lsp4j.Hover
+import org.eclipse.lsp4j.MarkupContent
+import org.eclipse.lsp4j.MarkupKind
 import org.eclipse.lsp4j.Position
+import org.eclipse.lsp4j.Range
+import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.net.URI
@@ -263,8 +268,7 @@ class HoverProvider(
         }
 
         val stepName = node.methodAsString ?: return null
-        val stepMetadata = com.github.albertocavalcante.groovylsp.providers.completion.JenkinsStepCompletionProvider
-            .getStepMetadata(stepName) ?: return null
+        val stepMetadata = JenkinsStepCompletionProvider.getStepMetadata(stepName) ?: return null
 
         // Build rich hover content for Jenkins step
         val markdownContent = buildString {
@@ -288,13 +292,20 @@ class HoverProvider(
             }
         }
 
-        val markupContent = org.eclipse.lsp4j.MarkupContent().apply {
-            kind = org.eclipse.lsp4j.MarkupKind.MARKDOWN
+        val markupContent = MarkupContent().apply {
+            kind = MarkupKind.MARKDOWN
             value = markdownContent
         }
 
+        // Build hover range from the method call expression
+        val hoverRange = Range(
+            Position(node.lineNumber - 1, node.columnNumber - 1),
+            Position(node.lastLineNumber - 1, node.lastColumnNumber - 1),
+        )
+
         return Hover().apply {
-            contents = org.eclipse.lsp4j.jsonrpc.messages.Either.forRight(markupContent)
+            contents = Either.forRight(markupContent)
+            range = hoverRange
         }
     }
 
