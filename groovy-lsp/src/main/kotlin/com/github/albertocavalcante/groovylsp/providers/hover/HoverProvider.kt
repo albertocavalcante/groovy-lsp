@@ -224,6 +224,12 @@ class HoverProvider(
      * Create hover content using the DSL with documentation.
      */
     private fun createHoverContent(node: ASTNode, documentUri: URI): Hover? {
+        // Check if this is a Jenkins step and we have metadata for it
+        val jenkinsHover = tryCreateJenkinsStepHover(node, documentUri)
+        if (jenkinsHover != null) {
+            return jenkinsHover
+        }
+
         val baseHover = createHoverFor(node).getOrNull() ?: return null
 
         // Try to get documentation for the node
@@ -240,6 +246,56 @@ class HoverProvider(
 
         // Enhance hover with documentation
         return enhanceHoverWithDocumentation(baseHover, doc)
+    }
+
+    /**
+     * Try to create a hover for a Jenkins step from bundled metadata.
+     */
+    private fun tryCreateJenkinsStepHover(node: ASTNode, documentUri: URI): Hover? {
+        // Only check for Jenkins files
+        if (!compilationService.workspaceManager.isJenkinsFile(documentUri)) {
+            return null
+        }
+
+        // Only for method calls
+        if (node !is MethodCallExpression) {
+            return null
+        }
+
+        val stepName = node.methodAsString ?: return null
+        val stepMetadata = com.github.albertocavalcante.groovylsp.providers.completion.JenkinsStepCompletionProvider
+            .getStepMetadata(stepName) ?: return null
+
+        // Build rich hover content for Jenkins step
+        val markdownContent = buildString {
+            append("## Jenkins Step: `$stepName`\n\n")
+            stepMetadata.documentation?.let { doc ->
+                append(doc)
+                append("\n\n")
+            }
+            append("**Plugin:** ${stepMetadata.plugin}\n\n")
+
+            if (stepMetadata.parameters.isNotEmpty()) {
+                append("### Parameters\n\n")
+                stepMetadata.parameters.forEach { (name, param) ->
+                    val required = if (param.required) " *(required)*" else ""
+                    val defaultVal = param.default?.let { " (default: `$it`)" } ?: ""
+                    append("- **`$name`**: `${param.type}`$required$defaultVal\n")
+                    param.documentation?.let { doc ->
+                        append("  - $doc\n")
+                    }
+                }
+            }
+        }
+
+        val markupContent = org.eclipse.lsp4j.MarkupContent().apply {
+            kind = org.eclipse.lsp4j.MarkupKind.MARKDOWN
+            value = markdownContent
+        }
+
+        return Hover().apply {
+            contents = org.eclipse.lsp4j.jsonrpc.messages.Either.forRight(markupContent)
+        }
     }
 
     /**
