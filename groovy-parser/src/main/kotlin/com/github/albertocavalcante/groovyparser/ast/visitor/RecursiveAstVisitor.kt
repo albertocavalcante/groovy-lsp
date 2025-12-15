@@ -64,6 +64,11 @@ class RecursiveAstVisitor(private val tracker: NodeRelationshipTracker) : Groovy
     fun visitModule(module: ModuleNode, uri: URI) {
         currentUri = uri
         tracker.clear()
+        println("[DEBUG visitModule] module.classes size: ${module.classes.size}")
+        module.classes.forEach { cls ->
+            println("  - ${cls.name} @ Line ${cls.lineNumber}:${cls.columnNumber}, isScript=${cls.isScript}")
+        }
+        tracker.setModuleNode(uri, module)
         visitModuleNode(module)
     }
 
@@ -92,11 +97,19 @@ class RecursiveAstVisitor(private val tracker: NodeRelationshipTracker) : Groovy
     }
 
     private fun visitClass(classNode: ClassNode) {
+        println(
+            "[DEBUG visitClass] Visiting ${classNode.name} @ ${classNode.lineNumber}:${classNode.columnNumber}, " +
+                "shouldTrack=${shouldTrack(classNode)}, id=${System.identityHashCode(classNode)}",
+        )
         track(classNode) {
             visitAnnotations(classNode)
             // Track type references in the class header so navigation works for `extends` and `implements`.
-            classNode.superClass?.let { track(it) { /* no-op */ } }
-            classNode.interfaces?.forEach { iface -> track(iface) { /* no-op */ } }
+            classNode.superClass?.let {
+                track(it) { /* no-op */ }
+            }
+            classNode.interfaces?.forEach { iface ->
+                track(iface) { /* no-op */ }
+            }
             classNode.properties?.forEach { visitProperty(it) }
             classNode.fields.forEach { visitField(it) }
             classNode.methods.forEach { visitMethod(it) }
@@ -275,6 +288,10 @@ class RecursiveAstVisitor(private val tracker: NodeRelationshipTracker) : Groovy
         override fun visitConstructorCallExpression(call: ConstructorCallExpression) {
             track(call) {
                 // Track the referenced type so position queries inside `new TypeName(...)` can resolve to the type.
+                println(
+                    "[DEBUG visitConstructorCallExpression] Constructor type: ${call.type.name} @ " +
+                        "${call.type.lineNumber}:${call.type.columnNumber}, id=${System.identityHashCode(call.type)}",
+                )
                 track(call.type) { /* no-op */ }
                 super.visitConstructorCallExpression(call)
             }
