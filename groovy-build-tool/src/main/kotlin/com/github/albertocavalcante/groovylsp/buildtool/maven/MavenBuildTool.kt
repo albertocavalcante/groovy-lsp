@@ -18,6 +18,12 @@ class MavenBuildTool : BuildTool {
 
     override fun canHandle(workspaceRoot: Path): Boolean = workspaceRoot.resolve("pom.xml").exists()
 
+    override fun createWatcher(
+        coroutineScope: kotlinx.coroutines.CoroutineScope,
+        onChange: (Path) -> Unit,
+    ): com.github.albertocavalcante.groovylsp.buildtool.BuildToolFileWatcher =
+        MavenBuildFileWatcher(coroutineScope, onChange)
+
     override fun resolve(workspaceRoot: Path, onProgress: ((String) -> Unit)?): WorkspaceResolution {
         if (!canHandle(workspaceRoot)) {
             return WorkspaceResolution(emptyList(), emptyList())
