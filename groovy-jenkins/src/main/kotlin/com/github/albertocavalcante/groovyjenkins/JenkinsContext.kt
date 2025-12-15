@@ -37,8 +37,9 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
             logger.debug("Added ${projectDependencies.size} project dependencies to Jenkins classpath")
         }
 
-        // Check if jenkins-core is already present
-        val existingCore = classpath.find { it.fileName.toString().contains("jenkins-core") }
+        // Check if jenkins-core is already present (use precise pattern to avoid false positives)
+        val jenkinsCorePattern = Regex("""^jenkins-core-\d+(\.\d+)*\.jar$""")
+        val existingCore = classpath.find { jenkinsCorePattern.matches(it.fileName.toString()) }
         if (existingCore != null) {
             logger.info("Found existing jenkins-core candidate: $existingCore")
         } else {
@@ -177,15 +178,17 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
         val userHome = System.getProperty("user.home") ?: return null
         val m2Dir = Paths.get(userHome, ".m2")
 
-        // 2. Check settings.xml for localRepository
-        val settingsFile = m2Dir.resolve("settings.xml")
-        if (Files.exists(settingsFile)) {
+        // 2. Check settings.xml for localRepository using proper XML parsing
+        val settingsFile = m2Dir.resolve("settings.xml").toFile()
+        if (settingsFile.exists()) {
             try {
-                val settingsContent = Files.readString(settingsFile)
-                val localRepoMatch = Regex("<localRepository>([^<]+)</localRepository>")
-                    .find(settingsContent)
-                if (localRepoMatch != null) {
-                    val customPath = Paths.get(localRepoMatch.groupValues[1].trim())
+                val dbf = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+                dbf.setFeature(javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING, true)
+                val db = dbf.newDocumentBuilder()
+                val nodeList = db.parse(settingsFile).getElementsByTagName("localRepository")
+                if (nodeList.length > 0) {
+                    val repoPath = nodeList.item(0).textContent.trim()
+                    val customPath = Paths.get(repoPath)
                     if (Files.exists(customPath)) {
                         logger.debug("Using localRepository from settings.xml: $customPath")
                         return customPath

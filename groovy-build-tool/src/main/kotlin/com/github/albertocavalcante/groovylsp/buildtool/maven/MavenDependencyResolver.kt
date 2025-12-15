@@ -68,12 +68,16 @@ class MavenDependencyResolver : DependencyResolver {
             collectRequest.repositories = getRemoteRepositories(model)
 
             model.dependencies.forEach { dep ->
+                if (dep.version.isNullOrBlank()) {
+                    logger.warn("Skipping dependency with missing version: {}:{}", dep.groupId, dep.artifactId)
+                    return@forEach
+                }
                 val artifact = DefaultArtifact(
                     dep.groupId,
                     dep.artifactId,
                     dep.classifier ?: "",
                     dep.type ?: "jar",
-                    dep.version ?: "",
+                    dep.version,
                 )
                 // Include all scopes (compile, test, etc.)
                 collectRequest.addDependency(Dependency(artifact, dep.scope ?: "compile"))
@@ -136,17 +140,20 @@ class MavenDependencyResolver : DependencyResolver {
 
         if (settingsFile.exists()) {
             try {
-                val content = settingsFile.readText()
-                val match = Regex("<localRepository>([^<]+)</localRepository>").find(content)
-                match?.let {
-                    val customPath = File(it.groupValues[1].trim())
+                val dbf = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+                dbf.setFeature(javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING, true)
+                val db = dbf.newDocumentBuilder()
+                val nodeList = db.parse(settingsFile).getElementsByTagName("localRepository")
+                if (nodeList.length > 0) {
+                    val repoPath = nodeList.item(0).textContent.trim()
+                    val customPath = File(repoPath)
                     if (customPath.exists()) {
                         logger.debug("Using localRepository from settings.xml: ${customPath.absolutePath}")
                         return customPath.toPath()
                     }
                 }
             } catch (e: Exception) {
-                logger.debug("Could not parse settings.xml: ${e.message}")
+                logger.warn("Could not parse settings.xml: ${e.message}")
             }
         }
 
