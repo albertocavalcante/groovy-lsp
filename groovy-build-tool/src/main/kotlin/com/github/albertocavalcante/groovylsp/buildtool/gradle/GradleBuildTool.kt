@@ -41,11 +41,12 @@ class GradleBuildTool(private val connectionFactory: GradleConnectionFactory = G
     }
 
     /**
-     * Resolves all binary JAR dependencies from a Gradle project.
+     * Resolves all binary JAR dependencies and source directories from a Gradle project.
+     * Source directories are extracted from the IdeaProject model, supporting custom layouts.
      *
      * @param workspaceRoot The root directory of the Gradle project
      * @param onProgress Optional callback for progress updates (e.g., Gradle distribution download)
-     * @return List of paths to dependency JAR files and source directories
+     * @return WorkspaceResolution containing dependency JAR files and source directories
      */
     override fun resolve(workspaceRoot: Path, onProgress: ((String) -> Unit)?): WorkspaceResolution {
         if (!canHandle(workspaceRoot)) {
@@ -55,26 +56,14 @@ class GradleBuildTool(private val connectionFactory: GradleConnectionFactory = G
 
         logger.info("Resolving Gradle dependencies for: $workspaceRoot")
 
-        // Delegate dependency resolution to the resolver
-        val dependencies = dependencyResolver.resolveDependencies(workspaceRoot)
+        // Delegate to resolver which extracts both dependencies and source directories
+        // from the IdeaProject model (supports custom source directory layouts)
+        val resolution = dependencyResolver.resolveWithSourceDirectories(workspaceRoot)
 
-        // Extract source directories from the project
-        val sourceDirectories = extractSourceDirectories(workspaceRoot)
-
-        logger.info("Resolved ${dependencies.size} dependencies and ${sourceDirectories.size} source directories")
-        return WorkspaceResolution(dependencies, sourceDirectories)
-    }
-
-    private fun extractSourceDirectories(workspaceRoot: Path): List<Path> {
-        // Standard Gradle layout assumption
-        return listOf(
-            workspaceRoot.resolve("src/main/java"),
-            workspaceRoot.resolve("src/main/groovy"),
-            workspaceRoot.resolve("src/main/kotlin"),
-            workspaceRoot.resolve("src/test/java"),
-            workspaceRoot.resolve("src/test/groovy"),
-            workspaceRoot.resolve("src/test/kotlin"),
-        ).filter { it.exists() }
+        logger.info(
+            "Resolved ${resolution.dependencies.size} dependencies and ${resolution.sourceDirectories.size} source directories",
+        )
+        return resolution
     }
 
     override fun createWatcher(

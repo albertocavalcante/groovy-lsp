@@ -1,6 +1,7 @@
 package com.github.albertocavalcante.groovylsp.buildtool.gradle
 
 import com.github.albertocavalcante.groovylsp.buildtool.DependencyResolver
+import com.github.albertocavalcante.groovylsp.buildtool.WorkspaceResolution
 import org.gradle.tooling.model.idea.IdeaModule
 import org.gradle.tooling.model.idea.IdeaProject
 import org.gradle.tooling.model.idea.IdeaSingleEntryLibraryDependency
@@ -17,7 +18,7 @@ import kotlin.io.path.exists
  * This implements:
  * - In-process dependency resolution (no subprocess)
  * - Automatic retry with isolated Gradle user home on init script failures
- * - Progress tracking for Gradle distribution downloads
+ * - Source directory extraction from IdeaProject model
  */
 class GradleDependencyResolver(private val connectionFactory: GradleConnectionFactory = GradleConnectionPool) :
     DependencyResolver {
@@ -32,7 +33,18 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
      * @param projectFile Path to the project directory (build.gradle location)
      * @return List of paths to dependency JAR files
      */
-    override fun resolveDependencies(projectFile: Path): List<Path> {
+    override fun resolveDependencies(projectFile: Path): List<Path> =
+        resolveWithSourceDirectories(projectFile).dependencies
+
+    /**
+     * Resolves both dependencies and source directories from a Gradle project.
+     * This extracts source directories from the IdeaProject model, supporting
+     * custom source directory layouts.
+     *
+     * @param projectFile Path to the project directory (build.gradle location)
+     * @return WorkspaceResolution containing both dependencies and source directories
+     */
+    fun resolveWithSourceDirectories(projectFile: Path): WorkspaceResolution {
         val projectDir = if (Files.isDirectory(projectFile)) projectFile else projectFile.parent
 
         logger.info("Resolving dependencies using Gradle Tooling API for: $projectDir")
@@ -45,10 +57,10 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
             return defaultAttempt.getOrThrow()
         }
 
-        val failure = defaultAttempt.exceptionOrNull() ?: return emptyList()
+        val failure = defaultAttempt.exceptionOrNull() ?: return WorkspaceResolution(emptyList(), emptyList())
         if (!shouldRetryWithIsolatedGradleUserHome(failure)) {
             logger.error("Gradle dependency resolution failed: ${failure.message}", failure)
-            return emptyList()
+            return WorkspaceResolution(emptyList(), emptyList())
         }
 
         logger.warn(
@@ -68,7 +80,7 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
         logger.error(
             "Gradle dependency resolution failed (retry): ${(retryAttempt.exceptionOrNull() ?: failure).message}",
         )
-        return emptyList()
+        return WorkspaceResolution(emptyList(), emptyList())
     }
 
     /**
@@ -87,7 +99,7 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
         return Paths.get(userHome, ".gradle")
     }
 
-    private fun resolveWithGradleUserHome(projectDir: Path, gradleUserHomeDir: File?): List<Path> {
+    private fun resolveWithGradleUserHome(projectDir: Path, gradleUserHomeDir: File?): WorkspaceResolution {
         val connection = connectionFactory.getConnection(projectDir, gradleUserHomeDir)
 
         val modelBuilder = connection.model(IdeaProject::class.java)
@@ -102,13 +114,16 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
         val ideaProject = modelBuilder.get()
 
         val dependencies = mutableSetOf<Path>()
+        val sourceDirectories = mutableSetOf<Path>()
 
         ideaProject.modules.forEach { module ->
-            processModule(module, dependencies)
+            processModule(module, dependencies, sourceDirectories)
         }
 
-        logger.info("Resolved ${dependencies.size} dependencies via Gradle Tooling API")
-        return dependencies.toList()
+        logger.info(
+            "Resolved ${dependencies.size} dependencies and ${sourceDirectories.size} source directories via Gradle Tooling API",
+        )
+        return WorkspaceResolution(dependencies.toList(), sourceDirectories.toList())
     }
 
     private fun shouldRetryWithIsolatedGradleUserHome(error: Throwable): Boolean {
@@ -143,9 +158,14 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
 
     private fun Throwable.causeChain(): Sequence<Throwable> = generateSequence(this) { it.cause }
 
-    private fun processModule(module: IdeaModule, dependencies: MutableSet<Path>) {
+    private fun processModule(
+        module: IdeaModule,
+        dependencies: MutableSet<Path>,
+        sourceDirectories: MutableSet<Path>,
+    ) {
         logger.debug("Processing module: ${module.name}")
 
+        // Extract dependencies
         module.dependencies
             .filterIsInstance<IdeaSingleEntryLibraryDependency>()
             .forEach { dependency ->
@@ -157,5 +177,15 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
                     logger.warn("Dependency JAR not found: $jarPath")
                 }
             }
+
+        // Extract source directories from IdeaProject model
+        module.contentRoots?.forEach { root ->
+            root.sourceDirectories?.forEach { dir ->
+                dir.directory?.toPath()?.takeIf { it.exists() }?.let(sourceDirectories::add)
+            }
+            root.testDirectories?.forEach { dir ->
+                dir.directory?.toPath()?.takeIf { it.exists() }?.let(sourceDirectories::add)
+            }
+        }
     }
 }
