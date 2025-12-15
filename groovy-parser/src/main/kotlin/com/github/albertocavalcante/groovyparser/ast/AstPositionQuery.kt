@@ -36,12 +36,15 @@ class AstPositionQuery(private val tracker: NodeRelationshipTracker) {
         val groovyLine = lspLine + 1
         val groovyCharacter = lspCharacter + 1
 
-        println("[DEBUG getNodeAt] LSP($lspLine, $lspCharacter) -> Groovy($groovyLine, $groovyCharacter)")
-        println("[DEBUG getNodeAt] Total nodes tracked: ${nodes.size}")
-        val classNodes = nodes.filterIsInstance<org.codehaus.groovy.ast.ClassNode>()
-        println("[DEBUG getNodeAt] ClassNodes tracked:")
-        classNodes.forEach { cls ->
-            println("  - ${cls.name} @ ${cls.lineNumber}:${cls.columnNumber}")
+        if (logger.isDebugEnabled) {
+            // NOTE: Stdout is reserved for JSON-RPC in stdio mode; debug output must go through the logger.
+            val classNodes = nodes.filterIsInstance<org.codehaus.groovy.ast.ClassNode>()
+            logger.debug("[getNodeAt] LSP($lspLine, $lspCharacter) -> Groovy($groovyLine, $groovyCharacter)")
+            logger.debug("[getNodeAt] Total nodes tracked: ${nodes.size}")
+            logger.debug("[getNodeAt] ClassNodes tracked:")
+            classNodes.forEach { cls ->
+                logger.debug("  - ${cls.name} @ ${cls.lineNumber}:${cls.columnNumber}")
+            }
         }
 
         if (logger.isDebugEnabled) {

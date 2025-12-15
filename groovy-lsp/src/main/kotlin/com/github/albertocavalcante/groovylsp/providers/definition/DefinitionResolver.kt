@@ -182,6 +182,9 @@ class DefinitionResolver(
         // If no definition found locally, try global
         if (definition == null) return true
 
+        // Import nodes represent a reference to an external type and should resolve via global/classpath lookup.
+        if (targetNode is ImportNode || definition is ImportNode) return true
+
         // If definition is a ClassNode, check if it's a real declaration in the current file
         if (definition is ClassNode) {
             // Prefer module declarations over visitor tracking:

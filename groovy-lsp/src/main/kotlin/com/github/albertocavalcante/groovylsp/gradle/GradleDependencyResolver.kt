@@ -7,6 +7,7 @@ import org.gradle.tooling.model.idea.IdeaProject
 import org.gradle.tooling.model.idea.IdeaSingleEntryLibraryDependency
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.exists
@@ -127,6 +128,10 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
             .mapNotNull { it.message }
             .joinToString("\n")
 
+        // NOTE: Heuristic / tradeoff:
+        // This uses message substring matching because the Tooling API doesn't expose a stable error taxonomy
+        // for "broken init script" failures. We keep the patterns narrow and revisit as Gradle evolves.
+        // TODO: If Gradle exposes structured failure types here, switch to deterministic detection.
         // User init scripts in ~/.gradle/init.d can break the Tooling API model fetch in unpredictable ways.
         // One common case is an init script (or plugin it loads) compiled for a newer Java version than the
         // Groovy/ASM embedded in the Gradle distribution.
@@ -145,17 +150,18 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
         }
 
         val dir = base.resolve(".groovy-lsp").resolve("gradle-user-home")
-        dir.toFile().mkdirs()
-        return dir
+        return runCatching { Files.createDirectories(dir) }
+            .getOrElse { e ->
+                logger.error("Failed to create isolated Gradle user home dir at $dir; falling back to temp dir", e)
+                val tempDir = Paths.get(System.getProperty("java.io.tmpdir"))
+                    .resolve("groovy-lsp-gradle-user-home")
+                Files.createDirectories(tempDir)
+                tempDir
+            }
     }
 
     private fun logGradleResolutionFailure(error: Throwable, message: String) {
-        when (error) {
-            is org.gradle.tooling.GradleConnectionException -> logger.error("$message: ${error.message}", error)
-            is org.gradle.tooling.BuildException -> logger.error("$message: ${error.message}", error)
-            is IllegalArgumentException -> logger.error("$message: ${error.message}", error)
-            else -> logger.error("$message: ${error.message}", error)
-        }
+        logger.error("$message: ${error.message}", error)
     }
 
     private fun Throwable.causeChain(): Sequence<Throwable> = generateSequence(this) { it.cause }

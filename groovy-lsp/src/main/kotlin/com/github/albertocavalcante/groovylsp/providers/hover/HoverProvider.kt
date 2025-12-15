@@ -132,15 +132,42 @@ class HoverProvider(
             ast?.findNodeAt(position.line, position.character)
         } ?: return null
 
-        logger.debug("Found node at position: ${nodeAtPosition.javaClass.simpleName}")
+        // Special-case imports:
+        // Even when the position query returns a ClassNode (e.g. hovering on `List` in `import java.util.List`),
+        // it is more intuitive to show the import statement hover rather than the referenced class.
+        val importNodeAtLine = findImportNodeAtLine(documentUri, position.line)
+        val importAwareNode = when {
+            nodeAtPosition is ClassNode && importNodeAtLine != null -> importNodeAtLine
+            else -> nodeAtPosition
+        }
+
+        logger.debug("Found node at position: ${importAwareNode.javaClass.simpleName}")
 
         // 2. If we have visitor/symbol table, try enhanced resolution
         if (astVisitor != null && symbolTable != null) {
-            return resolveWithVisitor(nodeAtPosition, astVisitor, symbolTable)
+            return resolveWithVisitor(importAwareNode, astVisitor, symbolTable)
         }
 
         // 3. Fallback resolution
-        return resolveFallback(nodeAtPosition, documentUri)
+        return resolveFallback(importAwareNode, documentUri)
+    }
+
+    private fun findImportNodeAtLine(documentUri: URI, lspLine: Int): ImportNode? {
+        val module = compilationService.getAst(documentUri) as? ModuleNode ?: return null
+        val groovyLine = lspLine + 1
+
+        // NOTE: Heuristic / tradeoff:
+        // We match ImportNode by its start line to detect "hover inside import". This is intentionally simple,
+        // but could be wrong for unusual formatting (multi-line imports) or synthetic imports. If this becomes
+        // a real-world issue, prefer a position-aware import range check (requires reliable end coordinates).
+        val allImports = sequenceOf(
+            module.imports?.asSequence() ?: emptySequence(),
+            module.starImports?.asSequence() ?: emptySequence(),
+            module.staticImports?.values?.asSequence() ?: emptySequence(),
+            module.staticStarImports?.values?.asSequence() ?: emptySequence(),
+        ).flatten()
+
+        return allImports.firstOrNull { it.lineNumber == groovyLine }
     }
 
     private fun resolveWithVisitor(

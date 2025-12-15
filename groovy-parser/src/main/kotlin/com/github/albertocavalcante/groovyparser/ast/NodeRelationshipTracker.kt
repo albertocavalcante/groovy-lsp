@@ -3,6 +3,7 @@ package com.github.albertocavalcante.groovyparser.ast
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.ModuleNode
+import org.slf4j.LoggerFactory
 import java.net.URI
 import java.util.Collections
 import java.util.IdentityHashMap
@@ -13,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Extracted from AstVisitor to reduce function count and provide focused responsibility.
  */
 class NodeRelationshipTracker {
+    private val logger = LoggerFactory.getLogger(NodeRelationshipTracker::class.java)
 
     // Parent tracking using a stack - following fork-groovy pattern
     private val nodeStack = ArrayDeque<ASTNode>()
@@ -25,10 +27,15 @@ class NodeRelationshipTracker {
     private val modulesByUri = ConcurrentHashMap<URI, ModuleNode>()
 
     // Parent-child relationships
-    private val parentMap = ConcurrentHashMap<ASTNode, ASTNode>()
+    // NOTE: Tradeoff:
+    // Use identity semantics for ASTNode keys to avoid collisions from overridden equals/hashCode (e.g., ClassNode).
+    // Synchronization is sufficient here because writes happen during compilation and reads are short-lived queries.
+    private val parentMap = Collections.synchronizedMap(IdentityHashMap<ASTNode, ASTNode>())
 
     // URI mapping for nodes
-    private val nodeUriMap = ConcurrentHashMap<ASTNode, URI>()
+    // NOTE: Tradeoff:
+    // Same rationale as parentMap: we need stable, identity-based node->URI mapping across the tracked node graph.
+    private val nodeUriMap = Collections.synchronizedMap(IdentityHashMap<ASTNode, URI>())
 
     /**
      * Push a node onto the tracking stack and establish relationships.
@@ -52,10 +59,17 @@ class NodeRelationshipTracker {
             }.add(node)
 
             if (node is ClassNode) {
-                println(
-                    "[DEBUG pushNode] ClassNode ${node.name} @ ${node.lineNumber}:${node.columnNumber}, " +
-                        "id=${System.identityHashCode(node)}, added=$added",
-                )
+                if (logger.isDebugEnabled) {
+                    // NOTE: Stdout is reserved for JSON-RPC in stdio mode; debug output must go through the logger.
+                    logger.debug(
+                        "[pushNode] ClassNode {} @ {}:{}, id={}, added={}",
+                        node.name,
+                        node.lineNumber,
+                        node.columnNumber,
+                        System.identityHashCode(node),
+                        added,
+                    )
+                }
             }
 
             // Track class nodes separately for quick access (use identity-based Set)
@@ -122,9 +136,14 @@ class NodeRelationshipTracker {
         val result = modulesByUri.values.flatMap { module ->
             collectClassDefinitions(module)
         }
-        println("[DEBUG getAllClassNodes] Found ${result.size} classes:")
-        result.forEach { cls ->
-            println("  - ${cls.name} @ Line ${cls.lineNumber}:${cls.columnNumber}, isScript=${cls.isScript}")
+        if (logger.isDebugEnabled) {
+            // NOTE: Stdout is reserved for JSON-RPC in stdio mode; debug output must go through the logger.
+            logger.debug("[getAllClassNodes] Found ${result.size} classes:")
+            result.forEach { cls ->
+                logger.debug(
+                    "  - ${cls.name} @ Line ${cls.lineNumber}:${cls.columnNumber}, isScript=${cls.isScript}",
+                )
+            }
         }
         return result
     }

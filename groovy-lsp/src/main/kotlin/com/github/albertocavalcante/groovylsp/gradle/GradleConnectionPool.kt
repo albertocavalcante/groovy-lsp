@@ -29,8 +29,9 @@ object GradleConnectionPool : GradleConnectionFactory {
      * @return A connected ProjectConnection
      */
     override fun getConnection(projectDir: Path, gradleUserHomeDir: File?): ProjectConnection {
+        val normalizedProjectDir = projectDir.toAbsolutePath().normalize()
         val normalizedUserHome = gradleUserHomeDir?.toPath()?.toAbsolutePath()?.normalize()
-        val key = ConnectionKey(projectDir = projectDir, gradleUserHomeDir = normalizedUserHome)
+        val key = ConnectionKey(projectDir = normalizedProjectDir, gradleUserHomeDir = normalizedUserHome)
 
         return connections.computeIfAbsent(key) { createdKey ->
             logger.debug(
@@ -49,7 +50,8 @@ object GradleConnectionPool : GradleConnectionFactory {
     // FIXME: Replace with specific exception types (IOException, GradleConnectionException)
     @Suppress("TooGenericExceptionCaught")
     fun closeConnection(projectDir: Path) {
-        val keys = connections.keys.filter { it.projectDir == projectDir }
+        val normalizedProjectDir = projectDir.toAbsolutePath().normalize()
+        val keys = connections.keys.filter { it.projectDir == normalizedProjectDir }
         keys.forEach { key ->
             closeConnection(key)
         }

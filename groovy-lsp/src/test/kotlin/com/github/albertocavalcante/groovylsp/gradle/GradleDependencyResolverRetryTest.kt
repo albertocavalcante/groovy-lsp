@@ -8,14 +8,22 @@ import org.gradle.tooling.ProjectConnection
 import org.gradle.tooling.model.idea.IdeaProject
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.File
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class GradleDependencyResolverRetryTest {
 
     @Test
     fun `retries with isolated Gradle user home when init scripts break model fetch`(@TempDir projectDir: Path) {
-        projectDir.resolve("build.gradle").toFile().writeText("")
+        projectDir.resolve("build.gradle").toFile().writeText(
+            """
+            plugins { id 'java' }
+            """.trimIndent(),
+        )
 
         val connectionFactory = mockk<GradleConnectionFactory>()
 
@@ -35,7 +43,14 @@ class GradleDependencyResolverRetryTest {
         every { firstConnection.model(IdeaProject::class.java) } returns modelBuilder
         every { secondConnection.model(IdeaProject::class.java) } returns modelBuilder
 
-        every { connectionFactory.getConnection(any(), any()) } returnsMany listOf(firstConnection, secondConnection)
+        val gradleUserHomeArgs = mutableListOf<File?>()
+        val connections = listOf(firstConnection, secondConnection)
+        var callCount = 0
+
+        every { connectionFactory.getConnection(any(), any()) } answers {
+            gradleUserHomeArgs.add(secondArg())
+            connections[callCount++]
+        }
 
         val resolver = GradleDependencyResolver(connectionFactory)
 
@@ -45,14 +60,24 @@ class GradleDependencyResolverRetryTest {
         assertEquals(0, result.sourceDirectories.size)
 
         verify(exactly = 2) { connectionFactory.getConnection(any(), any()) }
-        // First call uses default Gradle user home (null), second call uses an isolated directory.
-        verify { connectionFactory.getConnection(any(), null) }
-        verify { connectionFactory.getConnection(any(), match { it != null }) }
+        assertEquals(2, gradleUserHomeArgs.size)
+        assertNull(gradleUserHomeArgs[0], "First attempt should use the default Gradle user home")
+
+        val isolated = gradleUserHomeArgs[1]
+        assertNotNull(isolated, "Retry attempt should use an isolated Gradle user home directory")
+        assertEquals("gradle-user-home", isolated.name)
+        assertEquals(".groovy-lsp", isolated.parentFile.name)
+        assertTrue(isolated.exists(), "Retry attempt should create the isolated Gradle user home directory")
+        assertTrue(isolated.isDirectory, "Isolated Gradle user home should be a directory")
     }
 
     @Test
     fun `does not retry when model fetch fails for unrelated reasons`(@TempDir projectDir: Path) {
-        projectDir.resolve("build.gradle").toFile().writeText("")
+        projectDir.resolve("build.gradle").toFile().writeText(
+            """
+            plugins { id 'java' }
+            """.trimIndent(),
+        )
 
         val connectionFactory = mockk<GradleConnectionFactory>()
         val connection = mockk<ProjectConnection>()

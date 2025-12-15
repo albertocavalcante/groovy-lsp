@@ -71,7 +71,13 @@ object DocExtractor {
 
         while (i >= 0) {
             val trimmed = lines[i].trim()
-            if (trimmed.isBlank() || trimmed.startsWith("@")) {
+            val isAnnotationLine = trimmed.startsWith("@") &&
+                trimmed.drop(1).firstOrNull()?.isJavaIdentifierStart() == true
+
+            // NOTE: Heuristic / tradeoff:
+            // When scanning upward for a preceding doc comment, we skip annotations and blank lines.
+            // This assumes conventional formatting where annotations immediately precede declarations.
+            if (trimmed.isBlank() || isAnnotationLine) {
                 i--
                 continue
             }
