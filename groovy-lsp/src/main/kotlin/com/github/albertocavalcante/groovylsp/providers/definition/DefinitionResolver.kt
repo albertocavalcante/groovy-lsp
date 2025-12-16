@@ -232,39 +232,62 @@ class DefinitionResolver(
     /**
      * Attempt to find definition on the classpath (JARs).
      * First tries to navigate to source code if available, otherwise returns binary reference.
+     *
+     * Returns null for URIs that VS Code cannot open (jrt:, jar:) to avoid errors.
      */
     private fun findClasspathDefinition(targetNode: ASTNode): DefinitionResult? {
         if (compilationService == null) return null
 
         val className = getClassName(targetNode) ?: return null
 
-        val jarUri = compilationService.findClasspathClass(className) ?: return null
+        val classpathUri = compilationService.findClasspathClass(className) ?: return null
 
         // Try to navigate to source code if SourceNavigationService is available
         if (sourceNavigationService != null) {
             try {
                 val result = runBlocking {
-                    sourceNavigationService.navigateToSource(jarUri, className)
+                    sourceNavigationService.navigateToSource(classpathUri, className)
                 }
                 when (result) {
                     is SourceNavigationService.SourceResult.SourceLocation -> {
                         logger.debug("Found source for $className at ${result.uri}")
-                        // Create a synthetic ClassNode to represent the source location
-                        // The actual definition will be resolved when the file is opened
                         return DefinitionResult.Binary(result.uri, className)
                     }
                     is SourceNavigationService.SourceResult.BinaryOnly -> {
                         logger.debug("No source available for $className: ${result.reason}")
-                        // Fall through to return binary result
+                        // Fall through to check if URI is resolvable
                     }
                 }
             } catch (e: Exception) {
                 logger.warn("Failed to navigate to source for $className: ${e.message}")
-                // Fall through to return binary result
+                // Fall through to check if URI is resolvable
             }
         }
 
-        return DefinitionResult.Binary(jarUri, className)
+        // Only return binary result for URIs that VS Code can actually open
+        // jrt: (JDK runtime) and jar: URIs require content providers that aren't registered
+        return when (classpathUri.scheme) {
+            "file" -> DefinitionResult.Binary(classpathUri, className)
+            "jrt" -> {
+                // TODO: Support JDK source navigation from $JAVA_HOME/lib/src.zip
+                // JDK classes (java.util.Date, java.text.SimpleDateFormat, etc.) use jrt: URIs
+                // that VS Code cannot open. Future enhancement: extract source from JDK's src.zip
+                // and return file: URI to the extracted .java file.
+                // See: https://github.com/albertocavalcante/groovy-lsp/issues/XXX
+                logger.debug("Skipping JDK class $className - jrt: URIs not supported yet")
+                null
+            }
+            "jar" -> {
+                // jar: URIs without extracted source can't be opened by VS Code
+                // SourceNavigationService tried but no source JAR available
+                logger.debug("Skipping binary-only class $className - jar: URIs not supported without source")
+                null
+            }
+            else -> {
+                logger.debug("Skipping class $className with unsupported URI scheme: ${classpathUri.scheme}")
+                null
+            }
+        }
     }
 
     private fun getClassName(targetNode: ASTNode): String? = when (targetNode) {
