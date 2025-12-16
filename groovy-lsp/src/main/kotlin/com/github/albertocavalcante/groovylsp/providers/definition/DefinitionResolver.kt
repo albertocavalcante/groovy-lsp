@@ -156,6 +156,12 @@ class DefinitionResolver(
                 logger.debug("Found classpath definition for ${targetNode.text}: $classpathDef")
                 return classpathDef
             }
+
+            // If we tried global/classpath lookup for an external class reference but found nothing,
+            // return null rather than incorrectly returning the reference as a definition.
+            // This happens when source isn't available for jar:/jrt: classes.
+            logger.debug("External class reference not resolved for ${targetNode.text}")
+            return null
         }
 
         // FIXME: Filter out non-definition nodes that shouldn't be treated as symbols

@@ -77,17 +77,16 @@ steps:
           character: 20
       saveAs: 'definitionResult'
 
+  # When source JAR isn't available, definition returns null (empty items)
+  # This prevents VS Code "Unable to resolve resource" errors for jar: URIs
   - assert:
       source: 'definitionResult'
       checks:
-        - jsonPath: '$.items[0].uri'
-          expect:
-            type: 'MATCHES_REGEX'
-            value: 'jar:file:.*pipeline-unit-stubs.jar!/com/lesfurets/jenkins/unit/declarative/GenericPipelineDeclaration.class'
-        - jsonPath: '$.items[0].range.start.line'
+        - jsonPath: '$.items'
           expect:
             type: 'EQUALS'
-            value: 0
+            value: []
 
   - shutdown: {}
   - exit: {}
+
