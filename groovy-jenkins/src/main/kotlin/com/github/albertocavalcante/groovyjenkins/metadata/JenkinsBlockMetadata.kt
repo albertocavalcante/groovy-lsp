@@ -36,8 +36,8 @@ object JenkinsBlockMetadata {
     val CREDENTIAL_BLOCKS = setOf(
         "usernamePassword",
         "usernameColonPassword",
-        "string",
-        "file",
+        "string", // Jenkins-specific credential binding, not the String type
+        "file", // Jenkins-specific file credential binding
         "sshUserPrivateKey",
         "certificate",
     )

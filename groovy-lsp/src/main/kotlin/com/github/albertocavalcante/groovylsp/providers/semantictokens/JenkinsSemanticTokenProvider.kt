@@ -79,7 +79,7 @@ object JenkinsSemanticTokenProvider {
                 val methodName = methodCall.methodAsString ?: return@forEach
                 val tokenType = getTokenTypeForMethod(methodName)
 
-                if (tokenType != null) {
+                getTokenTypeForMethod(methodName)?.let { tokenType ->
                     // Get the method name position (not the whole expression)
                     val methodNode = methodCall.method
                     if (methodNode.lineNumber > 0) {

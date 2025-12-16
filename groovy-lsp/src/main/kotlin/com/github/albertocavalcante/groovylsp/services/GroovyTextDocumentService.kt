@@ -507,15 +507,12 @@ class GroovyTextDocumentService(
             val isJenkinsFile = compilationService.workspaceManager.isJenkinsFile(uri)
 
             // Get Jenkins-specific tokens
-            val jenkinsTokens = if (isJenkinsFile) {
-                JenkinsSemanticTokenProvider.getSemanticTokens(
-                    astModel,
-                    uri,
-                    isJenkinsFile,
-                )
-            } else {
-                emptyList()
-            }
+            // Get Jenkins-specific tokens
+            val jenkinsTokens = JenkinsSemanticTokenProvider.getSemanticTokens(
+                astModel,
+                uri,
+                isJenkinsFile,
+            )
 
             // TODO: Add general Groovy syntax tokens (keywords, operators, literals)
             // val groovyTokens = GroovySemanticTokenProvider.getSemanticTokens(...)
