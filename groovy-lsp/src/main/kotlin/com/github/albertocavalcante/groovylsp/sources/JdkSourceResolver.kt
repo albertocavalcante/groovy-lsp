@@ -4,6 +4,7 @@ import org.slf4j.LoggerFactory
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipFile
 
 /**
@@ -18,8 +19,8 @@ import java.util.zip.ZipFile
 class JdkSourceResolver(private val jdkSourceDir: Path = getDefaultJdkSourceDir()) {
     private val logger = LoggerFactory.getLogger(JdkSourceResolver::class.java)
 
-    // Cache: className -> extracted source path
-    private val extractedSourceCache = mutableMapOf<String, Path>()
+    // Thread-safe cache: className -> extracted source path
+    private val extractedSourceCache = ConcurrentHashMap<String, Path>()
 
     companion object {
         fun getDefaultJdkSourceDir(): Path {
@@ -38,7 +39,7 @@ class JdkSourceResolver(private val jdkSourceDir: Path = getDefaultJdkSourceDir(
     suspend fun resolveJdkSource(jrtUri: URI, className: String): SourceNavigationService.SourceResult {
         logger.debug("Resolving JDK source for: {} from {}", className, jrtUri)
 
-        // Check cache first
+        // Check cache first (thread-safe via ConcurrentHashMap)
         extractedSourceCache[className]?.let { cachedPath ->
             if (Files.exists(cachedPath)) {
                 logger.debug("Found cached JDK source for: {}", className)
@@ -46,6 +47,10 @@ class JdkSourceResolver(private val jdkSourceDir: Path = getDefaultJdkSourceDir(
                     uri = cachedPath.toUri(),
                     className = className,
                 )
+            } else {
+                // Remove stale cache entry if file was deleted
+                extractedSourceCache.remove(className)
+                logger.debug("Removed stale cache entry for: {}", className)
             }
         }
 

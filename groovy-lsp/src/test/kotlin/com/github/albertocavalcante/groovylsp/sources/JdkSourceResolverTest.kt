@@ -87,14 +87,12 @@ class JdkSourceResolverTest {
         }
 
         @Test
-        fun `returns null for malformed jrt URI without module`() {
+        fun `returns null for malformed jrt URI without path separator`() {
             val uri = URI.create("jrt:/Date.class")
             val result = resolver.parseJrtUri(uri)
 
-            // Single path component - no slash to split on, but still parses
-            // jrt:/Date.class -> "Date" module with empty class - should return null
-            // Actually the current impl would return "Date" and "" - let's see what we get
-            assertNull(result, "Malformed jrt: URI with no module separator")
+            // jrt:/Date.class splits into just ["Date.class"] - size < 2, returns null
+            assertNull(result, "Malformed jrt: URI without module path separator should return null")
         }
     }
 

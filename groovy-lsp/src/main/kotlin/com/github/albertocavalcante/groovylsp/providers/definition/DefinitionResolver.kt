@@ -12,7 +12,6 @@ import com.github.albertocavalcante.groovyparser.ast.SymbolTable
 import com.github.albertocavalcante.groovyparser.ast.findNodeAt
 import com.github.albertocavalcante.groovyparser.ast.resolveToDefinition
 import com.github.albertocavalcante.groovyparser.ast.symbols.Symbol
-import kotlinx.coroutines.runBlocking
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.ImportNode
@@ -49,7 +48,7 @@ class DefinitionResolver(
      * Throws specific exceptions for different failure scenarios.
      */
     @Suppress("TooGenericExceptionCaught") // TODO: Review if catch-all is needed as domain errors
-    fun findDefinitionAt(
+    suspend fun findDefinitionAt(
         uri: URI,
         position: com.github.albertocavalcante.groovyparser.ast.types.Position,
     ): DefinitionResult? {
@@ -112,7 +111,7 @@ class DefinitionResolver(
     /**
      * Resolve the target node to its definition.
      */
-    private fun resolveDefinition(
+    private suspend fun resolveDefinition(
         targetNode: ASTNode,
         uri: URI,
         position: com.github.albertocavalcante.groovyparser.ast.types.Position,
@@ -241,7 +240,14 @@ class DefinitionResolver(
      *
      * Returns null for URIs that VS Code cannot open (jrt:, jar:) to avoid errors.
      */
-    private fun findClasspathDefinition(targetNode: ASTNode): DefinitionResult? {
+
+    /**
+     * Attempt to find definition on the classpath (JARs).
+     * First tries to navigate to source code if available, otherwise returns binary reference.
+     *
+     * Returns null for URIs that VS Code cannot open (jrt:, jar:) to avoid errors.
+     */
+    private suspend fun findClasspathDefinition(targetNode: ASTNode): DefinitionResult? {
         if (compilationService == null) return null
 
         val className = getClassName(targetNode) ?: return null
@@ -251,11 +257,11 @@ class DefinitionResolver(
         // Try to navigate to source code if SourceNavigationService is available
         if (sourceNavigationService != null) {
             try {
-                val result = runBlocking {
-                    sourceNavigationService.navigateToSource(classpathUri, className)
-                }
+                val result = sourceNavigationService.navigateToSource(classpathUri, className)
                 when (result) {
                     is SourceNavigationService.SourceResult.SourceLocation -> {
+                        // Return Binary result pointing to the extracted source file location.
+                        // The client will open this file: URI directly.
                         logger.debug("Found source for $className at ${result.uri}")
                         return DefinitionResult.Binary(result.uri, className)
                     }
@@ -265,7 +271,9 @@ class DefinitionResolver(
                     }
                 }
             } catch (e: Exception) {
-                logger.warn("Failed to navigate to source for $className: ${e.message}")
+                // Re-throw CancellationException to preserve coroutine cancellation semantics
+                if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                logger.warn("Failed to navigate to source for $className: ${e.message}", e)
                 // Fall through to check if URI is resolvable
             }
         }
