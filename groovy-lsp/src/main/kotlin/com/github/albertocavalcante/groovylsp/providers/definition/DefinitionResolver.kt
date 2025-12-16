@@ -265,22 +265,20 @@ class DefinitionResolver(
         }
 
         // Only return binary result for URIs that VS Code can actually open
-        // jrt: (JDK runtime) and jar: URIs require content providers that aren't registered
+        // jrt: and jar: URIs are handled above by SourceNavigationService
+        // If we reach here, source resolution failed and we cannot open these URIs
         return when (classpathUri.scheme) {
             "file" -> DefinitionResult.Binary(classpathUri, className)
             "jrt" -> {
-                // TODO: Support JDK source navigation from $JAVA_HOME/lib/src.zip
-                // JDK classes (java.util.Date, java.text.SimpleDateFormat, etc.) use jrt: URIs
-                // that VS Code cannot open. Future enhancement: extract source from JDK's src.zip
-                // and return file: URI to the extracted .java file.
-                // See: https://github.com/albertocavalcante/groovy-lsp/issues/XXX
-                logger.debug("Skipping JDK class $className - jrt: URIs not supported yet")
+                // JDK source resolution was attempted above via JdkSourceResolver
+                // If we reach here, src.zip extraction failed (not found, corrupted, etc.)
+                logger.debug("JDK source not available for $className")
                 null
             }
             "jar" -> {
-                // jar: URIs without extracted source can't be opened by VS Code
-                // SourceNavigationService tried but no source JAR available
-                logger.debug("Skipping binary-only class $className - jar: URIs not supported without source")
+                // Maven source JAR resolution was attempted above
+                // If we reach here, no source JAR available for this dependency
+                logger.debug("No source available for $className - jar: URI not openable")
                 null
             }
             else -> {

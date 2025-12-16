@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
 class SourceNavigationService(
     private val sourceResolver: SourceArtifactResolver = MavenSourceArtifactResolver(),
     private val sourceExtractor: SourceJarExtractor = SourceJarExtractor(),
+    private val jdkSourceResolver: JdkSourceResolver = JdkSourceResolver(),
 ) {
 
     private val logger = LoggerFactory.getLogger(SourceNavigationService::class.java)
@@ -44,14 +45,23 @@ class SourceNavigationService(
     }
 
     /**
-     * Navigate to source code for a class found in a JAR.
+     * Navigate to source code for a class found in the classpath.
      *
-     * @param jarUri URI of the binary JAR (e.g., jar:file:///path/to/lib.jar!/com/example/Foo.class)
+     * Handles:
+     * - jrt: URIs (JDK classes) -> extracts from $JAVA_HOME/lib/src.zip
+     * - jar: URIs (Maven dependencies) -> downloads source JAR from Maven
+     *
+     * @param classpathUri URI of the class (jrt: or jar:file:...)
      * @param className Fully qualified class name
      * @return SourceResult indicating where to navigate
      */
-    suspend fun navigateToSource(jarUri: URI, className: String): SourceResult {
-        logger.debug("Navigating to source for: {} from {}", className, jarUri)
+    suspend fun navigateToSource(classpathUri: URI, className: String): SourceResult {
+        logger.debug("Navigating to source for: {} from {}", className, classpathUri)
+
+        // Handle JDK classes (jrt: scheme)
+        if (classpathUri.scheme == "jrt") {
+            return jdkSourceResolver.resolveJdkSource(classpathUri, className)
+        }
 
         // Step 1: Check if we already have extracted sources
         val existingSource = sourceExtractor.findSourceForClass(className)
@@ -64,14 +74,14 @@ class SourceNavigationService(
         }
 
         // Step 2: Derive Maven coordinates from JAR path
-        val jarPath = extractJarPath(jarUri) ?: return SourceResult.BinaryOnly(
-            uri = jarUri,
+        val jarPath = extractJarPath(classpathUri) ?: return SourceResult.BinaryOnly(
+            uri = classpathUri,
             className = className,
             reason = "Could not extract JAR path from URI",
         )
 
         val coords = deriveCoordinates(jarPath) ?: return SourceResult.BinaryOnly(
-            uri = jarUri,
+            uri = classpathUri,
             className = className,
             reason = "Could not determine Maven coordinates for JAR",
         )
@@ -86,7 +96,7 @@ class SourceNavigationService(
 
         if (sourceJarPath == null) {
             return SourceResult.BinaryOnly(
-                uri = jarUri,
+                uri = classpathUri,
                 className = className,
                 reason = "Source JAR not available for ${coords.groupId}:${coords.artifactId}:${coords.version}",
             )
@@ -104,7 +114,7 @@ class SourceNavigationService(
             )
         } else {
             SourceResult.BinaryOnly(
-                uri = jarUri,
+                uri = classpathUri,
                 className = className,
                 reason = "Class $className not found in extracted sources",
             )
@@ -117,8 +127,8 @@ class SourceNavigationService(
      * Input: jar:file:///path/to/library.jar!/com/example/Foo.class
      * Output: /path/to/library.jar
      */
-    private fun extractJarPath(jarUri: URI): Path? {
-        val uriString = jarUri.toString()
+    private fun extractJarPath(classpathUri: URI): Path? {
+        val uriString = classpathUri.toString()
 
         if (!uriString.startsWith("jar:file:")) {
             return null
