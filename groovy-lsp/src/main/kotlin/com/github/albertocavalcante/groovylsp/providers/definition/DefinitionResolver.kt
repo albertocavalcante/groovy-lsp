@@ -6,11 +6,13 @@ import com.github.albertocavalcante.groovylsp.errors.GroovyLspException
 import com.github.albertocavalcante.groovylsp.errors.SymbolNotFoundException
 import com.github.albertocavalcante.groovylsp.errors.invalidPosition
 import com.github.albertocavalcante.groovylsp.errors.nodeNotFoundAtPosition
+import com.github.albertocavalcante.groovylsp.sources.SourceNavigationService
 import com.github.albertocavalcante.groovyparser.ast.GroovyAstModel
 import com.github.albertocavalcante.groovyparser.ast.SymbolTable
 import com.github.albertocavalcante.groovyparser.ast.findNodeAt
 import com.github.albertocavalcante.groovyparser.ast.resolveToDefinition
 import com.github.albertocavalcante.groovyparser.ast.symbols.Symbol
+import kotlinx.coroutines.runBlocking
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.ImportNode
@@ -24,6 +26,7 @@ class DefinitionResolver(
     private val astVisitor: GroovyAstModel,
     private val symbolTable: SymbolTable,
     private val compilationService: GroovyCompilationService? = null,
+    private val sourceNavigationService: SourceNavigationService? = null,
 ) {
 
     private val logger = LoggerFactory.getLogger(DefinitionResolver::class.java)
@@ -228,18 +231,40 @@ class DefinitionResolver(
 
     /**
      * Attempt to find definition on the classpath (JARs).
+     * First tries to navigate to source code if available, otherwise returns binary reference.
      */
-    private fun findClasspathDefinition(targetNode: ASTNode): DefinitionResult.Binary? {
+    private fun findClasspathDefinition(targetNode: ASTNode): DefinitionResult? {
         if (compilationService == null) return null
 
         val className = getClassName(targetNode) ?: return null
 
-        val uri = compilationService.findClasspathClass(className)
-        return if (uri != null) {
-            DefinitionResult.Binary(uri, className)
-        } else {
-            null
+        val jarUri = compilationService.findClasspathClass(className) ?: return null
+
+        // Try to navigate to source code if SourceNavigationService is available
+        if (sourceNavigationService != null) {
+            try {
+                val result = runBlocking {
+                    sourceNavigationService.navigateToSource(jarUri, className)
+                }
+                when (result) {
+                    is SourceNavigationService.SourceResult.SourceLocation -> {
+                        logger.debug("Found source for $className at ${result.uri}")
+                        // Create a synthetic ClassNode to represent the source location
+                        // The actual definition will be resolved when the file is opened
+                        return DefinitionResult.Binary(result.uri, className)
+                    }
+                    is SourceNavigationService.SourceResult.BinaryOnly -> {
+                        logger.debug("No source available for $className: ${result.reason}")
+                        // Fall through to return binary result
+                    }
+                }
+            } catch (e: Exception) {
+                logger.warn("Failed to navigate to source for $className: ${e.message}")
+                // Fall through to return binary result
+            }
         }
+
+        return DefinitionResult.Binary(jarUri, className)
     }
 
     private fun getClassName(targetNode: ASTNode): String? = when (targetNode) {

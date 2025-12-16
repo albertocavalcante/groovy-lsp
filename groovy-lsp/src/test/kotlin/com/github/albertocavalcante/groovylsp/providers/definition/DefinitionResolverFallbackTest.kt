@@ -1,15 +1,18 @@
 package com.github.albertocavalcante.groovylsp.providers.definition
 
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
+import com.github.albertocavalcante.groovylsp.sources.SourceNavigationService
 import com.github.albertocavalcante.groovyparser.ast.GroovyAstModel
 import com.github.albertocavalcante.groovyparser.ast.SymbolTable
 import com.github.albertocavalcante.groovyparser.ast.types.Position
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.ImportNode
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.net.URI
 
@@ -131,5 +134,152 @@ class DefinitionResolverFallbackTest {
         val sourceResult = result as DefinitionResolver.DefinitionResult.Source
         assertEquals(otherUri, sourceResult.uri, "Should return URI of the file defining the class")
         assertEquals(otherClassNode, sourceResult.node)
+    }
+
+    @Nested
+    inner class SourceNavigationServiceIntegrationTest {
+
+        @Test
+        fun `findDefinitionAt returns source URI when SourceNavigationService finds source`() {
+            val uri = URI.create("file:///test/Test.groovy")
+            val position = Position(0, 0)
+
+            val astVisitor = mockk<GroovyAstModel>()
+            val symbolTable = mockk<SymbolTable>()
+            val compilationService = mockk<GroovyCompilationService>(relaxed = true)
+            val sourceNavigationService = mockk<SourceNavigationService>()
+
+            val targetNode = ClassNode("com.example.ExternalClass", 0, null)
+            every { astVisitor.getNodeAt(uri, position) } returns targetNode
+            every { astVisitor.getAllClassNodes() } returns emptyList()
+            every { compilationService.getAllSymbolStorages() } returns emptyMap()
+            every { compilationService.getAst(uri) } returns null
+
+            val jarUri = URI.create("jar:file:///libs/lib.jar!/com/example/ExternalClass.class")
+            val sourceUri = URI.create("file:///home/user/.groovy-lsp/cache/extracted-sources/ExternalClass.java")
+            every { compilationService.findClasspathClass("com.example.ExternalClass") } returns jarUri
+
+            // Mock source navigation to return source location
+            coEvery {
+                sourceNavigationService.navigateToSource(jarUri, "com.example.ExternalClass")
+            } returns SourceNavigationService.SourceResult.SourceLocation(
+                uri = sourceUri,
+                className = "com.example.ExternalClass",
+            )
+
+            val resolver = DefinitionResolver(astVisitor, symbolTable, compilationService, sourceNavigationService)
+
+            val result = resolver.findDefinitionAt(uri, position)
+
+            // Should return Binary with the SOURCE URI (not jar URI)
+            assertTrue(result is DefinitionResolver.DefinitionResult.Binary, "Result should be Binary")
+            val binaryResult = result as DefinitionResolver.DefinitionResult.Binary
+            assertEquals(sourceUri, binaryResult.uri, "Should return extracted source URI")
+            assertEquals("com.example.ExternalClass", binaryResult.name)
+        }
+
+        @Test
+        fun `findDefinitionAt falls back to jar URI when SourceNavigationService returns BinaryOnly`() {
+            val uri = URI.create("file:///test/Test.groovy")
+            val position = Position(0, 0)
+
+            val astVisitor = mockk<GroovyAstModel>()
+            val symbolTable = mockk<SymbolTable>()
+            val compilationService = mockk<GroovyCompilationService>(relaxed = true)
+            val sourceNavigationService = mockk<SourceNavigationService>()
+
+            val targetNode = ClassNode("com.example.ExternalClass", 0, null)
+            every { astVisitor.getNodeAt(uri, position) } returns targetNode
+            every { astVisitor.getAllClassNodes() } returns emptyList()
+            every { compilationService.getAllSymbolStorages() } returns emptyMap()
+            every { compilationService.getAst(uri) } returns null
+
+            val jarUri = URI.create("jar:file:///libs/lib.jar!/com/example/ExternalClass.class")
+            every { compilationService.findClasspathClass("com.example.ExternalClass") } returns jarUri
+
+            // Mock source navigation to return BinaryOnly (no source available)
+            coEvery {
+                sourceNavigationService.navigateToSource(jarUri, "com.example.ExternalClass")
+            } returns SourceNavigationService.SourceResult.BinaryOnly(
+                uri = jarUri,
+                className = "com.example.ExternalClass",
+                reason = "Source JAR not available",
+            )
+
+            val resolver = DefinitionResolver(astVisitor, symbolTable, compilationService, sourceNavigationService)
+
+            val result = resolver.findDefinitionAt(uri, position)
+
+            // Should fall back to the original jar URI
+            assertTrue(result is DefinitionResolver.DefinitionResult.Binary, "Result should be Binary")
+            val binaryResult = result as DefinitionResolver.DefinitionResult.Binary
+            assertEquals(jarUri, binaryResult.uri, "Should return original jar URI when source unavailable")
+            assertEquals("com.example.ExternalClass", binaryResult.name)
+        }
+
+        @Test
+        fun `findDefinitionAt falls back to jar URI when SourceNavigationService throws exception`() {
+            val uri = URI.create("file:///test/Test.groovy")
+            val position = Position(0, 0)
+
+            val astVisitor = mockk<GroovyAstModel>()
+            val symbolTable = mockk<SymbolTable>()
+            val compilationService = mockk<GroovyCompilationService>(relaxed = true)
+            val sourceNavigationService = mockk<SourceNavigationService>()
+
+            val targetNode = ClassNode("com.example.ExternalClass", 0, null)
+            every { astVisitor.getNodeAt(uri, position) } returns targetNode
+            every { astVisitor.getAllClassNodes() } returns emptyList()
+            every { compilationService.getAllSymbolStorages() } returns emptyMap()
+            every { compilationService.getAst(uri) } returns null
+
+            val jarUri = URI.create("jar:file:///libs/lib.jar!/com/example/ExternalClass.class")
+            every { compilationService.findClasspathClass("com.example.ExternalClass") } returns jarUri
+
+            // Mock source navigation to throw an exception
+            coEvery {
+                sourceNavigationService.navigateToSource(jarUri, "com.example.ExternalClass")
+            } throws RuntimeException("Network error downloading source JAR")
+
+            val resolver = DefinitionResolver(astVisitor, symbolTable, compilationService, sourceNavigationService)
+
+            val result = resolver.findDefinitionAt(uri, position)
+
+            // Should gracefully fall back to the original jar URI
+            assertTrue(result is DefinitionResolver.DefinitionResult.Binary, "Result should be Binary")
+            val binaryResult = result as DefinitionResolver.DefinitionResult.Binary
+            assertEquals(jarUri, binaryResult.uri, "Should return original jar URI on exception")
+            assertEquals("com.example.ExternalClass", binaryResult.name)
+        }
+
+        @Test
+        fun `findDefinitionAt works without SourceNavigationService (null)`() {
+            val uri = URI.create("file:///test/Test.groovy")
+            val position = Position(0, 0)
+
+            val astVisitor = mockk<GroovyAstModel>()
+            val symbolTable = mockk<SymbolTable>()
+            val compilationService = mockk<GroovyCompilationService>(relaxed = true)
+
+            val targetNode = ClassNode("com.example.ExternalClass", 0, null)
+            every { astVisitor.getNodeAt(uri, position) } returns targetNode
+            every { astVisitor.getAllClassNodes() } returns emptyList()
+            every { compilationService.getAllSymbolStorages() } returns emptyMap()
+            every { compilationService.getAst(uri) } returns null
+
+            val jarUri = URI.create("jar:file:///libs/lib.jar!/com/example/ExternalClass.class")
+            every { compilationService.findClasspathClass("com.example.ExternalClass") } returns jarUri
+
+            // Create resolver WITHOUT SourceNavigationService (backward compatibility)
+            val resolver = DefinitionResolver(astVisitor, symbolTable, compilationService, null)
+
+            val result = resolver.findDefinitionAt(uri, position)
+
+            // Should return jar URI directly (old behavior)
+            assertTrue(result is DefinitionResolver.DefinitionResult.Binary, "Result should be Binary")
+            val binaryResult = result as DefinitionResolver.DefinitionResult.Binary
+            assertEquals(jarUri, binaryResult.uri)
+            assertEquals("com.example.ExternalClass", binaryResult.name)
+        }
     }
 }
