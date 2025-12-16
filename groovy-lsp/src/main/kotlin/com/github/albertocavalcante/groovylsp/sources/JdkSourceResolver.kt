@@ -16,7 +16,10 @@ import java.util.zip.ZipFile
  *
  * Extracts source files lazily (per-class) to ~/.groovy-lsp/cache/jdk-sources/
  */
-class JdkSourceResolver(private val jdkSourceDir: Path = getDefaultJdkSourceDir()) {
+class JdkSourceResolver(
+    private val jdkSourceDir: Path = getDefaultJdkSourceDir(),
+    private val javaSourceInspector: JavaSourceInspector = JavaSourceInspector(),
+) {
     private val logger = LoggerFactory.getLogger(JdkSourceResolver::class.java)
 
     // Thread-safe cache: className -> extracted source path
@@ -43,9 +46,12 @@ class JdkSourceResolver(private val jdkSourceDir: Path = getDefaultJdkSourceDir(
         extractedSourceCache[className]?.let { cachedPath ->
             if (Files.exists(cachedPath)) {
                 logger.debug("Found cached JDK source for: {}", className)
+                val inspection = javaSourceInspector.inspectClass(cachedPath, className)
                 return SourceNavigator.SourceResult.SourceLocation(
                     uri = cachedPath.toUri(),
                     className = className,
+                    lineNumber = inspection?.lineNumber,
+                    documentation = inspection?.documentation,
                 )
             } else {
                 // Remove stale cache entry if file was deleted
@@ -80,9 +86,14 @@ class JdkSourceResolver(private val jdkSourceDir: Path = getDefaultJdkSourceDir(
         extractedSourceCache[className] = extractedPath
         logger.info("Extracted JDK source: {} -> {}", className, extractedPath)
 
+        // Inspect the source to get line number and documentation
+        val inspection = javaSourceInspector.inspectClass(extractedPath, className)
+
         return SourceNavigator.SourceResult.SourceLocation(
             uri = extractedPath.toUri(),
             className = className,
+            lineNumber = inspection?.lineNumber,
+            documentation = inspection?.documentation,
         )
     }
 
