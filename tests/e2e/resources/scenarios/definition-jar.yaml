@@ -76,7 +76,7 @@ steps:
         textDocument:
           uri: '{{workspace.uri}}src/main/groovy/DependencyTest.groovy'
         position:
-          line: 3
+          line: 2
           character: 30
       saveAs: 'definitionResult'
 
@@ -88,7 +88,7 @@ steps:
         - jsonPath: '$.items[0].uri'
           expect:
             type: 'MATCHES_REGEX'
-            value: 'file://.*extracted-sources.*Greeter\\.java'
+            value: 'file:.*extracted-sources.*Greeter\.java'
         - jsonPath: '$.items[0].range.start.line'
           expect:
             type: 'EQUALS'
