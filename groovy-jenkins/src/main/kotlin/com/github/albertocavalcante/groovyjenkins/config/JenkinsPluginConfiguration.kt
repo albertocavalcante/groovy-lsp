@@ -98,8 +98,8 @@ class JenkinsPluginConfiguration {
 
         return try {
             Files.readAllLines(path)
-                .map { it.trim() }
-                .filter { it.isNotBlank() && !it.startsWith("#") }
+                .map { it.substringBefore('#').trim() }
+                .filter { it.isNotBlank() }
                 .mapNotNull { line -> parsePluginLine(line) }
         } catch (e: Exception) {
             logger.error("Failed to parse plugins file: {}", path, e)

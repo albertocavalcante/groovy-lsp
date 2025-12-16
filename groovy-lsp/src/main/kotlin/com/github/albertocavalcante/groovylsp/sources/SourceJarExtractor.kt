@@ -65,9 +65,9 @@ class SourceJarExtractor(private val extractionDir: Path = getDefaultExtractionD
                         // Create parent directories
                         Files.createDirectories(outputPath.parent)
 
-                        // Extract file
+                        // Extract file (use REPLACE_EXISTING for re-extraction after cache clear)
                         zip.getInputStream(entry).use { input ->
-                            Files.copy(input, outputPath)
+                            Files.copy(input, outputPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
                         }
 
                         // Index: convert path to class name
