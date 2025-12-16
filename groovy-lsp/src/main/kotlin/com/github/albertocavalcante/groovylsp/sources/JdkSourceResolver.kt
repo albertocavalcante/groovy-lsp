@@ -34,16 +34,16 @@ class JdkSourceResolver(private val jdkSourceDir: Path = getDefaultJdkSourceDir(
      *
      * @param jrtUri The jrt: URI (e.g., jrt:/java.base/java/util/Date.class)
      * @param className The fully qualified class name
-     * @return SourceNavigationService.SourceResult indicating success or failure
+     * @return SourceNavigator.SourceResult indicating success or failure
      */
-    suspend fun resolveJdkSource(jrtUri: URI, className: String): SourceNavigationService.SourceResult {
+    suspend fun resolveJdkSource(jrtUri: URI, className: String): SourceNavigator.SourceResult {
         logger.debug("Resolving JDK source for: {} from {}", className, jrtUri)
 
         // Check cache first (thread-safe via ConcurrentHashMap)
         extractedSourceCache[className]?.let { cachedPath ->
             if (Files.exists(cachedPath)) {
                 logger.debug("Found cached JDK source for: {}", className)
-                return SourceNavigationService.SourceResult.SourceLocation(
+                return SourceNavigator.SourceResult.SourceLocation(
                     uri = cachedPath.toUri(),
                     className = className,
                 )
@@ -55,14 +55,14 @@ class JdkSourceResolver(private val jdkSourceDir: Path = getDefaultJdkSourceDir(
         }
 
         // Locate src.zip
-        val srcZip = findSrcZip() ?: return SourceNavigationService.SourceResult.BinaryOnly(
+        val srcZip = findSrcZip() ?: return SourceNavigator.SourceResult.BinaryOnly(
             uri = jrtUri,
             className = className,
             reason = "JDK src.zip not found. Set JAVA_HOME or use a JDK (not JRE).",
         )
 
         // Parse jrt: URI to get module and class path
-        val (moduleName, classPath) = parseJrtUri(jrtUri) ?: return SourceNavigationService.SourceResult.BinaryOnly(
+        val (moduleName, classPath) = parseJrtUri(jrtUri) ?: return SourceNavigator.SourceResult.BinaryOnly(
             uri = jrtUri,
             className = className,
             reason = "Could not parse jrt: URI: $jrtUri",
@@ -70,7 +70,7 @@ class JdkSourceResolver(private val jdkSourceDir: Path = getDefaultJdkSourceDir(
 
         // Extract source file
         val extractedPath = extractSourceFromZip(srcZip, moduleName, classPath, className)
-            ?: return SourceNavigationService.SourceResult.BinaryOnly(
+            ?: return SourceNavigator.SourceResult.BinaryOnly(
                 uri = jrtUri,
                 className = className,
                 reason = "Source for $className not found in src.zip",
@@ -80,7 +80,7 @@ class JdkSourceResolver(private val jdkSourceDir: Path = getDefaultJdkSourceDir(
         extractedSourceCache[className] = extractedPath
         logger.info("Extracted JDK source: {} -> {}", className, extractedPath)
 
-        return SourceNavigationService.SourceResult.SourceLocation(
+        return SourceNavigator.SourceResult.SourceLocation(
             uri = extractedPath.toUri(),
             className = className,
         )
