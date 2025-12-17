@@ -11,9 +11,10 @@ import com.github.albertocavalcante.groovyparser.ast.MethodSymbol
 import com.github.albertocavalcante.groovyparser.ast.SymbolCompletionContext
 import com.github.albertocavalcante.groovyparser.ast.SymbolExtractor
 import com.github.albertocavalcante.groovyparser.ast.VariableSymbol
+import com.github.albertocavalcante.groovyspock.SpockDetector
 import org.codehaus.groovy.control.CompilationFailedException
 import org.eclipse.lsp4j.CompletionItem
-import org.eclipse.lsp4j.MarkupContent
+import org.eclipse.lsp4j.CompletionItemKind
 import org.slf4j.LoggerFactory
 
 /**
@@ -45,6 +46,7 @@ object CompletionProvider {
     ): List<CompletionItem> {
         return try {
             val uriObj = java.net.URI.create(uri)
+            val isSpockSpec = SpockDetector.isLikelySpockSpec(uriObj, content)
 
             // Determine if we are inserting into an existing identifier
             val isClean = isCleanInsertion(content, line, character)
@@ -64,7 +66,16 @@ object CompletionProvider {
                     val ast = result2.ast
                     val astModel = result2.astModel
                     if (ast != null) {
-                        return buildCompletionsList(ast, astModel, line, character, compilationService, uriObj)
+                        return buildCompletionsList(
+                            ast = ast,
+                            astModel = astModel,
+                            line = line,
+                            character = character,
+                            compilationService = compilationService,
+                            uri = uriObj,
+                            content = content,
+                            isSpockSpec = isSpockSpec,
+                        )
                     }
                 }
             }
@@ -76,7 +87,16 @@ object CompletionProvider {
             if (ast == null) {
                 emptyList()
             } else {
-                buildCompletionsList(ast, astModel, line, character, compilationService, uriObj)
+                buildCompletionsList(
+                    ast = ast,
+                    astModel = astModel,
+                    line = line,
+                    character = character,
+                    compilationService = compilationService,
+                    uri = uriObj,
+                    content = content,
+                    isSpockSpec = isSpockSpec,
+                )
             }
         } catch (e: CompilationFailedException) {
             // If AST analysis fails, log and return empty list
@@ -123,6 +143,8 @@ object CompletionProvider {
         character: Int,
         compilationService: GroovyCompilationService,
         uri: java.net.URI,
+        content: String,
+        isSpockSpec: Boolean,
     ): List<CompletionItem> {
         // Extract completion context
         val context = SymbolExtractor.extractCompletionSymbols(ast, line, character)
@@ -133,6 +155,14 @@ object CompletionProvider {
         val completionContext = detectCompletionContext(nodeAtCursor, astModel, context)
 
         return completions {
+            addSpockBlockLabelsIfApplicable(
+                content = content,
+                line = line,
+                character = character,
+                isSpockSpec = isSpockSpec,
+                completionContext = completionContext,
+            )
+
             // Add local symbol completions
             addClasses(context.classes)
             addMethods(context.methods)
@@ -175,6 +205,56 @@ object CompletionProvider {
         }
     }
 
+    private fun CompletionsBuilder.addSpockBlockLabelsIfApplicable(
+        content: String,
+        line: Int,
+        character: Int,
+        isSpockSpec: Boolean,
+        completionContext: ContextType?,
+    ) {
+        if (!isSpockSpec) return
+        if (completionContext != null) return
+        if (!isLineIndentOnlyBeforeCursor(content, line, character)) return
+
+        val labels = listOf(
+            "given:" to "Spock setup block",
+            "setup:" to "Spock setup block (alias of given)",
+            "when:" to "Spock action block",
+            "then:" to "Spock assertion block",
+            "expect:" to "Spock combined when/then block",
+            "where:" to "Spock data-driven block",
+            "cleanup:" to "Spock cleanup block",
+            "and:" to "Spock block continuation",
+        )
+
+        labels.forEach { (label, doc) ->
+            completion {
+                label(label)
+                kind(CompletionItemKind.Keyword)
+                detail("Spock block label")
+                documentation(doc)
+                insertText(label)
+                // Sort ahead of general keywords
+                sortText("0-$label")
+            }
+        }
+    }
+
+    private fun isLineIndentOnlyBeforeCursor(content: String, line: Int, character: Int): Boolean {
+        val lines = content.lines()
+        if (line !in lines.indices) return false
+
+        val target = lines[line]
+        val safeChar = character.coerceIn(0, target.length)
+        val prefix = target.substring(0, safeChar)
+
+        // NOTE: Heuristic / tradeoff:
+        // We treat "all whitespace before cursor" as a signal that the user is likely starting a Spock block label.
+        // This avoids spamming completions mid-expression, but can still misfire in multiline strings/comments.
+        // TODO: Use AST to detect LabeledStatement contexts and suppress inside strings/comments when feasible.
+        return prefix.all { it == ' ' || it == '\t' }
+    }
+
     private fun CompletionsBuilder.addJenkinsGlobalVariables(
         metadata: com.github.albertocavalcante.groovyjenkins.metadata.BundledJenkinsMetadata,
         compilationService: GroovyCompilationService,
@@ -183,7 +263,7 @@ object CompletionProvider {
         val bundledCompletions = JenkinsStepCompletionProvider.getGlobalVariableCompletions(metadata)
         bundledCompletions.forEach { item ->
             val docString = when {
-                item.documentation?.isRight == true -> (item.documentation.right as? MarkupContent)?.value
+                item.documentation?.isRight == true -> item.documentation.right.value
                 item.documentation?.isLeft == true -> item.documentation.left
                 else -> null
             } ?: item.detail
