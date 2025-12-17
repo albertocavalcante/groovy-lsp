@@ -202,7 +202,7 @@ object CompletionProvider {
             // Use function() to insert as method call with parens: buildPlugin($1)
             function(
                 name = globalVar.name,
-                returnType = "void",
+                returnType = "Object",
                 doc = globalVar.documentation.ifEmpty {
                     "Shared library global variable from vars/${globalVar.name}.groovy"
                 },

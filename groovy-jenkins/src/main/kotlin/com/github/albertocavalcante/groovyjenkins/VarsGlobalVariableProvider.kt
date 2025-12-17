@@ -29,8 +29,11 @@ class VarsGlobalVariableProvider(private val workspaceRoot: Path) {
         FlexmarkHtmlConverter.builder().build()
     }
 
-    // Regex to match "def call" method declaration (with optional modifiers)
-    private val defCallPattern = Regex("""^\s*def\s+call\s*\(""")
+    // Regex to match "def call" method declaration (with optional modifiers and annotations)
+    private val defCallPattern =
+        Regex(
+            """^\s*(?:@\w+\s+|public\s+|private\s+|protected\s+|static\s+|final\s+|synchronized\s+|abstract\s+)*def\s+call\s*\(""",
+        )
 
     fun getGlobalVariables(): List<GlobalVariable> {
         val varsDir = workspaceRoot.resolve("vars")
@@ -59,18 +62,17 @@ class VarsGlobalVariableProvider(private val workspaceRoot: Path) {
      * Find the line number of `def call(...)` in a vars file.
      * Returns 1 if not found (fallback to first line).
      */
-    private fun findCallMethodLine(path: Path): Int {
-        return try {
-            Files.readAllLines(path).forEachIndexed { index, line ->
-                if (defCallPattern.containsMatchIn(line)) {
-                    return index + 1 // Convert to 1-indexed
-                }
-            }
+    private fun findCallMethodLine(path: Path): Int = try {
+        val lines = Files.readAllLines(path)
+        val index = lines.indexOfFirst { line -> defCallPattern.containsMatchIn(line) }
+        if (index >= 0) {
+            index + 1 // Convert to 1-indexed
+        } else {
             1 // Default to line 1 if not found
-        } catch (e: Exception) {
-            logger.debug("Failed to parse {} for call method: {}", path, e.message)
-            1
         }
+    } catch (e: java.io.IOException) {
+        logger.debug("Failed to parse {} for call method: {}", path, e.message)
+        1
     }
 
     /**
