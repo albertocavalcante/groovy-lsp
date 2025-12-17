@@ -82,10 +82,14 @@ class WorkspaceManager {
     private fun refreshSourceRoots(root: Path) {
         if (sourceRoots.isEmpty()) {
             val candidates = listOf(
+                // Standard Maven/Gradle source directories
                 root.resolve("src/main/groovy"),
                 root.resolve("src/main/java"),
                 root.resolve("src/main/kotlin"),
                 root.resolve("src/test/groovy"),
+                // Jenkins Shared Library structure: bare src/ directory
+                // Contains classes like src/org/example/MyClass.groovy
+                root.resolve("src"),
             )
 
             candidates.filter { Files.exists(it) && it.isDirectory() }.forEach(sourceRoots::add)
