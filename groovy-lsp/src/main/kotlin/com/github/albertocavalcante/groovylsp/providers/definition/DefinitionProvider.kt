@@ -209,10 +209,7 @@ class DefinitionProvider(
                     is DefinitionResolver.DefinitionResult.Source -> {
                         // Use result.uri directly for synthetic nodes (e.g., Jenkins vars)
                         val range = result.node.toLspRange()
-                            ?: org.eclipse.lsp4j.Range(
-                                org.eclipse.lsp4j.Position(0, 0),
-                                org.eclipse.lsp4j.Position(0, 0),
-                            )
+                            ?: EMPTY_RANGE
                         val location = Location(result.uri.toString(), range)
                         logger.debug(
                             "Found definition at ${location.uri}:${location.range} " +
@@ -232,7 +229,7 @@ class DefinitionProvider(
                         val location =
                             Location(
                                 result.uri.toString(),
-                                result.range ?: org.eclipse.lsp4j.Range(Position(0, 0), Position(0, 0)),
+                                result.range ?: EMPTY_RANGE,
                             )
                         logger.debug("Found binary definition at ${location.uri}")
                         telemetrySink.report(

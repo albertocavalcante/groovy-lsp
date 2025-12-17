@@ -142,7 +142,7 @@ class LocalSymbolResolutionStrategy(private val astVisitor: GroovyAstModel, priv
         .minByOrNull { it.lineNumber }
 
     private fun hasValidPosition(node: org.codehaus.groovy.ast.ASTNode): Boolean =
-        node.lineNumber > 0 && node.columnNumber > 0
+        node.lineNumber > 0 && node.columnNumber > 0 && node.lastLineNumber > 0 && node.lastColumnNumber > 0
 
     companion object {
         private const val STRATEGY_NAME = "LocalSymbol"

@@ -3,10 +3,6 @@ package com.github.albertocavalcante.groovylsp.providers.definition.resolution
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
 import com.github.albertocavalcante.groovylsp.providers.definition.DefinitionResolver
 import com.github.albertocavalcante.groovylsp.sources.SourceNavigator
-import org.codehaus.groovy.ast.ClassNode
-import org.codehaus.groovy.ast.ImportNode
-import org.codehaus.groovy.ast.expr.ClassExpression
-import org.codehaus.groovy.ast.expr.ConstructorCallExpression
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
 import org.slf4j.LoggerFactory
@@ -95,14 +91,6 @@ class ClasspathResolutionStrategy(
                 )
             }
         }
-    }
-
-    private fun getClassName(targetNode: org.codehaus.groovy.ast.ASTNode): String? = when (targetNode) {
-        is ClassNode -> targetNode.name
-        is ConstructorCallExpression -> targetNode.type.name
-        is ClassExpression -> targetNode.type.name
-        is ImportNode -> targetNode.type?.name ?: targetNode.className
-        else -> null
     }
 
     companion object {

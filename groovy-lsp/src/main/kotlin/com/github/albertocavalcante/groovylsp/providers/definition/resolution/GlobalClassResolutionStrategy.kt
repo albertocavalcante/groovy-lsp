@@ -4,10 +4,7 @@ import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationServi
 import com.github.albertocavalcante.groovylsp.providers.definition.DefinitionResolver
 import com.github.albertocavalcante.groovyparser.ast.symbols.Symbol
 import org.codehaus.groovy.ast.ClassNode
-import org.codehaus.groovy.ast.ImportNode
 import org.codehaus.groovy.ast.ModuleNode
-import org.codehaus.groovy.ast.expr.ClassExpression
-import org.codehaus.groovy.ast.expr.ConstructorCallExpression
 import org.slf4j.LoggerFactory
 
 /**
@@ -51,14 +48,6 @@ class GlobalClassResolutionStrategy(private val compilationService: GroovyCompil
             "Class $className not found in workspace symbol index",
             STRATEGY_NAME,
         )
-    }
-
-    private fun getClassName(targetNode: org.codehaus.groovy.ast.ASTNode): String? = when (targetNode) {
-        is ClassNode -> targetNode.name
-        is ConstructorCallExpression -> targetNode.type.name
-        is ClassExpression -> targetNode.type.name
-        is ImportNode -> targetNode.type?.name ?: targetNode.className
-        else -> null
     }
 
     private fun loadClassNodeFromAst(uri: java.net.URI, className: String): ClassNode? {

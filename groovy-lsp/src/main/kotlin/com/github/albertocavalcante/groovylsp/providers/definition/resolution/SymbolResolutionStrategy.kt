@@ -6,6 +6,7 @@ import arrow.core.right
 import com.github.albertocavalcante.groovylsp.providers.definition.DefinitionResolver
 import com.github.albertocavalcante.groovyparser.ast.types.Position
 import org.codehaus.groovy.ast.ASTNode
+import org.slf4j.LoggerFactory
 import java.net.URI
 
 /**
@@ -79,6 +80,8 @@ fun interface SymbolResolutionStrategy {
     suspend fun resolve(context: ResolutionContext): ResolutionResult
 
     companion object {
+        private val logger = LoggerFactory.getLogger(SymbolResolutionStrategy::class.java)
+
         /**
          * Compose multiple strategies into a pipeline that short-circuits on first success.
          *
@@ -99,6 +102,11 @@ fun interface SymbolResolutionStrategy {
                     result = try {
                         strategy.resolve(context)
                     } catch (e: Exception) {
+                        logger.debug(
+                            "Resolution strategy {} threw unexpectedly",
+                            strategy::class.simpleName ?: "unknown",
+                            e,
+                        )
                         ResolutionError(
                             "Strategy threw: ${e.message}",
                             strategy::class.simpleName ?: "unknown",
