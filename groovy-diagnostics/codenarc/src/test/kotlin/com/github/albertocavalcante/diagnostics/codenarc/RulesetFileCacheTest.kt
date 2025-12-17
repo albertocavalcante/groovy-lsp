@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -20,7 +19,7 @@ class RulesetFileCacheTest {
 
     @Test
     fun `same ruleset content reuses cached file path`() {
-        val cache = RulesetFileCache(cacheDir, ConcurrentHashMap())
+        val cache = RulesetFileCache(cacheDir)
 
         val rulesetContent = "ruleset { TrailingWhitespace }"
         val first = cache.getOrCreate(rulesetContent)
@@ -32,7 +31,7 @@ class RulesetFileCacheTest {
 
     @Test
     fun `different ruleset content uses different cached file paths`() {
-        val cache = RulesetFileCache(cacheDir, ConcurrentHashMap())
+        val cache = RulesetFileCache(cacheDir)
 
         val first = cache.getOrCreate("ruleset { TrailingWhitespace }")
         val second = cache.getOrCreate("ruleset { EmptyClass }")
@@ -44,7 +43,7 @@ class RulesetFileCacheTest {
 
     @Test
     fun `cached ruleset file contains the original content`() {
-        val cache = RulesetFileCache(cacheDir, ConcurrentHashMap())
+        val cache = RulesetFileCache(cacheDir)
 
         val rulesetContent = "ruleset { TrailingWhitespace }"
         val path = cache.getOrCreate(rulesetContent)
@@ -56,8 +55,8 @@ class RulesetFileCacheTest {
 
     @Test
     fun `concurrent caches handle file creation races`() {
-        val cache1 = RulesetFileCache(cacheDir, ConcurrentHashMap())
-        val cache2 = RulesetFileCache(cacheDir, ConcurrentHashMap())
+        val cache1 = RulesetFileCache(cacheDir)
+        val cache2 = RulesetFileCache(cacheDir)
 
         val rulesetContent = "ruleset { TrailingWhitespace }"
 

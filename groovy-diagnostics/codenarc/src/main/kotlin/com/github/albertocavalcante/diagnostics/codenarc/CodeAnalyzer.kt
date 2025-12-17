@@ -53,11 +53,7 @@ class DefaultCodeAnalyzer internal constructor(private val rulesetFilePathProvid
         private val rulesetCacheDir: Path = Files.createDirectory(baseTempDir.resolve("rulesets"))
             .also { it.toFile().deleteOnExit() }
 
-        private val cachedRulesetFilesByHash = ConcurrentHashMap<String, Path>()
-        private val rulesetFileCache = RulesetFileCache(
-            cacheDir = rulesetCacheDir,
-            cachedFilesByHash = cachedRulesetFilesByHash,
-        )
+        private val rulesetFileCache = RulesetFileCache(cacheDir = rulesetCacheDir)
 
         private const val DEFAULT_SOURCE_FILE_NAME = "script.groovy"
     }
@@ -154,10 +150,9 @@ class DefaultCodeAnalyzer internal constructor(private val rulesetFilePathProvid
     }
 }
 
-internal class RulesetFileCache(
-    private val cacheDir: Path,
-    private val cachedFilesByHash: ConcurrentHashMap<String, Path> = ConcurrentHashMap(),
-) {
+internal class RulesetFileCache(private val cacheDir: Path) {
+    private val cachedFilesByHash = ConcurrentHashMap<String, Path>()
+
     companion object {
         // NOTE: MessageDigest.getInstance("SHA-256") is relatively expensive; reuse per-thread instances.
         // TODO: Measure impact under realistic concurrency before adding more complex pooling.
