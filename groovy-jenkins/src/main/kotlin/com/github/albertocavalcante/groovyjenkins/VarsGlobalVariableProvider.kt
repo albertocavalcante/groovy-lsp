@@ -1,5 +1,6 @@
 package com.github.albertocavalcante.groovyjenkins
 
+import com.vladsch.flexmark.html2md.converter.FlexmarkHtmlConverter
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
@@ -9,6 +10,11 @@ data class GlobalVariable(val name: String, val path: Path, val documentation: S
 
 class VarsGlobalVariableProvider(private val workspaceRoot: Path) {
     private val logger = LoggerFactory.getLogger(VarsGlobalVariableProvider::class.java)
+
+    // Reusable HTML to Markdown converter
+    private val htmlToMarkdownConverter: FlexmarkHtmlConverter by lazy {
+        FlexmarkHtmlConverter.builder().build()
+    }
 
     fun getGlobalVariables(): List<GlobalVariable> {
         val varsDir = workspaceRoot.resolve("vars")
@@ -51,46 +57,24 @@ class VarsGlobalVariableProvider(private val workspaceRoot: Path) {
     }
 
     /**
-     * Convert HTML documentation to markdown.
+     * Convert HTML documentation to markdown using flexmark-html2md-converter.
      *
-     * Handles common Jenkins documentation patterns:
-     * - <p>...</p> paragraphs
-     * - <b>...</b> bold text
-     * - <code>...</code> code spans
-     * - <!-- ... --> HTML comments (stripped)
+     * This properly handles complex HTML structures including:
+     * - Paragraphs, headings, lists
+     * - Bold, italic, code spans
+     * - Links and images
+     * - Tables (if present)
+     * - HTML comments are automatically stripped
      */
     internal fun convertHtmlToMarkdown(html: String): String {
-        var result = html
+        if (html.isBlank()) return ""
 
-        // Strip HTML comments
-        result = result.replace(Regex("<!--[\\s\\S]*?-->"), "")
-
-        // Convert <b> and <strong> to markdown bold
-        result = result.replace(Regex("<b>([^<]*)</b>"), "**$1**")
-        result = result.replace(Regex("<strong>([^<]*)</strong>"), "**$1**")
-
-        // Convert <code> to markdown code
-        result = result.replace(Regex("<code>([^<]*)</code>"), "`$1`")
-
-        // Convert <pre> blocks
-        result = result.replace(Regex("<pre>([^<]*)</pre>")) { match ->
-            "\n```\n${match.groupValues[1]}\n```\n"
+        return try {
+            htmlToMarkdownConverter.convert(html).trim()
+        } catch (e: Exception) {
+            logger.warn("Failed to convert HTML to markdown: ${e.message}")
+            // Fallback: strip all HTML tags
+            html.replace(Regex("<[^>]+>"), "").trim()
         }
-
-        // Convert <a href="...">text</a> to markdown links
-        result = result.replace(Regex("<a\\s+href=\"([^\"]+)\">([^<]*)</a>"), "[$2]($1)")
-
-        // Strip paragraph tags but preserve line breaks
-        result = result.replace(Regex("<p>\\s*"), "\n")
-        result = result.replace(Regex("\\s*</p>"), "\n")
-
-        // Strip remaining HTML tags
-        result = result.replace(Regex("<[^>]+>"), "")
-
-        // Clean up whitespace
-        result = result.replace(Regex("\n\\s*\n\\s*\n+"), "\n\n")
-        result = result.trim()
-
-        return result
     }
 }
