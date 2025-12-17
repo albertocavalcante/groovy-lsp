@@ -46,7 +46,10 @@ class LocalSymbolResolutionStrategy(private val astVisitor: GroovyAstModel, priv
             context.targetNode.resolveToDefinition(astVisitor, symbolTable, strict = false)
         } catch (e: StackOverflowError) {
             logger.debug("Stack overflow during local resolution, likely circular reference", e)
-            return SymbolResolutionStrategy.notFound("Circular reference detected", STRATEGY_NAME)
+            return SymbolResolutionStrategy.notFound(
+                "Error[CIRCULAR_REFERENCE]: stack overflow during local resolution",
+                STRATEGY_NAME,
+            )
         } catch (e: IllegalArgumentException) {
             logger.debug("Invalid argument during local resolution: ${e.message}", e)
             return SymbolResolutionStrategy.notFound("Invalid argument: ${e.message}", STRATEGY_NAME)
@@ -60,10 +63,10 @@ class LocalSymbolResolutionStrategy(private val astVisitor: GroovyAstModel, priv
             is ConstantExpression -> null // String literals aren't definitions
             is ClassNode -> {
                 // NOTE: Groovy resolution sometimes returns a ClassNode that points at the reference site (e.g. `new Foo()`)
-                // rather than the declaration. For locally-declared classes, prefer the declaration node from our visitor.
-                // TODO: Prefer a deterministic AST-backed link (e.g. ModuleNode.classes / redirect metadata) instead of
-                // selecting by earliest source position if multiple nodes share the same name.
-                findLocalClassDeclaration(definition.name)
+                // rather than the declaration. Prefer the redirected (canonical) node when it looks locally declared,
+                // otherwise fall back to our visitor-tracked class declarations.
+                // TODO: Prefer a deterministic AST-backed link (e.g. ModuleNode.classes) rather than visitor heuristics.
+                resolveLocalClassDefinition(definition)
             }
 
             else -> definition
@@ -106,8 +109,7 @@ class LocalSymbolResolutionStrategy(private val astVisitor: GroovyAstModel, priv
             )
         }
 
-        // Find the actual class definition from the AST (prefer earliest declaration if multiple match)
-        val localClass = findLocalClassDeclaration(classNode.name)
+        val localClass = resolveLocalClassDefinition(classNode)
         if (localClass == null || !hasValidPosition(localClass)) {
             return SymbolResolutionStrategy.notFound(
                 "Class ${classNode.name} not found in local AST",
@@ -134,6 +136,14 @@ class LocalSymbolResolutionStrategy(private val astVisitor: GroovyAstModel, priv
     private fun isLocallyDefinedClass(classNode: ClassNode): Boolean {
         val localClasses = astVisitor.getAllClassNodes()
         return localClasses.any { it.name == classNode.name }
+    }
+
+    private fun resolveLocalClassDefinition(classNode: ClassNode): ClassNode? {
+        val redirected = classNode.redirect()
+        if (redirected !== classNode && isLocallyDefinedClass(redirected) && hasValidPosition(redirected)) {
+            return redirected
+        }
+        return findLocalClassDeclaration(classNode.name)
     }
 
     private fun findLocalClassDeclaration(className: String): ClassNode? = astVisitor.getAllClassNodes()

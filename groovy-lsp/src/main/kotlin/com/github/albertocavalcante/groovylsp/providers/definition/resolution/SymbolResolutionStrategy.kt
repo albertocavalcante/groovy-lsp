@@ -5,6 +5,7 @@ import arrow.core.left
 import arrow.core.right
 import com.github.albertocavalcante.groovylsp.providers.definition.DefinitionResolver
 import com.github.albertocavalcante.groovyparser.ast.types.Position
+import kotlinx.coroutines.CancellationException
 import org.codehaus.groovy.ast.ASTNode
 import org.slf4j.LoggerFactory
 import java.net.URI
@@ -101,6 +102,8 @@ fun interface SymbolResolutionStrategy {
 
                     result = try {
                         strategy.resolve(context)
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         logger.debug(
                             "Resolution strategy {} threw unexpectedly",

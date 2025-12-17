@@ -40,9 +40,10 @@ class DefinitionResolver(
      * 3. GlobalClass - Cross-file class lookup via symbol index
      * 4. Classpath - JAR/JRT external dependencies (lowest priority)
      *
-    * The pipeline short-circuits on first success (Either.Right).
+     * The pipeline short-circuits on first success (Either.Right).
      */
-    private val resolutionPipeline: SymbolResolutionStrategy by lazy {
+    private val resolutionPipeline: SymbolResolutionStrategy =
+        run {
         val strategies = buildList {
             compilationService?.let { add(JenkinsVarsResolutionStrategy(it)) }
             add(LocalSymbolResolutionStrategy(astVisitor, symbolTable))
@@ -51,8 +52,8 @@ class DefinitionResolver(
                 add(ClasspathResolutionStrategy(it, sourceNavigator))
             }
         }
-        SymbolResolutionStrategy.pipeline(*strategies.toTypedArray())
-    }
+            SymbolResolutionStrategy.pipeline(*strategies.toTypedArray())
+        }
 
     /**
      * Find the definition of the symbol at the given position.

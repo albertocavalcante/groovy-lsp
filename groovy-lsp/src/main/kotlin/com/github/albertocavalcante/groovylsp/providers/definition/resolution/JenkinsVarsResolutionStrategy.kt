@@ -39,6 +39,8 @@ class JenkinsVarsResolutionStrategy(private val compilationService: GroovyCompil
         logger.debug("Found Jenkins global variable '{}' at {}", methodName, matchingVar.path)
 
         // Create a synthetic ClassNode to represent the definition location
+        // NOTE: We only need a non-invalid position so LSP clients can open the target file.
+        // TODO: Parse `vars/*.groovy` and use the real AST range for precise selection/navigation.
         val syntheticNode = ClassNode(matchingVar.name, 0, null).apply {
             lineNumber = 1
             columnNumber = 1
@@ -61,7 +63,8 @@ class JenkinsVarsResolutionStrategy(private val compilationService: GroovyCompil
         is MethodCallExpression -> node.methodAsString
         is ConstantExpression -> {
             val value = node.value as? String ?: return null
-            // Heuristic: must be a valid identifier (no spaces, dots, etc.)
+            // NOTE: Clicking inside a method call can resolve to a ConstantExpression holding the identifier string.
+            // TODO: Derive the method name from the surrounding MethodCallExpression deterministically.
             value.takeIf { it.isNotBlank() && it.matches(IDENTIFIER_REGEX) }
         }
 
