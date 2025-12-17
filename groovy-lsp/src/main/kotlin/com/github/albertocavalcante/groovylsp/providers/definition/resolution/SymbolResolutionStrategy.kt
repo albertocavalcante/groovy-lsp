@@ -89,10 +89,13 @@ fun interface SymbolResolutionStrategy {
          * Strategies are tried in order (priority). First [Either.Right] wins,
          * remaining strategies are skipped. If all fail, returns the last error.
          *
+         * Prefer passing a list/sequence to avoid vararg spread operator overhead.
+         *
          * @param strategies Strategies in priority order (first = highest priority)
          * @return A composite strategy that tries each in sequence
          */
-        fun pipeline(vararg strategies: SymbolResolutionStrategy): SymbolResolutionStrategy =
+        @Suppress("TooGenericExceptionCaught")
+        fun pipeline(strategies: Iterable<SymbolResolutionStrategy>): SymbolResolutionStrategy =
             SymbolResolutionStrategy { context ->
                 var result: ResolutionResult = ResolutionError("No strategies in pipeline", "pipeline").left()
 
@@ -104,7 +107,12 @@ fun interface SymbolResolutionStrategy {
                         strategy.resolve(context)
                     } catch (e: CancellationException) {
                         throw e
+                    } catch (e: Error) {
+                        throw e
                     } catch (e: Exception) {
+                        // NOTE: This is intentionally a broad catch to keep definition resolution resilient.
+                        // TODO: Replace with strategy-specific error handling (or typed ResolutionError codes) so we
+                        // only catch known failure modes and let truly unexpected exceptions fail fast in tests.
                         logger.debug(
                             "Resolution strategy {} threw unexpectedly",
                             strategy::class.simpleName ?: "unknown",
@@ -119,6 +127,9 @@ fun interface SymbolResolutionStrategy {
 
                 result
             }
+
+        fun pipeline(vararg strategies: SymbolResolutionStrategy): SymbolResolutionStrategy =
+            pipeline(strategies.asList())
 
         /** Convenience: error for strategies that don't apply to the node type */
         fun notApplicable(strategy: String = "unknown"): ResolutionResult =

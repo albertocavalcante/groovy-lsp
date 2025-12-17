@@ -62,10 +62,11 @@ class LocalSymbolResolutionStrategy(private val astVisitor: GroovyAstModel, priv
         val filteredDefinition = when (definition) {
             is ConstantExpression -> null // String literals aren't definitions
             is ClassNode -> {
-                // NOTE: Groovy resolution sometimes returns a ClassNode that points at the reference site (e.g. `new Foo()`)
-                // rather than the declaration. Prefer the redirected (canonical) node when it looks locally declared,
-                // otherwise fall back to our visitor-tracked class declarations.
-                // TODO: Prefer a deterministic AST-backed link (e.g. ModuleNode.classes) rather than visitor heuristics.
+                // NOTE: Groovy resolution sometimes returns a ClassNode that points at the reference site
+                // (e.g. `new Foo()`) rather than the declaration. Prefer the redirected (canonical) node when it
+                // looks locally declared, otherwise fall back to our visitor-tracked class declarations.
+                // TODO: Prefer a deterministic AST-backed link (e.g. ModuleNode.classes) rather than
+                // visitor heuristics.
                 resolveLocalClassDefinition(definition)
             }
 

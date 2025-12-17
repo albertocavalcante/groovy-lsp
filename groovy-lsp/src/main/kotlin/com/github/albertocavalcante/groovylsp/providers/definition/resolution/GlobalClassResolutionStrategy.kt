@@ -30,7 +30,7 @@ class GlobalClassResolutionStrategy(private val compilationService: GroovyCompil
         // Search all symbol indices across workspace files
         for ((uri, index) in compilationService.getAllSymbolStorages()) {
             val symbols = index.getSymbols(uri).filterIsInstance<Symbol.Class>()
-            val matchingSymbol = symbols.find { it.name == className } ?: continue
+            if (symbols.none { it.name == className }) continue
 
             // Found it in the index, now load the actual ClassNode from AST
             val classNode = loadClassNodeFromAst(uri, className)

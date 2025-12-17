@@ -52,7 +52,7 @@ class DefinitionResolver(
                     add(ClasspathResolutionStrategy(it, sourceNavigator))
                 }
             }
-            SymbolResolutionStrategy.pipeline(*strategies.toTypedArray())
+            SymbolResolutionStrategy.pipeline(strategies)
         }
 
     /**

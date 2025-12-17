@@ -24,6 +24,7 @@ class ClasspathResolutionStrategy(
 
     private val logger = LoggerFactory.getLogger(ClasspathResolutionStrategy::class.java)
 
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun resolve(context: ResolutionContext): ResolutionResult {
         val className = getClassName(context.targetNode)
             ?: return SymbolResolutionStrategy.notApplicable(STRATEGY_NAME)
@@ -55,7 +56,11 @@ class ClasspathResolutionStrategy(
                 }
             } catch (e: CancellationException) {
                 throw e // Preserve coroutine cancellation
+            } catch (e: Error) {
+                throw e
             } catch (e: Exception) {
+                // NOTE: Source navigation is best-effort; resolution should still succeed with binaries when possible.
+                // TODO: Narrow the caught exception types once SourceNavigator exposes a more explicit error surface.
                 logger.warn("Failed to navigate to source for {}: {}", className, e.message, e)
                 // Fall through to check if URI is resolvable
             }
