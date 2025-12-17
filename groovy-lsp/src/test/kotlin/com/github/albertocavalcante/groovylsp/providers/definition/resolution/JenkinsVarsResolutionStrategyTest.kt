@@ -6,6 +6,7 @@ import com.github.albertocavalcante.groovylsp.providers.definition.DefinitionRes
 import com.github.albertocavalcante.groovyparser.ast.types.Position
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.runBlocking
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.expr.ArgumentListExpression
 import org.codehaus.groovy.ast.expr.ConstantExpression
@@ -42,7 +43,7 @@ class JenkinsVarsResolutionStrategyTest {
             position = Position(0, 0),
         )
 
-        val result = kotlinx.coroutines.runBlocking { strategy.resolve(context) }
+        val result = runBlocking { strategy.resolve(context) }
         result.fold(
             ifLeft = { error ->
                 throw AssertionError("Expected Right, got Left: ${error.strategy} - ${error.reason}")
@@ -69,7 +70,7 @@ class JenkinsVarsResolutionStrategyTest {
             position = Position(0, 0),
         )
 
-        val result = kotlinx.coroutines.runBlocking { strategy.resolve(context) }
+        val result = runBlocking { strategy.resolve(context) }
         result.fold(
             ifLeft = { error ->
                 assertEquals("JenkinsVars", error.strategy)
