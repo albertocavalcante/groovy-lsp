@@ -41,4 +41,40 @@ class SpockDetectorTest {
 
         assertFalse(SpockDetector.isLikelySpockSpec(uri, content))
     }
+
+    @Test
+    fun `detects spock spec by wildcard import`() {
+        val uri = URI.create("file:///src/test/groovy/com/example/FooTest.groovy")
+        val content =
+            """
+            import spock.lang.*
+
+            class FooTest extends Specification {
+            }
+            """.trimIndent()
+
+        assertTrue(SpockDetector.isLikelySpockSpec(uri, content))
+    }
+
+    @Test
+    fun `detects spock spec by fully qualified superclass`() {
+        val uri = URI.create("file:///src/test/groovy/com/example/FooTest.groovy")
+        val content = "class FooTest extends spock.lang.Specification {}"
+
+        assertTrue(SpockDetector.isLikelySpockSpec(uri, content))
+    }
+
+    @Test
+    fun `does not detect spock when Specification is from another package`() {
+        val uri = URI.create("file:///src/test/groovy/com/example/FooTest.groovy")
+        val content =
+            """
+            import com.example.Specification
+
+            class FooTest extends Specification {
+            }
+            """.trimIndent()
+
+        assertFalse(SpockDetector.isLikelySpockSpec(uri, content))
+    }
 }

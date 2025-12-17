@@ -20,7 +20,6 @@ object SpockDetector {
             .replace('\r', '\n')
 
         return normalized.contains("spock.lang.Specification") ||
-            normalized.contains("import spock.") ||
-            (normalized.contains("extends Specification") && normalized.contains("import spock.lang.Specification"))
+            normalized.contains("import spock.")
     }
 }
