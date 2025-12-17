@@ -291,6 +291,7 @@ class HoverProvider(
 
     /**
      * Try to create a hover for a Jenkins step from bundled metadata.
+     * Also checks for vars/ global variables with .txt documentation.
      */
     private fun tryCreateJenkinsStepHover(node: ASTNode, documentUri: URI): Hover? {
         // Only check for Jenkins files
@@ -304,6 +305,14 @@ class HoverProvider(
         }
 
         val stepName = node.methodAsString ?: return null
+
+        // First, check if this is a vars/ global variable call
+        val varsHover = tryCreateVarsGlobalVariableHover(stepName, node)
+        if (varsHover != null) {
+            return varsHover
+        }
+
+        // Fall back to bundled Jenkins step metadata
         val metadata = compilationService.workspaceManager.getAllJenkinsMetadata() ?: return null
         val stepMetadata = JenkinsStepCompletionProvider.getStepMetadata(stepName, metadata) ?: return null
 
@@ -335,6 +344,44 @@ class HoverProvider(
         }
 
         // Build hover range from the method call expression
+        val hoverRange = Range(
+            Position(node.lineNumber - 1, node.columnNumber - 1),
+            Position(node.lastLineNumber - 1, node.lastColumnNumber - 1),
+        )
+
+        return Hover().apply {
+            contents = Either.forRight(markupContent)
+            range = hoverRange
+        }
+    }
+
+    /**
+     * Try to create a hover for a vars/ global variable call.
+     * Shows the documentation from the companion .txt file if available.
+     */
+    private fun tryCreateVarsGlobalVariableHover(varName: String, node: MethodCallExpression): Hover? {
+        val globalVariables = compilationService.workspaceManager.getJenkinsGlobalVariables()
+        val globalVar = globalVariables.find { it.name == varName } ?: return null
+
+        // Build hover content
+        val markdownContent = buildString {
+            append("## Jenkins Shared Library: `$varName`\n\n")
+
+            if (globalVar.documentation.isNotEmpty()) {
+                append(globalVar.documentation)
+                append("\n\n")
+            } else {
+                append("_No documentation available. Add a `vars/$varName.txt` file to provide documentation._\n\n")
+            }
+
+            append("**Source:** `${globalVar.path.fileName}`\n")
+        }
+
+        val markupContent = MarkupContent().apply {
+            kind = MarkupKind.MARKDOWN
+            value = markdownContent
+        }
+
         val hoverRange = Range(
             Position(node.lineNumber - 1, node.columnNumber - 1),
             Position(node.lastLineNumber - 1, node.lastColumnNumber - 1),
