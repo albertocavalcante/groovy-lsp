@@ -132,7 +132,13 @@ class GradleDependencyResolverRetryTest {
         every { connection.model(IdeaProject::class.java) } returns modelBuilder
         every { connectionFactory.getConnection(any(), any()) } returns connection
 
-        val resolver = GradleBuildTool(connectionFactory)
+        // Use zero-delay config for fast test execution
+        val fastRetryConfig = GradleDependencyResolver.RetryConfig(
+            maxAttempts = 4,
+            initialDelayMs = 0L,
+            backoffMultiplier = 1.0,
+        )
+        val resolver = GradleBuildTool(connectionFactory, fastRetryConfig)
         val result = resolver.resolve(workspaceRoot = projectDir, onProgress = null)
 
         // Verify it retried and succeeded
@@ -167,11 +173,17 @@ class GradleDependencyResolverRetryTest {
         every { connection.model(IdeaProject::class.java) } returns modelBuilder
         every { connectionFactory.getConnection(any(), any()) } returns connection
 
-        val resolver = GradleBuildTool(connectionFactory)
+        // Use zero-delay config for fast test execution
+        val fastRetryConfig = GradleDependencyResolver.RetryConfig(
+            maxAttempts = 4,
+            initialDelayMs = 0L,
+            backoffMultiplier = 1.0,
+        )
+        val resolver = GradleBuildTool(connectionFactory, fastRetryConfig)
         val result = resolver.resolve(workspaceRoot = projectDir, onProgress = null)
 
-        // Should have tried MAX_ATTEMPTS (3) times then given up
-        assertEquals(3, attemptCount, "Should have retried 3 times before giving up")
+        // Should have tried MAX_ATTEMPTS (4) times then given up
+        assertEquals(4, attemptCount, "Should have retried 4 times before giving up")
         assertEquals(0, result.dependencies.size)
         assertEquals(0, result.sourceDirectories.size)
     }
