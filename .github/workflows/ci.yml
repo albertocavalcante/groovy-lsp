@@ -118,19 +118,25 @@ jobs:
       - name: Compile and Lint
         run: ./gradlew classes testClasses lint --parallel --build-cache --stacktrace $GRADLE_SCAN_FLAG
 
-      # Phase 2: Unit Tests + Coverage (coverage depends on test execution data)
-      - name: Run Unit Tests with Coverage
+      # Phase 2: Unit Tests (generates coverage data in .ic files)
+      - name: Run Unit Tests
         timeout-minutes: 20
-        run: ./gradlew test koverXmlReport koverHtmlReport --parallel --build-cache --stacktrace $TEST_LOG_FLAG $GRADLE_SCAN_FLAG
+        run: ./gradlew test --parallel --build-cache --stacktrace $TEST_LOG_FLAG $GRADLE_SCAN_FLAG
 
-      # Phase 3: E2E Tests (automatically builds shadowJar via task dependency)
+      # Phase 3: Coverage Reports (reads .ic files from Phase 2)
+      # NOTE: Split from test task to avoid Kover hang bug when running in same invocation
+      # with --parallel. See: https://github.com/Kotlin/kotlinx-kover/issues/509
+      - name: Generate Coverage Reports
+        run: ./gradlew koverXmlReport koverHtmlReport --parallel --build-cache --stacktrace $GRADLE_SCAN_FLAG
+
+      # Phase 4: E2E Tests (automatically builds shadowJar via task dependency)
       # Skip on macOS - E2E tests are platform-independent LSP protocol tests
       - name: Run E2E Tests
         if: matrix.os != 'macos-latest'
         timeout-minutes: 30
         run: ./gradlew :tests:e2eTest --parallel --build-cache --stacktrace $TEST_LOG_FLAG $GRADLE_SCAN_FLAG
 
-      # Phase 4: SonarCloud (needs coverage reports from Phase 2)
+      # Phase 5: SonarCloud (needs coverage reports from Phase 3)
       - name: SonarCloud Analysis
         if: (matrix.os == 'ubuntu-latest' || matrix.os == 'self-hosted') && matrix.java == 17 && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository))
         env:
