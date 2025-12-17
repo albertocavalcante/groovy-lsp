@@ -6,6 +6,7 @@ import org.codenarc.results.Results
 import org.slf4j.LoggerFactory
 import java.nio.charset.StandardCharsets
 import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -163,6 +164,9 @@ internal class RulesetFileCache(
 
             try {
                 Files.move(tmpPath, cachedRulesetPath, StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: FileAlreadyExistsException) {
+                // Another writer (or a previous run) created the cached file after our existence check.
+                // The cache file content is keyed by hash, so it's safe to reuse the existing file.
             } catch (_: AtomicMoveNotSupportedException) {
                 // NOTE: Some filesystems don't support ATOMIC_MOVE; fall back to a best-effort replace.
                 // TODO: Use a filesystem capability check (or single-writer lock) to avoid relying on exceptions.
