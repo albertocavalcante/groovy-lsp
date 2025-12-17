@@ -46,6 +46,10 @@ class LocalSymbolResolutionStrategy(private val astVisitor: GroovyAstModel, priv
             context.targetNode.resolveToDefinition(astVisitor, symbolTable, strict = false)
         } catch (e: StackOverflowError) {
             logger.debug("Stack overflow during local resolution, likely circular reference", e)
+            // NOTE: The legacy resolver surfaced a dedicated exception with additional context. In the new pipeline,
+            // we keep the resolution non-fatal and return a typed error code for debugging.
+            // TODO: Capture the resolution path deterministically (without relying on StackOverflowError) so we can
+            // provide actionable circular reference details.
             return SymbolResolutionStrategy.notFound(
                 "Error[CIRCULAR_REFERENCE]: stack overflow during local resolution",
                 STRATEGY_NAME,
@@ -65,8 +69,10 @@ class LocalSymbolResolutionStrategy(private val astVisitor: GroovyAstModel, priv
                 // NOTE: Groovy resolution sometimes returns a ClassNode that points at the reference site
                 // (e.g. `new Foo()`) rather than the declaration. Prefer the redirected (canonical) node when it
                 // looks locally declared, otherwise fall back to our visitor-tracked class declarations.
-                // TODO: Prefer a deterministic AST-backed link (e.g. ModuleNode.classes) rather than
-                // visitor heuristics.
+                // NOTE: ModuleNode-backed lookups are handled by GlobalClassResolutionStrategy; this strategy stays
+                // local-only and uses the visitor model for locally-defined classes.
+                // TODO: Prefer a deterministic AST-backed link for local classes (or improve visitor parent links)
+                // instead of selecting by earliest source position.
                 resolveLocalClassDefinition(definition)
             }
 
@@ -136,6 +142,8 @@ class LocalSymbolResolutionStrategy(private val astVisitor: GroovyAstModel, priv
      */
     private fun isLocallyDefinedClass(classNode: ClassNode): Boolean {
         val localClasses = astVisitor.getAllClassNodes()
+        // NOTE: ClassNode.name is the fully qualified name (when available), so matching on name avoids
+        // collisions with unrelated types that share the same simple name.
         return localClasses.any { it.name == classNode.name }
     }
 

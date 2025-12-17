@@ -19,6 +19,8 @@ import com.github.albertocavalcante.groovyparser.ast.findNodeAt
 import com.github.albertocavalcante.groovyparser.ast.resolveToDefinition
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ModuleNode
+import org.codehaus.groovy.ast.expr.ConstantExpression
+import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.slf4j.LoggerFactory
 import java.net.URI
 
@@ -126,14 +128,44 @@ class DefinitionResolver(
                 else -> trackedNode
             } ?: handleValidationError("nodeNotFound", uri, ValidationContext.PositionContext(position))
 
-        logger.debug("Found target node: ${targetNode.javaClass.simpleName}")
-        return targetNode
+        val methodCall = when {
+            targetNode is MethodCallExpression -> targetNode
+            trackedNode is ConstantExpression -> findMethodCallWhereNodeIsMethodExpression(trackedNode)
+            targetNode is ConstantExpression -> findMethodCallWhereNodeIsMethodExpression(targetNode)
+            else -> null
+        }
+
+        // NOTE: Clicking on a method call can resolve to its ConstantExpression "method" node.
+        // Prefer the enclosing MethodCallExpression in that specific case to avoid false positives when
+        // the ConstantExpression is a string literal argument.
+        val effectiveTarget = methodCall ?: targetNode
+
+        logger.debug("Found target node: ${effectiveTarget.javaClass.simpleName}")
+        return effectiveTarget
     }
 
     private fun isBroadContainer(node: ASTNode): Boolean = node is org.codehaus.groovy.ast.ClassNode ||
         node is org.codehaus.groovy.ast.MethodNode ||
         node is org.codehaus.groovy.ast.stmt.BlockStatement ||
         node is org.codehaus.groovy.ast.stmt.Statement
+
+    private fun findMethodCallWhereNodeIsMethodExpression(node: ASTNode): MethodCallExpression? {
+        var current: ASTNode? = node
+        var depth = 0
+        while (current != null && depth < MAX_PARENT_SEARCH_DEPTH) {
+            val parent = astVisitor.getParent(current)
+            if (parent is MethodCallExpression && parent.method === current) {
+                return parent
+            }
+            current = parent
+            depth++
+        }
+        return null
+    }
+
+    companion object {
+        private const val MAX_PARENT_SEARCH_DEPTH = 10
+    }
 
     /**
      * Resolve the target node to its definition using the functional resolution pipeline.

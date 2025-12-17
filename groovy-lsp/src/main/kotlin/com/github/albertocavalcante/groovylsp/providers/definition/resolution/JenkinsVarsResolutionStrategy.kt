@@ -3,7 +3,6 @@ package com.github.albertocavalcante.groovylsp.providers.definition.resolution
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
 import com.github.albertocavalcante.groovylsp.providers.definition.DefinitionResolver
 import org.codehaus.groovy.ast.ClassNode
-import org.codehaus.groovy.ast.expr.ConstantExpression
 import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.slf4j.LoggerFactory
 
@@ -16,9 +15,8 @@ import org.slf4j.LoggerFactory
  * **Priority: HIGHEST** - runs before any other resolution to catch Jenkins-specific patterns.
  *
  * ## Node Handling
- * Due to AST click resolution, the cursor may be on:
- * - [MethodCallExpression]: Use `methodAsString` directly
- * - [ConstantExpression]: The method name constant (heuristic: valid identifier-like string)
+ * This strategy intentionally only triggers on [MethodCallExpression] to avoid false positives
+ * when clicking on identifier-like string literals.
  */
 class JenkinsVarsResolutionStrategy(private val compilationService: GroovyCompilationService) :
     SymbolResolutionStrategy {
@@ -55,24 +53,11 @@ class JenkinsVarsResolutionStrategy(private val compilationService: GroovyCompil
 
     /**
      * Extract a method name from the target node for vars/ lookup.
-     *
-     * This handles the common case where clicking on a method name returns
-     * the inner ConstantExpression instead of the MethodCallExpression.
      */
-    private fun extractMethodName(node: org.codehaus.groovy.ast.ASTNode): String? = when (node) {
-        is MethodCallExpression -> node.methodAsString
-        is ConstantExpression -> {
-            val value = node.value as? String ?: return null
-            // NOTE: Clicking inside a method call can resolve to a ConstantExpression holding the identifier string.
-            // TODO: Derive the method name from the surrounding MethodCallExpression deterministically.
-            value.takeIf { it.isNotBlank() && it.matches(IDENTIFIER_REGEX) }
-        }
-
-        else -> null
-    }
+    private fun extractMethodName(node: org.codehaus.groovy.ast.ASTNode): String? =
+        (node as? MethodCallExpression)?.methodAsString
 
     companion object {
         private const val STRATEGY_NAME = "JenkinsVars"
-        private val IDENTIFIER_REGEX = Regex("^[a-zA-Z_][a-zA-Z0-9_]*$")
     }
 }

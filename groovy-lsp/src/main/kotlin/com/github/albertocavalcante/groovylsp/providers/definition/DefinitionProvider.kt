@@ -77,14 +77,16 @@ class DefinitionProvider(
             if (result != null) {
                 when (result) {
                     is DefinitionResolver.DefinitionResult.Source -> {
-                        // Convert to LocationLink using result.uri directly
-                        // This handles synthetic nodes (e.g., Jenkins vars) that aren't in the visitor's AST
+                        // Use the visitor-derived URI when possible; fall back to result.uri for synthetic nodes
+                        // (e.g., Jenkins vars) that aren't in the visitor's AST.
+                        val targetUri = result.node.toLspLocation(visitor)?.uri
+                            ?: result.uri.toString()
                         val targetRange = result.node.toLspRange()
                             ?: EMPTY_RANGE
                         val originRange = originNode.toLspRange()
                             ?: EMPTY_RANGE
                         val locationLink = LocationLink(
-                            result.uri.toString(),
+                            targetUri,
                             targetRange,
                             targetRange,
                             originRange,
@@ -207,10 +209,13 @@ class DefinitionProvider(
             if (result != null) {
                 when (result) {
                     is DefinitionResolver.DefinitionResult.Source -> {
-                        // Use result.uri directly for synthetic nodes (e.g., Jenkins vars)
+                        // Use the visitor-derived URI when possible; fall back to result.uri for synthetic nodes
+                        // (e.g., Jenkins vars) that aren't in the visitor's AST.
+                        val targetUri = result.node.toLspLocation(context.visitor)?.uri
+                            ?: result.uri.toString()
                         val range = result.node.toLspRange()
                             ?: EMPTY_RANGE
-                        val location = Location(result.uri.toString(), range)
+                        val location = Location(targetUri, range)
                         logger.debug(
                             "Found definition at ${location.uri}:${location.range} " +
                                 "(node: ${result.node.javaClass.simpleName})",

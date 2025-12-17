@@ -126,8 +126,8 @@ class JenkinsVarsDefinitionIntegrationTest {
                 }
             },
         )
-        // Wait for compilation to complete before proceeding
-        // This is necessary because definition() requires ensureCompiled() to succeed
+        // Wait for diagnostics (and thus compilation) to be ready before proceeding.
+        // This is necessary because definition() relies on the compilation ensured by awaitDiagnostics().
         (serverHandle!!.server.textDocumentService as GroovyTextDocumentService)
             .awaitDiagnostics(java.net.URI.create(uri))
     }
