@@ -109,6 +109,11 @@ jobs:
               ;;
           esac
       
+      # NOTE: --parallel and --build-cache are redundant with gradle.properties settings
+      # (org.gradle.parallel=true, org.gradle.caching=true) but kept explicit for:
+      # 1. Self-documentation - CI intent is clear without checking gradle.properties
+      # 2. Defense in depth - CI works even if gradle.properties changes
+      
       # Phase 1: Compile + Lint in single invocation with parallel execution
       - name: Compile and Lint
         run: ./gradlew classes testClasses lint --parallel --build-cache --stacktrace $GRADLE_SCAN_FLAG
