@@ -1,6 +1,7 @@
 package com.github.albertocavalcante.diagnostics.codenarc
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.test.assertEquals
@@ -9,9 +10,11 @@ import kotlin.test.assertTrue
 
 class RulesetFileCacheTest {
 
+    @TempDir
+    lateinit var cacheDir: java.nio.file.Path
+
     @Test
     fun `same ruleset content reuses cached file path`() {
-        val cacheDir = Files.createTempDirectory("ruleset-cache-test").also { it.toFile().deleteOnExit() }
         val cache = RulesetFileCache(cacheDir, ConcurrentHashMap())
 
         val rulesetContent = "ruleset { TrailingWhitespace }"
@@ -24,7 +27,6 @@ class RulesetFileCacheTest {
 
     @Test
     fun `different ruleset content uses different cached file paths`() {
-        val cacheDir = Files.createTempDirectory("ruleset-cache-test").also { it.toFile().deleteOnExit() }
         val cache = RulesetFileCache(cacheDir, ConcurrentHashMap())
 
         val first = cache.getOrCreate("ruleset { TrailingWhitespace }")
@@ -37,7 +39,6 @@ class RulesetFileCacheTest {
 
     @Test
     fun `cached ruleset file contains the original content`() {
-        val cacheDir = Files.createTempDirectory("ruleset-cache-test").also { it.toFile().deleteOnExit() }
         val cache = RulesetFileCache(cacheDir, ConcurrentHashMap())
 
         val rulesetContent = "ruleset { TrailingWhitespace }"

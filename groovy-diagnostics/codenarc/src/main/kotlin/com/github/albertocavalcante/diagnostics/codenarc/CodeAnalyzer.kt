@@ -5,6 +5,7 @@ import org.codenarc.analyzer.FilesSourceAnalyzer
 import org.codenarc.results.Results
 import org.slf4j.LoggerFactory
 import java.nio.charset.StandardCharsets
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -75,7 +76,16 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
         }
         val tempSourceFile = analysisDir.resolve(safeFileName)
 
-        val rulesetFile = rulesetFileCache.getOrCreate(rulesetContent)
+        val rulesetFile = try {
+            rulesetFileCache.getOrCreate(rulesetContent)
+        } catch (e: Exception) {
+            // NOTE: Ruleset caching is a performance optimization; failing to cache must not break analysis.
+            // TODO: Remove file-based ruleset loading entirely by configuring CodeNarc in-memory (if supported).
+            logger.warn("Failed to cache CodeNarc ruleset file; falling back to per-analysis ruleset", e)
+            analysisDir.resolve("ruleset.groovy").also { tmpRuleset ->
+                Files.write(tmpRuleset, rulesetContent.toByteArray(StandardCharsets.UTF_8))
+            }
+        }
 
         return try {
             // Efficient write with NIO - direct UTF-8 bytes
@@ -153,14 +163,12 @@ internal class RulesetFileCache(
 
             try {
                 Files.move(tmpPath, cachedRulesetPath, StandardCopyOption.ATOMIC_MOVE)
-            } catch (_: Exception) {
+            } catch (_: AtomicMoveNotSupportedException) {
                 // NOTE: Some filesystems don't support ATOMIC_MOVE; fall back to a best-effort replace.
                 // TODO: Use a filesystem capability check (or single-writer lock) to avoid relying on exceptions.
-                try {
-                    Files.move(tmpPath, cachedRulesetPath, StandardCopyOption.REPLACE_EXISTING)
-                } finally {
-                    Files.deleteIfExists(tmpPath)
-                }
+                Files.move(tmpPath, cachedRulesetPath, StandardCopyOption.REPLACE_EXISTING)
+            } finally {
+                Files.deleteIfExists(tmpPath)
             }
 
             cachedRulesetPath
@@ -169,12 +177,7 @@ internal class RulesetFileCache(
 
     private fun sha256Hex(text: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(StandardCharsets.UTF_8))
-        return buildString(digest.size * 2) {
-            for (byte in digest) {
-                append(((byte.toInt() shr 4) and 0xF).toString(16))
-                append((byte.toInt() and 0xF).toString(16))
-            }
-        }
+        return digest.joinToString("") { "%02x".format(it.toInt() and 0xFF) }
     }
 }
 

@@ -21,6 +21,20 @@ import kotlin.test.assertTrue
  */
 class CodeNarcDiagnosticFixTest {
 
+    private fun createStubAnalyzer(results: Results): CodeAnalyzer = object : CodeAnalyzer {
+        override fun analyze(
+            sourceCode: String,
+            fileName: String,
+            rulesetContent: String,
+            propertiesFile: String?,
+        ): Results = results
+    }
+
+    private fun createEmptyResults(): Results = mockk<Results>().also { results ->
+        every { results.children } returns mutableListOf()
+        every { results.violations } returns mutableListOf()
+    }
+
     @Test
     fun `should not triplicate diagnostics when analyzing groovy code with violations`() {
         val groovyCodeWithViolations = "class TestClass {\n" +
@@ -56,15 +70,6 @@ class CodeNarcDiagnosticFixTest {
             }
         }
 
-        val stubAnalyzer = object : CodeAnalyzer {
-            override fun analyze(
-                sourceCode: String,
-                fileName: String,
-                rulesetContent: String,
-                propertiesFile: String?,
-            ): Results = rootResults
-        }
-
         val testRulesetResolver = object : RulesetResolver {
             override fun resolve(context: WorkspaceContext): RulesetConfiguration = RulesetConfiguration(
                 rulesetContent = "ruleset { TrailingWhitespace }",
@@ -76,7 +81,7 @@ class CodeNarcDiagnosticFixTest {
         val diagnosticProvider = CodeNarcDiagnosticProvider(
             workspaceContext = workspaceContext,
             rulesetResolver = testRulesetResolver,
-            codeAnalyzer = stubAnalyzer,
+            codeAnalyzer = createStubAnalyzer(rootResults),
         )
         val diagnostics = diagnosticProvider.analyzeAndGetDiagnostics(groovyCodeWithViolations, "TestClass.groovy")
 
@@ -94,9 +99,7 @@ class CodeNarcDiagnosticFixTest {
 
     @Test
     fun `should handle empty source code gracefully`() {
-        val emptyResults = mockk<Results>()
-        every { emptyResults.children } returns mutableListOf()
-        every { emptyResults.violations } returns mutableListOf()
+        val emptyResults = createEmptyResults()
 
         val workspaceContext = object : WorkspaceContext {
             override val root: Path? = Paths.get(".")
@@ -107,18 +110,9 @@ class CodeNarcDiagnosticFixTest {
             }
         }
 
-        val stubAnalyzer = object : CodeAnalyzer {
-            override fun analyze(
-                sourceCode: String,
-                fileName: String,
-                rulesetContent: String,
-                propertiesFile: String?,
-            ): Results = emptyResults
-        }
-
         val diagnosticProvider = CodeNarcDiagnosticProvider(
             workspaceContext = workspaceContext,
-            codeAnalyzer = stubAnalyzer,
+            codeAnalyzer = createStubAnalyzer(emptyResults),
         )
         val diagnostics = diagnosticProvider.analyzeAndGetDiagnostics("", "empty.groovy")
 
@@ -144,22 +138,11 @@ class CodeNarcDiagnosticFixTest {
             }
         }
 
-        val emptyResults = mockk<Results>()
-        every { emptyResults.children } returns mutableListOf()
-        every { emptyResults.violations } returns mutableListOf()
-
-        val stubAnalyzer = object : CodeAnalyzer {
-            override fun analyze(
-                sourceCode: String,
-                fileName: String,
-                rulesetContent: String,
-                propertiesFile: String?,
-            ): Results = emptyResults
-        }
+        val emptyResults = createEmptyResults()
 
         val diagnosticProvider = CodeNarcDiagnosticProvider(
             workspaceContext = workspaceContext,
-            codeAnalyzer = stubAnalyzer,
+            codeAnalyzer = createStubAnalyzer(emptyResults),
         )
         val diagnostics = diagnosticProvider.analyzeAndGetDiagnostics(cleanGroovyCode, "CleanClass.groovy")
 
