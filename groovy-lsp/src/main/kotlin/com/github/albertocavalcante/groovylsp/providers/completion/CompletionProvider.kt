@@ -167,7 +167,7 @@ object CompletionProvider {
                             addJenkinsMapKeyCompletions(nodeAtCursor, astModel, metadata)
 
                             // Suggest global variables from vars/ directory and plugins
-                            addJenkinsGlobalVariables(metadata)
+                            addJenkinsGlobalVariables(metadata, compilationService)
                         }
                     }
                 }
@@ -177,9 +177,11 @@ object CompletionProvider {
 
     private fun CompletionsBuilder.addJenkinsGlobalVariables(
         metadata: com.github.albertocavalcante.groovyjenkins.metadata.BundledJenkinsMetadata,
+        compilationService: GroovyCompilationService,
     ) {
-        val completions = JenkinsStepCompletionProvider.getGlobalVariableCompletions(metadata)
-        completions.forEach { item ->
+        // 1. Add global variables from bundled plugin metadata
+        val bundledCompletions = JenkinsStepCompletionProvider.getGlobalVariableCompletions(metadata)
+        bundledCompletions.forEach { item ->
             val docString = when {
                 item.documentation?.isRight == true -> (item.documentation.right as? MarkupContent)?.value
                 item.documentation?.isLeft == true -> item.documentation.left
@@ -190,6 +192,19 @@ object CompletionProvider {
                 name = item.label,
                 type = item.detail?.substringAfterLast('.') ?: "Object",
                 doc = docString ?: "Jenkins global variable",
+            )
+        }
+
+        // 2. Add global variables from workspace vars/ directory
+        // TODO: Consider caching these completions if performance becomes an issue
+        val varsGlobals = compilationService.workspaceManager.getJenkinsGlobalVariables()
+        varsGlobals.forEach { globalVar ->
+            variable(
+                name = globalVar.name,
+                type = "Closure",
+                doc = globalVar.documentation.ifEmpty {
+                    "Shared library global variable from vars/${globalVar.name}.groovy"
+                },
             )
         }
     }
@@ -219,13 +234,7 @@ object CompletionProvider {
             existingKeys,
             metadata,
         )
-        bundledParamCompletions.forEach { item ->
-            // Convert LSP CompletionItem back to DSL calls (or we could expose raw add(item) in DSL?)
-            // DSL `completion {}` builder usually has high-level methods.
-            // But we can add raw items if the builder supports it or if we map it.
-            // The DSL builder has `add(CompletionItem)`.
-            add(item)
-        }
+        bundledParamCompletions.forEach(::add)
     }
 
     private fun findEnclosingMethodCall(
