@@ -59,8 +59,11 @@ class LocalSymbolResolutionStrategy(private val astVisitor: GroovyAstModel, priv
         val filteredDefinition = when (definition) {
             is ConstantExpression -> null // String literals aren't definitions
             is ClassNode -> {
-                // If resolution returned a ClassNode, check if it's defined locally
-                if (isLocallyDefinedClass(definition)) definition else null
+                // NOTE: Groovy resolution sometimes returns a ClassNode that points at the reference site (e.g. `new Foo()`)
+                // rather than the declaration. For locally-declared classes, prefer the declaration node from our visitor.
+                // TODO: Prefer a deterministic AST-backed link (e.g. ModuleNode.classes / redirect metadata) instead of
+                // selecting by earliest source position if multiple nodes share the same name.
+                findLocalClassDeclaration(definition.name)
             }
 
             else -> definition
@@ -103,8 +106,8 @@ class LocalSymbolResolutionStrategy(private val astVisitor: GroovyAstModel, priv
             )
         }
 
-        // Find the actual class definition from the AST
-        val localClass = astVisitor.getAllClassNodes().find { it.name == classNode.name }
+        // Find the actual class definition from the AST (prefer earliest declaration if multiple match)
+        val localClass = findLocalClassDeclaration(classNode.name)
         if (localClass == null || !hasValidPosition(localClass)) {
             return SymbolResolutionStrategy.notFound(
                 "Class ${classNode.name} not found in local AST",
@@ -132,6 +135,11 @@ class LocalSymbolResolutionStrategy(private val astVisitor: GroovyAstModel, priv
         val localClasses = astVisitor.getAllClassNodes()
         return localClasses.any { it.name == classNode.name }
     }
+
+    private fun findLocalClassDeclaration(className: String): ClassNode? = astVisitor.getAllClassNodes()
+        .asSequence()
+        .filter { it.name == className && hasValidPosition(it) }
+        .minByOrNull { it.lineNumber }
 
     private fun hasValidPosition(node: org.codehaus.groovy.ast.ASTNode): Boolean =
         node.lineNumber > 0 && node.columnNumber > 0
