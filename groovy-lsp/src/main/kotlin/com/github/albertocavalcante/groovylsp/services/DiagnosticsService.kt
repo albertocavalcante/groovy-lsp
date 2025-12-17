@@ -18,7 +18,7 @@ import java.net.URI
  * Service for collecting diagnostics from multiple streaming providers.
  *
  * Providers are executed concurrently using Flow-based composition, with configuration-based
- * filtering (blacklist/whitelist) and graceful error handling.
+ * filtering (denylist/allowlist) and graceful error handling.
  *
  * @param providers List of diagnostic providers to use
  * @param config Configuration for filtering providers
@@ -67,12 +67,12 @@ class DiagnosticsService(
                     flow {
                         try {
                             logger.debug("Executing provider: {}", provider.id)
-                            val startTime = System.currentTimeMillis()
+                            val startTime = System.nanoTime()
 
                             emitAll(provider.provideDiagnostics(uri, content))
 
-                            val elapsed = System.currentTimeMillis() - startTime
-                            logger.debug("Provider {} completed in {}ms", provider.id, elapsed)
+                            val elapsedMs = (System.nanoTime() - startTime) / 1_000_000
+                            logger.debug("Provider {} completed in {}ms", provider.id, elapsedMs)
                         } catch (e: Exception) {
                             // NOTE: Error isolation - one provider failure doesn't stop others
                             // TODO: Consider publishing provider-specific error diagnostics

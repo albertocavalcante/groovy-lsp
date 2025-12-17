@@ -14,7 +14,6 @@ import com.github.albertocavalcante.groovylsp.providers.completion.JenkinsStepCo
 import com.github.albertocavalcante.groovylsp.providers.definition.DefinitionProvider
 import com.github.albertocavalcante.groovylsp.providers.definition.DefinitionTelemetrySink
 import com.github.albertocavalcante.groovylsp.providers.diagnostics.DiagnosticProviderAdapter
-import com.github.albertocavalcante.groovylsp.providers.diagnostics.StreamingDiagnosticProvider
 import com.github.albertocavalcante.groovylsp.providers.references.ReferenceProvider
 import com.github.albertocavalcante.groovylsp.providers.rename.RenameProvider
 import com.github.albertocavalcante.groovylsp.providers.semantictokens.JenkinsSemanticTokenProvider
@@ -97,26 +96,26 @@ class GroovyTextDocumentService(
         val workspaceRoot = compilationService.workspaceManager.getWorkspaceRoot()
         val workspaceContext = WorkspaceConfiguration(workspaceRoot, serverConfiguration)
 
-        val providers = mutableListOf<StreamingDiagnosticProvider>()
+        val providers = buildList {
+            // Add CodeNarc if enabled in configuration
+            if (serverConfiguration.codeNarcEnabled) {
+                val codeNarcProvider = CodeNarcDiagnosticProvider(workspaceContext)
+                val codeNarcAdapter = DiagnosticProviderAdapter(
+                    delegate = codeNarcProvider,
+                    id = "codenarc",
+                    enabledByDefault = true,
+                )
+                add(codeNarcAdapter)
+            }
 
-        // Add CodeNarc if enabled in configuration
-        if (serverConfiguration.codeNarcEnabled) {
-            val codeNarcProvider = CodeNarcDiagnosticProvider(workspaceContext)
-            val codeNarcAdapter = DiagnosticProviderAdapter(
-                delegate = codeNarcProvider,
-                id = "codenarc",
-                enabledByDefault = true,
-            )
-            providers.add(codeNarcAdapter)
+            // TODO: Add more providers here as implemented
+            // add(UnusedImportDiagnosticProvider())
         }
-
-        // TODO: Add more providers here as implemented
-        // providers.add(UnusedImportDiagnosticProvider())
 
         // TODO: Load DiagnosticConfig from ServerConfiguration (Phase 6)
         val config = DiagnosticConfig()
 
-        return DiagnosticsService(providers.toList(), config)
+        return DiagnosticsService(providers, config)
     }
 
     // Type definition provider - created lazily

@@ -22,6 +22,7 @@
     <ID>LongParameterList:CompletionProvider.kt$CompletionProvider$( ast: org.codehaus.groovy.ast.ASTNode, astModel: com.github.albertocavalcante.groovyparser.ast.GroovyAstModel, line: Int, character: Int, compilationService: GroovyCompilationService, uri: java.net.URI, )</ID>
     <ID>LongParameterList:TestDiagnosticFactory.kt$TestDiagnosticFactory$( code: String, message: String, line: Int = 0, startChar: Int = 0, endChar: Int = 10, source: String? = "CodeNarc", severity: DiagnosticSeverity = DiagnosticSeverity.Warning, )</ID>
     <ID>LoopWithTooManyJumpStatements:DocExtractor.kt$DocExtractor$while</ID>
+    <ID>MagicNumber:DiagnosticsService.kt$DiagnosticsService$1_000_000</ID>
     <ID>MagicNumber:GroovyCompilationService.kt$GroovyCompilationService$50</ID>
     <ID>MagicNumber:GroovyLanguageServer.kt$GroovyLanguageServer$100</ID>
     <ID>MagicNumber:GroovyLanguageServer.kt$GroovyLanguageServer$1000</ID>
