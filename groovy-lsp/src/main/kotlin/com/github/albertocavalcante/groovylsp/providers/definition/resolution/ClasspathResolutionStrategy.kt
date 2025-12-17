@@ -6,6 +6,7 @@ import com.github.albertocavalcante.groovylsp.sources.SourceNavigator
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
 import org.slf4j.LoggerFactory
+import java.net.URI
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -34,38 +35,44 @@ class ClasspathResolutionStrategy(
 
         logger.debug("Found classpath class {} at {}", className, classpathUri)
 
-        // Try source navigation first
-        if (sourceNavigator != null) {
-            try {
-                when (val result = sourceNavigator.navigateToSource(classpathUri, className)) {
-                    is SourceNavigator.SourceResult.SourceLocation -> {
-                        logger.debug("Found source for {} at {}", className, result.uri)
-                        val range = result.lineNumber?.let { line ->
-                            val line0 = line - 1
-                            Range(Position(line0, 0), Position(line0, 0))
-                        }
-                        return SymbolResolutionStrategy.found(
-                            DefinitionResolver.DefinitionResult.Binary(result.uri, className, range),
-                        )
-                    }
-
-                    is SourceNavigator.SourceResult.BinaryOnly -> {
-                        logger.debug("No source available for {}: {}", className, result.reason)
-                        // Fall through to check if URI is resolvable
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e // Preserve coroutine cancellation
-            } catch (e: Error) {
-                throw e
-            } catch (e: Exception) {
-                // NOTE: Source navigation is best-effort; resolution should still succeed with binaries when possible.
-                // TODO: Narrow the caught exception types once SourceNavigator exposes a more explicit error surface.
-                logger.warn("Failed to navigate to source for {}: {}", className, e.message, e)
-                // Fall through to check if URI is resolvable
-            }
+        sourceNavigator?.let { navigator ->
+            navigateToSourceIfPossible(navigator, classpathUri, className)
+                ?.let { return it }
         }
 
+        return resolveBinaryFallback(classpathUri, className)
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun navigateToSourceIfPossible(
+        sourceNavigator: SourceNavigator,
+        classpathUri: URI,
+        className: String,
+    ): ResolutionResult? = try {
+        when (val result = sourceNavigator.navigateToSource(classpathUri, className)) {
+            is SourceNavigator.SourceResult.SourceLocation -> {
+                logger.debug("Found source for {} at {}", className, result.uri)
+                val range = result.lineNumber?.let(::toZeroBasedLineRange)
+                SymbolResolutionStrategy.found(
+                    DefinitionResolver.DefinitionResult.Binary(result.uri, className, range),
+                )
+            }
+
+            is SourceNavigator.SourceResult.BinaryOnly -> {
+                logger.debug("No source available for {}: {}", className, result.reason)
+                null
+            }
+        }
+    } catch (e: CancellationException) {
+        throw e // Preserve coroutine cancellation
+    } catch (e: Exception) {
+        // NOTE: Source navigation is best-effort; resolution should still succeed with binaries when possible.
+        // TODO: Narrow the caught exception types once SourceNavigator exposes a more explicit error surface.
+        logger.warn("Failed to navigate to source for {}: {}", className, e.message, e)
+        null
+    }
+
+    private fun resolveBinaryFallback(classpathUri: URI, className: String): ResolutionResult {
         // Only return binary result for URIs that VS Code can actually open
         return when (classpathUri.scheme) {
             "file" -> SymbolResolutionStrategy.found(
@@ -96,6 +103,11 @@ class ClasspathResolutionStrategy(
                 )
             }
         }
+    }
+
+    private fun toZeroBasedLineRange(oneBasedLine: Int): Range {
+        val line0 = oneBasedLine - 1
+        return Range(Position(line0, 0), Position(line0, 0))
     }
 
     companion object {
