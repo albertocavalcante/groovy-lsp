@@ -77,4 +77,26 @@ class SpockDetectorTest {
 
         assertFalse(SpockDetector.isLikelySpockSpec(uri, content))
     }
+
+    @Test
+    fun `detects spock spec by spock star import`() {
+        val uri = URI.create("file:///src/test/groovy/com/example/FooTest.groovy")
+        val content =
+            """
+            import spock.*
+
+            class FooTest extends spock.lang.Specification {
+            }
+            """.trimIndent()
+
+        assertTrue(SpockDetector.isLikelySpockSpec(uri, content))
+    }
+
+    @Test
+    fun `detects spock spec with different groovy extension casing`() {
+        val uri = URI.create("file:///src/test/groovy/com/example/FooSpec.Groovy")
+        val content = "class FooSpec {}"
+
+        assertTrue(SpockDetector.isLikelySpockSpec(uri, content))
+    }
 }
