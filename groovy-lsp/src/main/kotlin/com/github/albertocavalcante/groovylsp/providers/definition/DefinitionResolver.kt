@@ -44,14 +44,14 @@ class DefinitionResolver(
      */
     private val resolutionPipeline: SymbolResolutionStrategy =
         run {
-        val strategies = buildList {
-            compilationService?.let { add(JenkinsVarsResolutionStrategy(it)) }
-            add(LocalSymbolResolutionStrategy(astVisitor, symbolTable))
-            compilationService?.let {
-                add(GlobalClassResolutionStrategy(it))
-                add(ClasspathResolutionStrategy(it, sourceNavigator))
+            val strategies = buildList {
+                compilationService?.let { add(JenkinsVarsResolutionStrategy(it)) }
+                add(LocalSymbolResolutionStrategy(astVisitor, symbolTable))
+                compilationService?.let {
+                    add(GlobalClassResolutionStrategy(it))
+                    add(ClasspathResolutionStrategy(it, sourceNavigator))
+                }
             }
-        }
             SymbolResolutionStrategy.pipeline(*strategies.toTypedArray())
         }
 
