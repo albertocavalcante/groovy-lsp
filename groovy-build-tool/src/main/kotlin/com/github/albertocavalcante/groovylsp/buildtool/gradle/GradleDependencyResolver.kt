@@ -18,10 +18,20 @@ import kotlin.io.path.exists
  * This implements:
  * - In-process dependency resolution (no subprocess)
  * - Automatic retry with isolated Gradle user home on init script failures
+ * - Exponential backoff retry for transient failures (e.g., lock timeouts)
  * - Source directory extraction from IdeaProject model
  */
 class GradleDependencyResolver(private val connectionFactory: GradleConnectionFactory = GradleConnectionPool) :
     DependencyResolver {
+
+    /**
+     * Configuration for retry behavior on transient failures.
+     */
+    private object RetryConfig {
+        const val MAX_ATTEMPTS = 3
+        const val INITIAL_DELAY_MS = 2000L
+        const val BACKOFF_MULTIPLIER = 2.0
+    }
 
     private val logger = LoggerFactory.getLogger(GradleDependencyResolver::class.java)
 
@@ -41,6 +51,10 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
      * This extracts source directories from the IdeaProject model, supporting
      * custom source directory layouts.
      *
+     * Implements resilient resolution with:
+     * - Exponential backoff retry for transient failures (e.g., lock timeouts)
+     * - Isolated Gradle user home fallback for init script errors
+     *
      * @param projectFile Path to the project directory (build.gradle location)
      * @return WorkspaceResolution containing both dependencies and source directories
      */
@@ -49,37 +63,60 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
 
         logger.info("Resolving dependencies using Gradle Tooling API for: $projectDir")
 
-        val defaultAttempt = runCatching {
-            resolveWithGradleUserHome(projectDir, gradleUserHomeDir = null)
+        var lastException: Throwable? = null
+        var currentDelay = RetryConfig.INITIAL_DELAY_MS
+
+        // Attempt resolution with exponential backoff for transient failures
+        for (attempt in 1..RetryConfig.MAX_ATTEMPTS) {
+            val result = runCatching {
+                resolveWithGradleUserHome(projectDir, gradleUserHomeDir = null)
+            }
+
+            if (result.isSuccess) {
+                if (attempt > 1) {
+                    logger.info("Gradle dependency resolution succeeded on attempt $attempt")
+                }
+                return result.getOrThrow()
+            }
+
+            lastException = result.exceptionOrNull()
+
+            // Check if this is a transient failure worth retrying
+            if (lastException != null && isTransientFailure(lastException)) {
+                if (attempt < RetryConfig.MAX_ATTEMPTS) {
+                    logger.warn(
+                        "Gradle dependency resolution failed (attempt $attempt/${RetryConfig.MAX_ATTEMPTS}): " +
+                            "${lastException.message}. Retrying in ${currentDelay}ms...",
+                    )
+                    Thread.sleep(currentDelay)
+                    currentDelay = (currentDelay * RetryConfig.BACKOFF_MULTIPLIER).toLong()
+                    continue
+                }
+            }
+
+            // Not a transient failure or we've exhausted retries - try isolated user home for init script errors
+            if (lastException != null && shouldRetryWithIsolatedGradleUserHome(lastException)) {
+                logger.warn(
+                    "Gradle dependency resolution failed; retrying with isolated Gradle user home " +
+                        "to avoid incompatible user init scripts",
+                )
+
+                val isolatedUserHome = isolatedGradleUserHomeDir()
+                val retryAttempt = runCatching {
+                    resolveWithGradleUserHome(projectDir, isolatedUserHome.toFile())
+                }
+
+                if (retryAttempt.isSuccess) {
+                    return retryAttempt.getOrThrow()
+                }
+
+                lastException = retryAttempt.exceptionOrNull() ?: lastException
+            }
+
+            break
         }
 
-        if (defaultAttempt.isSuccess) {
-            return defaultAttempt.getOrThrow()
-        }
-
-        val failure = defaultAttempt.exceptionOrNull() ?: return WorkspaceResolution(emptyList(), emptyList())
-        if (!shouldRetryWithIsolatedGradleUserHome(failure)) {
-            logger.error("Gradle dependency resolution failed: ${failure.message}", failure)
-            return WorkspaceResolution(emptyList(), emptyList())
-        }
-
-        logger.warn(
-            "Gradle dependency resolution failed; retrying with isolated Gradle user home " +
-                "to avoid incompatible user init scripts",
-        )
-
-        val isolatedUserHome = isolatedGradleUserHomeDir()
-        val retryAttempt = runCatching {
-            resolveWithGradleUserHome(projectDir, isolatedUserHome.toFile())
-        }
-
-        if (retryAttempt.isSuccess) {
-            return retryAttempt.getOrThrow()
-        }
-
-        logger.error(
-            "Gradle dependency resolution failed (retry): ${(retryAttempt.exceptionOrNull() ?: failure).message}",
-        )
+        logger.error("Gradle dependency resolution failed: ${lastException?.message}", lastException)
         return WorkspaceResolution(emptyList(), emptyList())
     }
 
@@ -135,6 +172,37 @@ class GradleDependencyResolver(private val connectionFactory: GradleConnectionFa
             allMessages.contains("init script") ||
             allMessages.contains("cp_init") ||
             allMessages.contains("Unsupported class file major version")
+    }
+
+    /**
+     * Detects transient failures that are worth retrying with exponential backoff.
+     * These are typically caused by external processes holding locks temporarily.
+     */
+    private fun isTransientFailure(error: Throwable): Boolean {
+        val allMessages = error.causeChain()
+            .mapNotNull { it.message }
+            .joinToString("\n")
+
+        val allClassNames = error.causeChain()
+            .map { it.javaClass.simpleName }
+            .joinToString("\n")
+
+        // Lock timeout - another Gradle process holds a lock
+        if (allClassNames.contains("LockTimeoutException") ||
+            allMessages.contains("Timeout waiting to lock") ||
+            allMessages.contains("currently in use by another process")
+        ) {
+            return true
+        }
+
+        // Connection refused - Gradle daemon not ready yet
+        if (allMessages.contains("Connection refused") ||
+            allMessages.contains("Could not connect to the Gradle daemon")
+        ) {
+            return true
+        }
+
+        return false
     }
 
     private fun isolatedGradleUserHomeDir(): Path {
