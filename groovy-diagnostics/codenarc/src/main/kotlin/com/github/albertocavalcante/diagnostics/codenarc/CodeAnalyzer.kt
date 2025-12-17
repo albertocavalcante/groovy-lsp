@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
@@ -38,7 +39,9 @@ interface CodeAnalyzer {
  * Default implementation of CodeAnalyzer using CodeNarc's runner.
  */
 @Suppress("TooGenericExceptionCaught") // CodeNarc interop layer handles all analysis errors
-class DefaultCodeAnalyzer : CodeAnalyzer {
+class DefaultCodeAnalyzer internal constructor(private val rulesetFilePathProvider: (String) -> Path) : CodeAnalyzer {
+
+    constructor() : this({ rulesetFileCache.getOrCreate(it) })
 
     companion object {
         private val logger = LoggerFactory.getLogger(DefaultCodeAnalyzer::class.java)
@@ -55,6 +58,8 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
             cacheDir = rulesetCacheDir,
             cachedFilesByHash = cachedRulesetFilesByHash,
         )
+
+        private const val DEFAULT_SOURCE_FILE_NAME = "script.groovy"
     }
 
     override fun analyze(
@@ -70,24 +75,10 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
         val analysisId = UUID.randomUUID().toString()
         val analysisDir = Files.createDirectory(baseTempDir.resolve(analysisId))
 
-        // Use the actual filename if possible, or a safe default.
-        val safeFileName = try {
-            Paths.get(fileName).fileName?.toString() ?: "script.groovy"
-        } catch (_: Exception) {
-            "script.groovy"
-        }
+        val safeFileName = resolveSafeFileName(fileName)
         val tempSourceFile = analysisDir.resolve(safeFileName)
 
-        val rulesetFile = try {
-            rulesetFileCache.getOrCreate(rulesetContent)
-        } catch (e: Exception) {
-            // NOTE: Ruleset caching is a performance optimization; failing to cache must not break analysis.
-            // TODO: Remove file-based ruleset loading entirely by configuring CodeNarc in-memory (if supported).
-            logger.warn("Failed to cache CodeNarc ruleset file; falling back to per-analysis ruleset", e)
-            analysisDir.resolve("ruleset.groovy").also { tmpRuleset ->
-                Files.write(tmpRuleset, rulesetContent.toByteArray(StandardCharsets.UTF_8))
-            }
-        }
+        val rulesetFile = resolveRulesetFile(analysisDir, rulesetContent)
 
         return try {
             // Efficient write with NIO - direct UTF-8 bytes
@@ -119,14 +110,14 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
 
             // Execute analysis on the source code
             val results: Results
-            val executeMs = measureTimeMillis {
+            val executionTimeMs = measureTimeMillis {
                 results = runner.execute()
             }
 
             logger.debug(
                 "CodeNarc analysis completed for $fileName: ${results.getTotalNumberOfFiles(true)} files, " +
                     "${results.getNumberOfViolationsWithPriority(1, true)} p1 violations, " +
-                    "execute=${executeMs}ms",
+                    "execute=${executionTimeMs}ms",
             )
 
             results
@@ -140,6 +131,25 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
             } catch (e: Exception) {
                 logger.debug("Temp file cleanup failed for $fileName: ${e.message}")
             }
+        }
+    }
+
+    internal fun resolveSafeFileName(fileName: String): String = try {
+        Paths.get(fileName).fileName?.toString() ?: DEFAULT_SOURCE_FILE_NAME
+    } catch (_: InvalidPathException) {
+        DEFAULT_SOURCE_FILE_NAME
+    }
+
+    internal fun resolveRulesetFile(analysisDir: Path, rulesetContent: String): Path = try {
+        rulesetFilePathProvider(rulesetContent)
+    } catch (e: Exception) {
+        // NOTE: Ruleset caching is a performance optimization; failing to cache must not break analysis.
+        //       In this fallback path we create a temporary per-analysis ruleset file inside analysisDir,
+        //       which is deleted along with analysisDir in the finally block after analysis completes.
+        // TODO: Remove file-based ruleset loading entirely by configuring CodeNarc in-memory (if supported).
+        logger.warn("Failed to cache CodeNarc ruleset file; falling back to per-analysis ruleset", e)
+        analysisDir.resolve("ruleset.groovy").also { tmpRuleset ->
+            Files.write(tmpRuleset, rulesetContent.toByteArray(StandardCharsets.UTF_8))
         }
     }
 }
@@ -176,11 +186,19 @@ internal class RulesetFileCache(
                 // Another writer (or a previous run) created the cached file after our existence check.
                 // The cache file content is keyed by hash, so it's safe to reuse the existing file.
             } catch (_: AtomicMoveNotSupportedException) {
-                // NOTE: Some filesystems don't support ATOMIC_MOVE; fall back to a best-effort replace.
+                // NOTE: Some filesystems don't support ATOMIC_MOVE; fall back to a best-effort move.
                 // TODO: Use a filesystem capability check (or single-writer lock) to avoid relying on exceptions.
-                Files.move(tmpPath, cachedRulesetPath, StandardCopyOption.REPLACE_EXISTING)
+                try {
+                    Files.move(tmpPath, cachedRulesetPath)
+                } catch (_: FileAlreadyExistsException) {
+                    // Another writer created the cached file between our check and the fallback move.
+                }
             } finally {
-                Files.deleteIfExists(tmpPath)
+                try {
+                    Files.deleteIfExists(tmpPath)
+                } catch (_: Exception) {
+                    // Best-effort cleanup; don't mask move failures.
+                }
             }
 
             cachedRulesetPath

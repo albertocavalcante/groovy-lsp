@@ -58,6 +58,8 @@ class CodeNarcDiagnosticFixTest {
         every { leafResults.violations } returns mutableListOf(duplicatedViolation)
 
         val rootResults = mockk<Results>()
+        // Intentionally reuse the same violation on both parent and leaf nodes to simulate the triplication regression.
+        // Before the leaf-only traversal fix, both levels were processed, producing duplicates.
         every { rootResults.children } returns mutableListOf(leafResults)
         every { rootResults.violations } returns mutableListOf(duplicatedViolation)
 
