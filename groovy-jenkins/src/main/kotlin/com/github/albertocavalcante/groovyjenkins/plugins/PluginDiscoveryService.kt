@@ -15,6 +15,8 @@ import java.nio.file.Paths
  *
  * HEURISTIC: Default plugins are always included (unless disabled) to provide
  * good out-of-the-box experience. Users can customize via configuration.
+ *
+ * NOTE: Results are cached lazily to avoid repeated file system I/O.
  */
 class PluginDiscoveryService(
     private val workspaceRoot: Path,
@@ -24,12 +26,34 @@ class PluginDiscoveryService(
 
     data class InstalledPlugin(val shortName: String, val version: String? = null, val jarPath: Path? = null)
 
+    // Lazy-cached plugins.txt path to avoid repeated file system checks
+    private val cachedPluginsTxtPath: Path? by lazy { findPluginsTxtInternal() }
+
+    // Lazy-cached discovered plugins to avoid repeated parsing
+    private val cachedPlugins: List<InstalledPlugin> by lazy { discoverPluginsInternal() }
+
     /**
      * Discover all installed plugins using layered resolution.
-     *
-     * @return Merged list of plugins from all sources
+     * Results are cached after first call.
      */
-    fun discoverPlugins(): List<InstalledPlugin> {
+    fun discoverPlugins(): List<InstalledPlugin> = cachedPlugins
+
+    /**
+     * Check if any explicit plugin configuration exists.
+     * Uses cached path lookup.
+     */
+    fun hasPluginConfiguration(): Boolean = config.plugins.isNotEmpty() || cachedPluginsTxtPath != null
+
+    /**
+     * Get the set of plugin short names for filtering.
+     * Uses cached plugin list.
+     */
+    fun getInstalledPluginNames(): Set<String> = cachedPlugins.asSequence().map { it.shortName }.toSet()
+
+    /**
+     * Internal discovery logic - called once by lazy delegate.
+     */
+    private fun discoverPluginsInternal(): List<InstalledPlugin> {
         val pluginMap = mutableMapOf<String, InstalledPlugin>()
 
         // Layer 1: Default plugins (lowest priority)
@@ -51,9 +75,8 @@ class PluginDiscoveryService(
         }
 
         // Layer 3: plugins.txt (highest priority, can override all)
-        val pluginsTxt = findPluginsTxt()
-        if (pluginsTxt != null) {
-            parsePluginsTxt(pluginsTxt).forEach { plugin ->
+        cachedPluginsTxtPath?.let { path ->
+            parsePluginsTxt(path).forEach { plugin ->
                 pluginMap[plugin.shortName] = plugin
             }
         }
@@ -62,25 +85,19 @@ class PluginDiscoveryService(
     }
 
     /**
-     * Check if any explicit plugin configuration exists.
+     * Internal path lookup - called once by lazy delegate.
      */
-    fun hasPluginConfiguration(): Boolean = config.plugins.isNotEmpty() || findPluginsTxt() != null
-
-    /**
-     * Get the set of plugin short names for filtering.
-     */
-    fun getInstalledPluginNames(): Set<String> = discoverPlugins().map { it.shortName }.toSet()
-
-    /**
-     * Find plugins.txt using configured path or auto-discovery.
-     */
-    private fun findPluginsTxt(): Path? {
+    private fun findPluginsTxtInternal(): Path? {
         // Priority 1: Explicit configuration
         config.pluginsTxtPath?.let { configuredPath ->
             val path = if (Paths.get(configuredPath).isAbsolute) {
                 Paths.get(configuredPath)
             } else {
                 workspaceRoot.resolve(configuredPath)
+            }
+            // SEC: Log warning if path escapes workspace root
+            if (!path.normalize().startsWith(workspaceRoot.normalize())) {
+                logger.warn("Configured plugins.txt path escapes workspace: {}", path)
             }
             if (Files.exists(path) && Files.isRegularFile(path)) {
                 logger.debug("Using configured plugins.txt path: {}", path)

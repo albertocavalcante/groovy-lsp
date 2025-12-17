@@ -120,7 +120,7 @@ class BundledJenkinsMetadataLoaderTest {
 
         val expectedConditions = listOf(
             "always", "success", "failure", "unstable", "aborted",
-            "changed", "fixed", "regression", "cleanup",
+            "changed", "fixed", "regression", "unsuccessful", "cleanup",
         )
 
         expectedConditions.forEach { condition ->

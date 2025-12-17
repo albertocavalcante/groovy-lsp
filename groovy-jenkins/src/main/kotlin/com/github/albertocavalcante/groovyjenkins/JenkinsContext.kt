@@ -275,13 +275,13 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
         val dynamic = dynamicMetadataCache[currentClasspathHash]
 
         val merged = if (dynamic != null) {
-            // Merge logic: dynamic overrides bundled
+            // Merge logic: dynamic overrides bundled for ALL metadata types
             com.github.albertocavalcante.groovyjenkins.metadata.BundledJenkinsMetadata(
                 steps = bundled.steps + dynamic.steps,
                 globalVariables = bundled.globalVariables + dynamic.globalVariables,
-                postConditions = bundled.postConditions,
-                declarativeOptions = bundled.declarativeOptions,
-                agentTypes = bundled.agentTypes,
+                postConditions = bundled.postConditions + dynamic.postConditions,
+                declarativeOptions = bundled.declarativeOptions + dynamic.declarativeOptions,
+                agentTypes = bundled.agentTypes + dynamic.agentTypes,
             )
         } else {
             bundled

@@ -66,7 +66,7 @@ object JenkinsBlockMetadata {
         "timestamps", "disableConcurrentBuilds", "skipDefaultCheckout",
         "checkoutToSubdirectory", "quietPeriod", "buildDiscarder",
         "preserveStashes", "parallelsAlwaysFailFast", "disableResume",
-        "durabilityHint", "skipStagesAfterUnstable",
+        "durabilityHint", "skipStagesAfterUnstable", "retry", "timeout",
     )
 
     /**
