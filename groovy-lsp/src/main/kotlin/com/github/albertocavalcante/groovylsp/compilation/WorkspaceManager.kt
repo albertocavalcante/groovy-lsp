@@ -79,34 +79,30 @@ class WorkspaceManager {
         return depsChanged || sourcesChanged
     }
 
-    private fun refreshSourceRoots(root: Path) {
-        if (sourceRoots.isEmpty()) {
-            // Standard Maven/Gradle source directories
-            val standardSourceDirs = listOf(
-                root.resolve("src/main/groovy"),
-                root.resolve("src/main/java"),
-                root.resolve("src/main/kotlin"),
-                root.resolve("src/test/groovy"),
-            )
+    private fun refreshSourceRoots(rootPath: Path) {
+        if (sourceRoots.isNotEmpty()) return
 
+        // Standard Maven/Gradle source directories
+        val standardSourceDirs = listOf(
+            rootPath.resolve("src/main/groovy"),
+            rootPath.resolve("src/main/java"),
+            rootPath.resolve("src/main/kotlin"),
+            rootPath.resolve("src/test/groovy"),
+        )
+
+        val existingStandardDirs = standardSourceDirs.filter { Files.exists(it) && Files.isDirectory(it) }
+
+        if (existingStandardDirs.isNotEmpty()) {
+            existingStandardDirs.forEach(sourceRoots::add)
+        } else {
             // Jenkins Shared Library structure: bare src/ directory
-            // Contains classes like src/org/example/MyClass.groovy
-            val bareSrcDir = root.resolve("src")
-
-            // Only include bare src/ when no more specific standard directories exist,
-            // to avoid indexing the same files twice (for example under src/ and src/main/groovy).
-            val hasStandardSourceDirs = standardSourceDirs.any { Files.exists(it) && it.isDirectory() }
-
-            val candidates = if (hasStandardSourceDirs) {
-                standardSourceDirs
-            } else {
-                standardSourceDirs + bareSrcDir
+            val bareSrcDir = rootPath.resolve("src")
+            if (Files.exists(bareSrcDir) && Files.isDirectory(bareSrcDir)) {
+                sourceRoots.add(bareSrcDir)
             }
-
-            candidates.filter { Files.exists(it) && it.isDirectory() }.forEach(sourceRoots::add)
-
-            logger.info("Indexed ${sourceRoots.size} source roots: ${sourceRoots.joinToString { it.toString() }}")
         }
+
+        logger.info("Indexed ${sourceRoots.size} source roots: ${sourceRoots.joinToString { it.toString() }}")
     }
 
     private fun refreshWorkspaceSources() {
@@ -119,6 +115,7 @@ class WorkspaceManager {
         }
 
         logger.info("Indexed ${workspaceSources.size} Groovy sources from workspace roots")
+        workspaceSources.forEach { logger.info("Indexed source: $it") }
     }
 
     fun getDependencyClasspath(): List<Path> = dependencyClasspath.toList()
