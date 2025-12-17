@@ -12,6 +12,18 @@ repositories {
 // Ensure groovy-lsp is evaluated so we can access its tasks
 evaluationDependsOn(":groovy-lsp")
 
+// Exclude e2eTest from Kover instrumentation and coverage collection.
+// This prevents root koverHtmlReport/koverXmlReport from triggering e2eTest.
+// E2E tests are slow integration tests that don't contribute to unit test coverage.
+// Reference: https://kotlin.github.io/kotlinx-kover/gradle-plugin/#exclusion-of-test-tasks
+kover {
+    currentProject {
+        instrumentation {
+            disabledForTestTasks.add("e2eTest")
+        }
+    }
+}
+
 dependencies {
     "detektPlugins"(libs.detekt.formatting)
 }
