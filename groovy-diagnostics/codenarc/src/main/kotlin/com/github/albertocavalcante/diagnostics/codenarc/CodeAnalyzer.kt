@@ -8,7 +8,11 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.system.measureTimeMillis
 
 /**
  * Interface for executing CodeNarc analysis on Groovy source files.
@@ -39,6 +43,15 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
         // Base temp directory
         private val baseTempDir: Path = Files.createTempDirectory("codenarc-lsp-")
             .also { it.toFile().deleteOnExit() }
+
+        private val rulesetCacheDir: Path = Files.createDirectory(baseTempDir.resolve("rulesets"))
+            .also { it.toFile().deleteOnExit() }
+
+        private val cachedRulesetFilesByHash = ConcurrentHashMap<String, Path>()
+        private val rulesetFileCache = RulesetFileCache(
+            cacheDir = rulesetCacheDir,
+            cachedFilesByHash = cachedRulesetFilesByHash,
+        )
     }
 
     override fun analyze(
@@ -50,23 +63,23 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
         logger.debug("Starting CodeNarc analysis for file: $fileName")
 
         // Create a unique temp directory for this analysis to avoid collisions
-        // and allow using the real filename
+        // and allow using the real filename.
         val analysisId = UUID.randomUUID().toString()
         val analysisDir = Files.createDirectory(baseTempDir.resolve(analysisId))
 
-        // Use the actual filename if possible, or a safe default
+        // Use the actual filename if possible, or a safe default.
         val safeFileName = try {
             Paths.get(fileName).fileName?.toString() ?: "script.groovy"
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "script.groovy"
         }
         val tempSourceFile = analysisDir.resolve(safeFileName)
-        val tempRulesetFile = analysisDir.resolve("ruleset.groovy")
+
+        val rulesetFile = rulesetFileCache.getOrCreate(rulesetContent)
 
         return try {
             // Efficient write with NIO - direct UTF-8 bytes
             Files.write(tempSourceFile, sourceCode.toByteArray(StandardCharsets.UTF_8))
-            Files.write(tempRulesetFile, rulesetContent.toByteArray(StandardCharsets.UTF_8))
 
             val runner = CodeNarcRunner().apply {
                 // FilesSourceAnalyzer produces FileResults (supports getChildren())
@@ -83,7 +96,7 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
                 }
 
                 // Set the ruleset file
-                ruleSetFiles = "file:$tempRulesetFile"
+                ruleSetFiles = rulesetFile.toUri().toString()
 
                 // Set properties file if provided
                 propertiesFile?.let { propFile ->
@@ -93,11 +106,15 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
             }
 
             // Execute analysis on the source code
-            val results = runner.execute()
+            val results: Results
+            val executeMs = measureTimeMillis {
+                results = runner.execute()
+            }
 
             logger.debug(
                 "CodeNarc analysis completed for $fileName: ${results.getTotalNumberOfFiles(true)} files, " +
-                    "${results.getNumberOfViolationsWithPriority(1, true)} violations",
+                    "${results.getNumberOfViolationsWithPriority(1, true)} p1 violations, " +
+                    "execute=${executeMs}ms",
             )
 
             results
@@ -107,10 +124,55 @@ class DefaultCodeAnalyzer : CodeAnalyzer {
         } finally {
             // Synchronous cleanup to prevent resource leaks
             try {
-                // Clean up the unique analysis directory recursively
                 analysisDir.toFile().deleteRecursively()
             } catch (e: Exception) {
                 logger.debug("Temp file cleanup failed for $fileName: ${e.message}")
+            }
+        }
+    }
+}
+
+internal class RulesetFileCache(
+    private val cacheDir: Path,
+    private val cachedFilesByHash: ConcurrentHashMap<String, Path> = ConcurrentHashMap(),
+) {
+    fun getOrCreate(rulesetContent: String): Path {
+        // NOTE: This cache trades a small amount of disk space for significantly faster repeated analysis
+        // by avoiding rewriting identical ruleset content for every CodeNarc run.
+        // TODO: Replace file-based ruleset loading with a direct in-memory rule set configuration, if supported
+        // by CodeNarc, to eliminate temp file IO entirely.
+        val hash = sha256Hex(rulesetContent)
+        return cachedFilesByHash.computeIfAbsent(hash) {
+            val cachedRulesetPath = cacheDir.resolve("$hash.groovy")
+            if (Files.exists(cachedRulesetPath)) {
+                return@computeIfAbsent cachedRulesetPath
+            }
+
+            val tmpPath = cacheDir.resolve("$hash.${UUID.randomUUID()}.tmp")
+            Files.write(tmpPath, rulesetContent.toByteArray(StandardCharsets.UTF_8))
+
+            try {
+                Files.move(tmpPath, cachedRulesetPath, StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: Exception) {
+                // NOTE: Some filesystems don't support ATOMIC_MOVE; fall back to a best-effort replace.
+                // TODO: Use a filesystem capability check (or single-writer lock) to avoid relying on exceptions.
+                try {
+                    Files.move(tmpPath, cachedRulesetPath, StandardCopyOption.REPLACE_EXISTING)
+                } finally {
+                    Files.deleteIfExists(tmpPath)
+                }
+            }
+
+            cachedRulesetPath
+        }
+    }
+
+    private fun sha256Hex(text: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(StandardCharsets.UTF_8))
+        return buildString(digest.size * 2) {
+            for (byte in digest) {
+                append(((byte.toInt() shr 4) and 0xF).toString(16))
+                append((byte.toInt() and 0xF).toString(16))
             }
         }
     }
