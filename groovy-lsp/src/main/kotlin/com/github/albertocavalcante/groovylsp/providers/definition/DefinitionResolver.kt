@@ -1,11 +1,18 @@
 package com.github.albertocavalcante.groovylsp.providers.definition
 
+import arrow.core.getOrElse
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
 import com.github.albertocavalcante.groovylsp.errors.CircularReferenceException
 import com.github.albertocavalcante.groovylsp.errors.GroovyLspException
 import com.github.albertocavalcante.groovylsp.errors.SymbolNotFoundException
 import com.github.albertocavalcante.groovylsp.errors.invalidPosition
 import com.github.albertocavalcante.groovylsp.errors.nodeNotFoundAtPosition
+import com.github.albertocavalcante.groovylsp.providers.definition.resolution.ClasspathResolutionStrategy
+import com.github.albertocavalcante.groovylsp.providers.definition.resolution.GlobalClassResolutionStrategy
+import com.github.albertocavalcante.groovylsp.providers.definition.resolution.JenkinsVarsResolutionStrategy
+import com.github.albertocavalcante.groovylsp.providers.definition.resolution.LocalSymbolResolutionStrategy
+import com.github.albertocavalcante.groovylsp.providers.definition.resolution.ResolutionContext
+import com.github.albertocavalcante.groovylsp.providers.definition.resolution.SymbolResolutionStrategy
 import com.github.albertocavalcante.groovylsp.sources.SourceNavigator
 import com.github.albertocavalcante.groovyparser.ast.GroovyAstModel
 import com.github.albertocavalcante.groovyparser.ast.SymbolTable
@@ -18,6 +25,7 @@ import org.codehaus.groovy.ast.ImportNode
 import org.codehaus.groovy.ast.ModuleNode
 import org.codehaus.groovy.ast.expr.ClassExpression
 import org.codehaus.groovy.ast.expr.ConstructorCallExpression
+import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.slf4j.LoggerFactory
 import java.net.URI
 
@@ -29,6 +37,37 @@ class DefinitionResolver(
 ) {
 
     private val logger = LoggerFactory.getLogger(DefinitionResolver::class.java)
+
+    /**
+     * Resolution pipeline using Railway-Oriented Programming with Arrow Either.
+     *
+     * Strategies are tried in priority order:
+     * 1. JenkinsVars - Jenkins vars/ directory lookup (highest priority)
+     * 2. LocalSymbol - Same-file definitions via AST/symbol table
+     * 3. GlobalClass - Cross-file class lookup via symbol index
+     * 4. Classpath - JAR/JRT external dependencies (lowest priority)
+     *
+     * The pipeline short-circuits on first success (Either.Right).
+     */
+    private val resolutionPipeline: SymbolResolutionStrategy by lazy {
+        val strategies = mutableListOf<SymbolResolutionStrategy>()
+
+        // Jenkins vars lookup runs first (highest priority)
+        compilationService?.let { service ->
+            strategies += JenkinsVarsResolutionStrategy(service)
+        }
+
+        // Local symbol resolution
+        strategies += LocalSymbolResolutionStrategy(astVisitor, symbolTable)
+
+        // Global class and classpath lookup (require compilationService)
+        compilationService?.let { service ->
+            strategies += GlobalClassResolutionStrategy(service)
+            strategies += ClasspathResolutionStrategy(service, sourceNavigator)
+        }
+
+        SymbolResolutionStrategy.pipeline(*strategies.toTypedArray())
+    }
 
     /**
      * Find the definition of the symbol at the given position.
@@ -97,6 +136,7 @@ class DefinitionResolver(
                 trackedNode == null && fallbackNode != null -> fallbackNode
                 trackedNode != null && fallbackNode != null && isBroadContainer(trackedNode) &&
                     !isBroadContainer(fallbackNode) -> fallbackNode
+
                 else -> trackedNode
             } ?: handleValidationError("nodeNotFound", uri, ValidationContext.PositionContext(position))
 
@@ -110,70 +150,29 @@ class DefinitionResolver(
         node is org.codehaus.groovy.ast.stmt.Statement
 
     /**
-     * Resolve the target node to its definition.
+     * Resolve the target node to its definition using the functional resolution pipeline.
+     *
+     * Uses Railway-Oriented Programming with Arrow Either for clean composition:
+     * - Each strategy returns Either<ResolutionError, DefinitionResult>
+     * - Pipeline short-circuits on first Right (success)
+     * - Strategies are tried in priority order (Jenkins vars → Local → Global → Classpath)
      */
     private suspend fun resolveDefinition(
         targetNode: ASTNode,
         uri: URI,
         position: com.github.albertocavalcante.groovyparser.ast.types.Position,
     ): DefinitionResult? {
-        val initialDefinition = try {
-            targetNode.resolveToDefinition(astVisitor, symbolTable, strict = false)
-        } catch (e: StackOverflowError) {
-            logger.debug("Stack overflow during definition resolution, likely circular reference", e)
-            handleResolutionError(e, targetNode, uri, position)
-        } catch (e: IllegalArgumentException) {
-            logger.debug("Invalid argument during definition resolution: ${e.message}", e)
-            handleResolutionError(e, targetNode, uri, position)
-        } catch (e: IllegalStateException) {
-            logger.debug("Invalid state during definition resolution: ${e.message}", e)
-            handleResolutionError(e, targetNode, uri, position)
-        }
+        val context = ResolutionContext(
+            targetNode = targetNode,
+            documentUri = uri,
+            position = position,
+        )
 
-        // Refine ClassNode resolution: prefer local declaration over reference
-        // If we found a ClassNode, check if there's a specific declaration in the AST with the same name.
-        // This handles cases where resolveToDefinition returns a reference ClassNode (e.g. from a constructor call)
-        // but the class is actually defined in the same file.
-        val definition = if (initialDefinition is ClassNode) {
-            resolveDeclaredClassNode(uri, initialDefinition)
-                ?: astVisitor.getAllClassNodes().find { it.name == initialDefinition.name }
-                ?: initialDefinition
-        } else {
-            initialDefinition
-        }
+        val result = resolutionPipeline.resolve(context)
 
-        // Check if we need to try global lookup (e.g. for class references across files)
-        if (shouldTryGlobalLookup(targetNode, definition, uri)) {
-            val globalDef = findGlobalDefinition(targetNode)
-            if (globalDef != null) {
-                logger.debug("Found global definition for ${targetNode.text}: ${globalDef.node.javaClass.simpleName}")
-                return globalDef
-            }
-
-            // Fallback: Try classpath lookup for binary dependencies
-            val classpathDef = findClasspathDefinition(targetNode)
-            if (classpathDef != null) {
-                logger.debug("Found classpath definition for ${targetNode.text}: $classpathDef")
-                return classpathDef
-            }
-
-            // If we tried global/classpath lookup for an external class reference but found nothing,
-            // return null rather than incorrectly returning the reference as a definition.
-            // This happens when source isn't available for jar:/jrt: classes.
-            logger.debug("External class reference not resolved for ${targetNode.text}")
-            return null
-        }
-
-        // FIXME: Filter out non-definition nodes that shouldn't be treated as symbols
-        val filteredDefinition = when (definition) {
-            is org.codehaus.groovy.ast.expr.ConstantExpression -> null // String literals aren't definitions
-            else -> definition
-        }
-
-        return if (filteredDefinition != null) {
-            DefinitionResult.Source(filteredDefinition, uri)
-        } else {
-            handleResolutionError(null, targetNode, uri, position)
+        return result.getOrElse { error ->
+            logger.debug("Resolution failed [{}]: {}", error.strategy, error.reason)
+            null
         }
     }
 
@@ -193,6 +192,9 @@ class DefinitionResolver(
 
         // Import nodes represent a reference to an external type and should resolve via global/classpath lookup.
         if (targetNode is ImportNode || definition is ImportNode) return true
+
+        // MethodCallExpression should try global lookup for Jenkins vars/ global variables
+        if (targetNode is MethodCallExpression) return true
 
         // If definition is a ClassNode, check if it's a real declaration in the current file
         if (definition is ClassNode) {
@@ -278,6 +280,7 @@ class DefinitionResolver(
 
                         return DefinitionResult.Binary(result.uri, className, range)
                     }
+
                     is SourceNavigator.SourceResult.BinaryOnly -> {
                         logger.debug("No source available for $className: ${result.reason}")
                         // Fall through to check if URI is resolvable
@@ -302,12 +305,14 @@ class DefinitionResolver(
                 logger.debug("JDK source not available for $className")
                 null
             }
+
             "jar" -> {
                 // Maven source JAR resolution was attempted above
                 // If we reach here, no source JAR available for this dependency
                 logger.debug("No source available for $className - jar: URI not openable")
                 null
             }
+
             else -> {
                 logger.debug("Skipping class $className with unsupported URI scheme: ${classpathUri.scheme}")
                 null
@@ -323,10 +328,77 @@ class DefinitionResolver(
         else -> null
     }
 
+    /**
+     * Extract a method name from the target node for Jenkins vars/ lookup.
+     *
+     * This handles the common case where clicking on a method name in a method call
+     * like `buildPlugin()` returns the inner ConstantExpression instead of the
+     * MethodCallExpression. We use heuristics to extract a valid method name:
+     *
+     * - MethodCallExpression: Use methodAsString directly
+     * - ConstantExpression: If value is a simple identifier (no dots/spaces), treat as method name
+     *
+     * @return The method name if it looks like a valid global variable name, null otherwise
+     */
+    private fun extractMethodNameForVarsLookup(targetNode: ASTNode): String? {
+        return when (targetNode) {
+            is MethodCallExpression -> targetNode.methodAsString
+            is org.codehaus.groovy.ast.expr.ConstantExpression -> {
+                // HEURISTIC: ConstantExpression.value for method names is a String like "buildPlugin"
+                // We filter out values that look like string literals (contain spaces, quotes, etc.)
+                val value = targetNode.value as? String ?: return null
+                if (value.isBlank() || value.contains(" ") || value.contains(".")) {
+                    return null
+                }
+                // Additional check: identifier-like (starts with letter/underscore, alphanumeric after)
+                if (!value.matches(Regex("^[a-zA-Z_][a-zA-Z0-9_]*$"))) {
+                    return null
+                }
+                value
+            }
+
+            else -> null
+        }
+    }
+
     private fun loadClassNodeFromAst(uri: URI, className: String): ASTNode? {
         val ast = compilationService?.getAst(uri) ?: return null
         // Find ClassNode in the AST
         return (ast as? ModuleNode)?.classes?.find { it.name == className }
+    }
+
+    /**
+     * Attempt to resolve a method call to a Jenkins vars/ global variable file.
+     *
+     * Jenkins Shared Libraries define global variables as files in the vars/ directory.
+     * When a Jenkinsfile calls `buildPlugin()`, this should navigate to `vars/buildPlugin.groovy`.
+     *
+     * @param methodName The name of the method being called (e.g., "buildPlugin")
+     * @return A DefinitionResult pointing to the vars file, or null if not found
+     */
+    private fun tryResolveJenkinsGlobalVariable(methodName: String): DefinitionResult.Source? {
+        if (compilationService == null || methodName.isBlank()) return null
+
+        val globalVars = compilationService.getJenkinsGlobalVariables()
+        // TODO: Remove after debugging - temporary INFO level log
+        logger.info(
+            "Jenkins vars lookup for '$methodName': found ${globalVars.size} global vars: ${globalVars.map {
+                it.name
+            }}",
+        )
+        val matchingVar = globalVars.find { it.name == methodName } ?: return null
+
+        logger.info("Found Jenkins global variable '$methodName' at ${matchingVar.path}")
+
+        // Create a synthetic ClassNode to represent the definition location.
+        // Line 1, column 1 points to the start of the file.
+        val syntheticNode = org.codehaus.groovy.ast.ClassNode(matchingVar.name, 0, null)
+        syntheticNode.lineNumber = 1
+        syntheticNode.columnNumber = 1
+        syntheticNode.lastLineNumber = 1
+        syntheticNode.lastColumnNumber = 1
+
+        return DefinitionResult.Source(syntheticNode, matchingVar.path.toUri())
     }
 
     /**
