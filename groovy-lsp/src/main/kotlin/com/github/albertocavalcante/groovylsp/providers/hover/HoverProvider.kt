@@ -189,6 +189,7 @@ class HoverProvider(
             val parent = visitor.getParent(node)
             if (parent is ImportNode) parent else node
         }
+
         is VariableExpression -> resolveVariable(node, visitor, symbolTable)
         is ConstantExpression -> resolveConstant(node, visitor)
         else -> node
@@ -303,7 +304,8 @@ class HoverProvider(
         }
 
         val stepName = node.methodAsString ?: return null
-        val stepMetadata = JenkinsStepCompletionProvider.getStepMetadata(stepName) ?: return null
+        val metadata = compilationService.workspaceManager.getAllJenkinsMetadata() ?: return null
+        val stepMetadata = JenkinsStepCompletionProvider.getStepMetadata(stepName, metadata) ?: return null
 
         // Build rich hover content for Jenkins step
         val markdownContent = buildString {

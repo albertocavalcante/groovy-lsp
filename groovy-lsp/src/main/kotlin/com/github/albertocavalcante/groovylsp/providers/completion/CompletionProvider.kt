@@ -13,6 +13,7 @@ import com.github.albertocavalcante.groovyparser.ast.SymbolExtractor
 import com.github.albertocavalcante.groovyparser.ast.VariableSymbol
 import org.codehaus.groovy.control.CompilationFailedException
 import org.eclipse.lsp4j.CompletionItem
+import org.eclipse.lsp4j.MarkupContent
 import org.slf4j.LoggerFactory
 
 /**
@@ -160,35 +161,43 @@ object CompletionProvider {
                 null -> {
                     /* No special context */
                     if (isJenkinsFile) {
-                        // Best-effort: if inside a method call on root (e.g., sh(...)), suggest map keys.
-                        addJenkinsMapKeyCompletions(nodeAtCursor, astModel)
+                        val metadata = compilationService.workspaceManager.getAllJenkinsMetadata()
+                        if (metadata != null) {
+                            // Best-effort: if inside a method call on root (e.g., sh(...)), suggest map keys.
+                            addJenkinsMapKeyCompletions(nodeAtCursor, astModel, metadata)
 
-                        // Suggest global variables from vars/ directory
-                        addJenkinsGlobalVariables(compilationService)
+                            // Suggest global variables from vars/ directory and plugins
+                            addJenkinsGlobalVariables(metadata)
+                        }
                     }
                 }
             }
         }
     }
 
-    private fun CompletionsBuilder.addJenkinsGlobalVariables(compilationService: GroovyCompilationService) {
-        val vars = compilationService.workspaceManager.getJenkinsGlobalVariables()
-        vars.forEach { globalVar ->
-            variable(
-                name = globalVar.name,
-                // We don't know the exact type without deeper analysis, usually it's a script/singleton
-                type = "Object",
-                doc = "Jenkins Global Variable: ${globalVar.name}\n${globalVar.documentation}",
-            )
+    private fun CompletionsBuilder.addJenkinsGlobalVariables(
+        metadata: com.github.albertocavalcante.groovyjenkins.metadata.BundledJenkinsMetadata,
+    ) {
+        val completions = JenkinsStepCompletionProvider.getGlobalVariableCompletions(metadata)
+        completions.forEach { item ->
+            val docString = when {
+                item.documentation?.isRight == true -> (item.documentation.right as? MarkupContent)?.value
+                item.documentation?.isLeft == true -> item.documentation.left
+                else -> null
+            } ?: item.detail
 
-            // Also suggest 'call' method if present implicitly?
-            // For now, simpler is better. The variable itself is callable.
+            variable(
+                name = item.label,
+                type = item.detail?.substringAfterLast('.') ?: "Object",
+                doc = docString ?: "Jenkins global variable",
+            )
         }
     }
 
     private fun CompletionsBuilder.addJenkinsMapKeyCompletions(
         nodeAtCursor: org.codehaus.groovy.ast.ASTNode?,
         astModel: com.github.albertocavalcante.groovyparser.ast.GroovyAstModel,
+        metadata: com.github.albertocavalcante.groovyjenkins.metadata.BundledJenkinsMetadata,
     ) {
         val methodCall = findEnclosingMethodCall(nodeAtCursor, astModel)
         val callName = methodCall?.methodAsString ?: return
@@ -205,11 +214,18 @@ object CompletionProvider {
             }
         }
 
-        val bundledParamCompletions = JenkinsStepCompletionProvider.getBundledParameterCompletions(
+        val bundledParamCompletions = JenkinsStepCompletionProvider.getParameterCompletions(
             callName,
             existingKeys,
+            metadata,
         )
-        bundledParamCompletions.forEach { add(it) }
+        bundledParamCompletions.forEach { item ->
+            // Convert LSP CompletionItem back to DSL calls (or we could expose raw add(item) in DSL?)
+            // DSL `completion {}` builder usually has high-level methods.
+            // But we can add raw items if the builder supports it or if we map it.
+            // The DSL builder has `add(CompletionItem)`.
+            add(item)
+        }
     }
 
     private fun findEnclosingMethodCall(
