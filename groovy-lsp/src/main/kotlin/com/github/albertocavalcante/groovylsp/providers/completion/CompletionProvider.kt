@@ -215,6 +215,7 @@ object CompletionProvider {
         if (!isSpockSpec) return
         if (completionContext != null) return
         if (!isLineIndentOnlyBeforeCursor(content, line, character)) return
+        if (isCursorInLikelyCommentOrString(content, line, character)) return
 
         val labels = listOf(
             "given:" to "Spock setup block",
@@ -237,6 +238,54 @@ object CompletionProvider {
                 // Sort ahead of general keywords
                 sortText("0-$label")
             }
+        }
+    }
+
+    private fun isCursorInLikelyCommentOrString(content: String, line: Int, character: Int): Boolean {
+        val lines = content.split('\n')
+        if (line !in lines.indices) return false
+
+        val currentLine = lines[line]
+        val safeChar = character.coerceIn(0, currentLine.length)
+        val linePrefix = currentLine.substring(0, safeChar)
+
+        // NOTE: Heuristic / tradeoff:
+        // This is a fast, best-effort suppression to avoid offering block-label completions inside comments/strings.
+        // It is not a full Groovy lexer and may be fooled by comment/string delimiters inside other literals.
+        // TODO: Replace this with AST/token based context classification when we have a proper token stream.
+
+        // 1) Single-line comment.
+        if (linePrefix.contains("//")) return true
+
+        // 2) Block comment: if the last "/*" is after the last "*/" before the cursor, assume we're inside.
+        val offset = offsetAt(content, lines, line, safeChar)
+        val beforeCursor = content.substring(0, offset)
+        if (beforeCursor.lastIndexOf("/*") > beforeCursor.lastIndexOf("*/")) return true
+
+        // 3) Multiline strings: basic triple-quote parity checks.
+        if ((countOccurrences(beforeCursor, "'''") % 2) == 1) return true
+        if ((countOccurrences(beforeCursor, "\"\"\"") % 2) == 1) return true
+
+        return false
+    }
+
+    private fun offsetAt(content: String, lines: List<String>, line: Int, character: Int): Int {
+        var offset = 0
+        for (i in 0 until line) {
+            offset += lines[i].length + 1 // + '\n'
+        }
+        return (offset + character).coerceIn(0, content.length)
+    }
+
+    private fun countOccurrences(haystack: String, needle: String): Int {
+        if (needle.isEmpty() || haystack.length < needle.length) return 0
+        var count = 0
+        var idx = 0
+        while (true) {
+            val found = haystack.indexOf(needle, idx)
+            if (found < 0) return count
+            count++
+            idx = found + needle.length
         }
     }
 

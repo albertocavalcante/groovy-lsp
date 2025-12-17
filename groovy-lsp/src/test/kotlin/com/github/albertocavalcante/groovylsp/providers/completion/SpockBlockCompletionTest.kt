@@ -87,4 +87,107 @@ class SpockBlockCompletionTest {
         assertFalse(completions.any { it.label == "given:" })
         assertFalse(completions.any { it.label == "where:" })
     }
+
+    @Test
+    fun `does not suggest spock block labels when cursor is mid line`() = runTest {
+        val compilationService = GroovyCompilationService()
+
+        val (content, line, character) =
+            extractCaret(
+                """
+                import spock.lang.Specification
+
+                class FooSpec extends Specification {
+                    def "feature"() {
+                        def value = 1/*caret*/
+                    }
+                }
+                """.trimIndent(),
+            )
+
+        val uri = URI.create("file:///src/test/groovy/com/example/FooSpec.groovy")
+        val result = compilationService.compile(uri, content)
+        assertTrue(result.isSuccess, "Compilation should succeed")
+
+        val completions = CompletionProvider.getContextualCompletions(
+            uri.toString(),
+            line,
+            character,
+            compilationService,
+            content,
+        )
+
+        assertFalse(completions.any { it.label == "given:" })
+        assertFalse(completions.any { it.label == "where:" })
+    }
+
+    @Test
+    fun `does not suggest spock block labels inside multiline comment`() = runTest {
+        val compilationService = GroovyCompilationService()
+
+        val (content, line, character) =
+            extractCaret(
+                """
+                import spock.lang.Specification
+
+                class FooSpec extends Specification {
+                    def "feature"() {
+                        /*
+                            /*caret*/
+                        */
+                    }
+                }
+                """.trimIndent(),
+            )
+
+        val uri = URI.create("file:///src/test/groovy/com/example/FooSpec.groovy")
+        val result = compilationService.compile(uri, content)
+        assertTrue(result.isSuccess, "Compilation should succeed")
+
+        val completions = CompletionProvider.getContextualCompletions(
+            uri.toString(),
+            line,
+            character,
+            compilationService,
+            content,
+        )
+
+        assertFalse(completions.any { it.label == "given:" })
+        assertFalse(completions.any { it.label == "where:" })
+    }
+
+    @Test
+    fun `does not suggest spock block labels inside multiline string`() = runTest {
+        val compilationService = GroovyCompilationService()
+
+        val (content, line, character) =
+            extractCaret(
+                """
+                import spock.lang.Specification
+
+                class FooSpec extends Specification {
+                    def "feature"() {
+                        def text = '''
+                            /*caret*/
+                        '''
+                    }
+                }
+                """.trimIndent(),
+            )
+
+        val uri = URI.create("file:///src/test/groovy/com/example/FooSpec.groovy")
+        val result = compilationService.compile(uri, content)
+        assertTrue(result.isSuccess, "Compilation should succeed")
+
+        val completions = CompletionProvider.getContextualCompletions(
+            uri.toString(),
+            line,
+            character,
+            compilationService,
+            content,
+        )
+
+        assertFalse(completions.any { it.label == "given:" })
+        assertFalse(completions.any { it.label == "where:" })
+    }
 }

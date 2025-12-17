@@ -99,4 +99,29 @@ class SpockDetectorTest {
 
         assertTrue(SpockDetector.isLikelySpockSpec(uri, content))
     }
+
+    @Test
+    fun `does not detect spock when markers appear only in a comment`() {
+        val uri = URI.create("file:///src/test/groovy/com/example/Foo.groovy")
+        val content =
+            """
+            // import spock.lang.Specification
+            class Foo {}
+            """.trimIndent()
+
+        assertFalse(SpockDetector.isLikelySpockSpec(uri, content))
+    }
+
+    @Test
+    fun `does not detect spock when markers appear only in a string literal`() {
+        val uri = URI.create("file:///src/test/groovy/com/example/Foo.groovy")
+        val content =
+            """
+            class Foo {
+                def x = "import spock.lang.Specification"
+            }
+            """.trimIndent()
+
+        assertFalse(SpockDetector.isLikelySpockSpec(uri, content))
+    }
 }

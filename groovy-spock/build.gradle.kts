@@ -3,13 +3,9 @@ plugins {
 }
 
 dependencies {
-    // Kotlin
-    implementation(libs.kotlin.coroutines.core)
-
     // Testing
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.assertj.core)
     testRuntimeOnly(libs.junit.platform.launcher)
 
     // Detekt formatting

@@ -129,16 +129,21 @@ Acceptance criteria:
 1. Add `groovy-spock` module and wire it into `settings.gradle.kts` and `groovy-lsp` dependencies.
 2. Add a fast `SpockDetector`:
    - File name heuristic: `*Spec.groovy`.
-   - Content heuristic: `extends Specification`, `import spock.`, `spock.lang.Specification`, `spock.lang.*`.
-   - AST heuristic (when available): superclass is `spock.lang.Specification`.
+   - Content heuristic: `import spock.*`, `import spock.lang.*`, `extends spock.lang.Specification`.
+   - AST heuristic (when available): superclass is `spock.lang.Specification` (planned).
 3. Expose “framework hints” to providers:
-   - Add `DocumentFrameworkContext` (cached by URI + content hash).
+   - Add `DocumentFrameworkContext` (cached by URI + content hash) (planned).
    - Make completion/hover/diagnostics providers able to ask “is Spock active here?”.
 
 Acceptance criteria:
 
 - Spock specs are detected with low overhead.
 - Non-spec Groovy files do not pay extra cost.
+
+Status (as of PR #200):
+
+- Implemented: `groovy-spock` module + lightweight `SpockDetector`.
+- Planned: AST-driven detection and `DocumentFrameworkContext` caching.
 
 ### Milestone 2 — Block label completions (high value, low risk)
 
@@ -158,6 +163,12 @@ Acceptance criteria:
 
 - Completion in a Spock spec suggests block labels and inserts `:` correctly.
 - Snippets appear only in Spock specs (or behind a config flag).
+
+Status (as of PR #200):
+
+- Implemented: block label completions (gated to detected specs; suppressed inside comments/strings via best-effort
+  heuristics).
+- Planned: `thrown()` / `noExceptionThrown()` / `notThrown(Foo)` completions and the listed snippets.
 
 ### Milestone 3 — Load and expand bundled Spock GDSL
 
@@ -297,4 +308,3 @@ We can call Spock support “first-class MVP” when:
 - `Mock(Foo)` and `thrown(Foo)` type inference works in hover + completion.
 - `where:` variables are recognized for completion and basic navigation.
 - There is test coverage (unit + e2e) guarding these behaviors.
-
