@@ -202,7 +202,8 @@ internal class RulesetFileCache(private val cacheDir: Path) {
 
     private fun sha256Hex(text: String): String {
         val hashBytes = sha256Digest.get().digest(text.toByteArray(StandardCharsets.UTF_8))
-        // NOTE: HexFormat formats with lowercase hex by default; the hash is an opaque identifier so casing is irrelevant.
+        // NOTE: HexFormat formats with lowercase hex by default.
+        //       The hash is an opaque identifier so casing is irrelevant.
         return hexFormat.formatHex(hashBytes)
     }
 }
