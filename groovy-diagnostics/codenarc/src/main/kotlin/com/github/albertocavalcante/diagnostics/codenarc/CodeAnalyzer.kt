@@ -14,6 +14,7 @@ import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.HexFormat
 import kotlin.system.measureTimeMillis
 
 /**
@@ -147,6 +148,13 @@ internal class RulesetFileCache(
     private val cacheDir: Path,
     private val cachedFilesByHash: ConcurrentHashMap<String, Path> = ConcurrentHashMap(),
 ) {
+    companion object {
+        // NOTE: MessageDigest.getInstance("SHA-256") is relatively expensive; reuse per-thread instances.
+        // TODO: Measure impact under realistic concurrency before adding more complex pooling.
+        private val sha256Digest = ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
+        private val hexFormat = HexFormat.of()
+    }
+
     fun getOrCreate(rulesetContent: String): Path {
         // NOTE: This cache trades a small amount of disk space for significantly faster repeated analysis
         // by avoiding rewriting identical ruleset content for every CodeNarc run.
@@ -180,8 +188,9 @@ internal class RulesetFileCache(
     }
 
     private fun sha256Hex(text: String): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(StandardCharsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+        val hashBytes = sha256Digest.get().digest(text.toByteArray(StandardCharsets.UTF_8))
+        // NOTE: HexFormat formats with lowercase hex by default; the hash is an opaque identifier so casing is irrelevant.
+        return hexFormat.formatHex(hashBytes)
     }
 }
 
