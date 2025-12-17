@@ -13,9 +13,9 @@ on:
         required: false
         type: choice
         options:
-          - 'cloud'
           - 'self-hosted'
-        default: 'cloud'
+          - 'cloud'
+        default: 'self-hosted'
       disable_scan:
         description: Disable Gradle build scan
         required: false
@@ -37,16 +37,20 @@ concurrency:
 # ============================================================================
 # RUNNER CONFIGURATION
 # ============================================================================
-# Priority: workflow_dispatch input > CI_RUNNER_LABEL repo variable > macos-15
+# Priority: workflow_dispatch input > CI_RUNNER_LABEL repo variable > self-hosted
 #
-# To switch ALL jobs to self-hosted permanently:
+# Default: self-hosted runner (faster, no GitHub Actions minutes cost)
+#
+# To switch to cloud runners permanently:
 #   Settings → Secrets and variables → Actions → Variables → New repository variable
-#   Name: CI_RUNNER_LABEL  Value: self-hosted
+#   Name: CI_RUNNER_LABEL  Value: cloud
 #
-# To switch for a single run:
-#   Actions → CI → Run workflow → runner_label: self-hosted
+# To switch to cloud for a single run:
+#   Actions → CI → Run workflow → runner_label: cloud
 #
-# Default (no variable set): macos-15 (GitHub-hosted Arm64 runner)
+# Cloud runner options (when CI_RUNNER_LABEL=cloud):
+#   - PRs: macos-15 (stable Arm64)
+#   - Main: macos-15 + ubuntu-24.04 matrix
 #
 # NOTE: Avoiding ubuntu-latest due to stability issues causing builds to hang.
 # See: https://github.com/actions/runner-images/issues/13182
@@ -65,12 +69,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Self-hosted: single runner, Java 17 only
-        # Cloud: macos-15 for PRs (stable Arm64), multi-platform for main pushes
+        # Default: self-hosted (single runner, Java 17 only)
+        # Cloud (opt-in): macos-15 for PRs, multi-platform for main pushes
         # NOTE: Using macos-15 instead of ubuntu-latest due to runner stability issues
         # See: https://github.com/actions/runner-images/issues/13182
-        os: ${{ fromJSON( (github.event.inputs.runner_label == 'self-hosted' || vars.CI_RUNNER_LABEL == 'self-hosted') && '["self-hosted"]' || (github.event_name == 'pull_request' && '["macos-15"]' || '["macos-15", "ubuntu-24.04"]') ) }}
-        java: ${{ fromJSON( (github.event.inputs.runner_label == 'self-hosted' || vars.CI_RUNNER_LABEL == 'self-hosted') && '[17]' || (github.event_name == 'pull_request' && '[17]' || '[17, 21]') ) }}
+        os: ${{ fromJSON( (github.event.inputs.runner_label == 'cloud' || vars.CI_RUNNER_LABEL == 'cloud') && (github.event_name == 'pull_request' && '["macos-15"]' || '["macos-15", "ubuntu-24.04"]') || '["self-hosted"]' ) }}
+        java: ${{ fromJSON( (github.event.inputs.runner_label == 'cloud' || vars.CI_RUNNER_LABEL == 'cloud') && (github.event_name == 'pull_request' && '[17]' || '[17, 21]') || '[17]' ) }}
         exclude:
           - os: ubuntu-24.04
             java: 21
