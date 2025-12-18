@@ -1,37 +1,19 @@
-.vscode/**
-.vscode-test/**
-.gemini/**
-.git/
-.github/
-.DS_Store
-*.log
-.aider.conf.yml
-.mocharc.json
-.eslintrc.json
-.release-please-config.json
-.release-please-manifest.json
-release-please-config.json
-.yarnrc
-AGENTS.md
-CLAUDE.md
-COPILOT.md
-commitlint.config.js
-esbuild.js
-eslint.config.mjs
-renovate.json
-.gitignore
-package-lock.json
-yarn.lock
-tsconfig.json
-client/src/**
-client/node_modules/**
-client/package-lock.json
-client/package.json
-client/tsconfig.json
-client/tsconfig.tsbuildinfo
-server/.groovy-lsp-version
-tools/**
-**/*.map
-**/*.ts
+# Package as an allowlist (deny-all by default).
+# This makes VSIX contents predictable and avoids accidental leakage of dev/CI files.
+
+# Deny everything...
+**
+
+# ...then explicitly allow only what's needed at runtime/Marketplace.
+!package.json
+!README.md
+!CHANGELOG.md
+!LICENSE
+
+!language-configuration.json
+!syntaxes/**
+
+!client/out/extension.js
+
 !server/groovy-lsp.jar
-node_modules/
+!server/.groovy-lsp-version
