@@ -236,7 +236,7 @@ In LSP terms:
 ### New/extended components (proposed)
 
 1. `ParseRequest.compilePhase` (default stays current behavior)
-2. `GroovyParserFacade.parse(... compilePhase = Phases.CANONICALIZATION | CONVERSION | ...)`
+2. `GroovyParserFacade.parse(... compilePhase = Phases.CONVERSION)`
 3. `groovy-parser` token utilities (`GroovyTokenIndex`)
 4. `groovy-spock` AST-first detection (`SpockDetector` that consumes AST/ParseResult)
 5. `groovy-spock` block modeling (`SpockBlockIndexer`)
@@ -332,4 +332,3 @@ Goal: use `SpockBlockIndex` to gate higher-level completions.
     does for parsing, and we want to avoid unpredictable side effects.
 - Full semantic “Spock runtime model” (`SpecInfo`) in LSP.
   - We only need enough to provide editor features; the model can be lightweight and source-driven.
-

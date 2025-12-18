@@ -7,6 +7,7 @@ import org.codehaus.groovy.ast.stmt.Statement
 import org.codehaus.groovy.control.Phases
 import org.junit.jupiter.api.Test
 import java.net.URI
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -32,6 +33,28 @@ class GroovyParserCompilePhaseTest {
             ),
         )
 
+        assertTrue(result.isSuccessful)
+        assertNotNull(result.ast)
+    }
+
+    @Test
+    fun `parse defaults compilePhase to canonicalization`() {
+        val code =
+            """
+            class Greeting {
+                String message() { "hi" }
+            }
+            """.trimIndent()
+
+        val request =
+            ParseRequest(
+                uri = URI.create("file:///Greeting.groovy"),
+                content = code,
+            )
+
+        assertEquals(Phases.CANONICALIZATION, request.compilePhase)
+
+        val result = parser.parse(request)
         assertTrue(result.isSuccessful)
         assertNotNull(result.ast)
     }
@@ -100,7 +123,10 @@ class GroovyParserCompilePhaseTest {
         val labels = mutableListOf<String>()
 
         fun visit(stmt: Statement) {
-            stmt.statementLabel?.let { labels.add(it) }
+            // NOTE: We prefer the list-based API to avoid using deprecated `getStatementLabel()`.
+            // TODO: When we implement the production Spock block indexer, rely on statement labels at method-body
+            // top-level (Spock's own parser looks there) and avoid generic deep recursion.
+            labels.addAll(stmt.statementLabels.orEmpty())
             when (stmt) {
                 is BlockStatement -> stmt.statements.forEach(::visit)
             }
