@@ -17,8 +17,19 @@ sealed interface TokenContext {
 
 /**
  * Efficient token index for cursor context queries.
+ *
+ * Provides O(log N) lookup for token classification at any source offset.
  */
 class GroovyTokenIndex private constructor(private val spans: List<TokenSpan>) {
+    /**
+     * Represents a token span in the source code.
+     *
+     * The span uses half-open interval semantics: `[start, end)`.
+     *
+     * @property start Inclusive start offset (0-based)
+     * @property end Exclusive end offset (0-based)
+     * @property context The token classification for this span
+     */
     data class TokenSpan(val start: Int, val end: Int, val context: TokenContext)
 
     /** Query token context at offset. */
@@ -45,13 +56,19 @@ class GroovyTokenIndex private constructor(private val spans: List<TokenSpan>) {
     companion object {
         private val logger = org.slf4j.LoggerFactory.getLogger(GroovyTokenIndex::class.java)
 
-        /** Build index from source using Groovy lexer */
+        /** Build index from source using Groovy lexer. */
+        @Suppress("TooGenericExceptionCaught")
         fun build(source: String): GroovyTokenIndex {
-            val lexer = org.apache.groovy.parser.antlr4.GroovyLangLexer(
-                groovyjarjarantlr4.v4.runtime.CharStreams.fromString(source),
-            )
-
             val spans = mutableListOf<TokenSpan>()
+
+            val lexer = try {
+                org.apache.groovy.parser.antlr4.GroovyLangLexer(
+                    groovyjarjarantlr4.v4.runtime.CharStreams.fromString(source),
+                )
+            } catch (e: Throwable) {
+                logger.debug("Failed to initialize GroovyLangLexer", e)
+                return GroovyTokenIndex(emptyList())
+            }
 
             // Handle shebang manually if lexer skips it
             if (source.startsWith("#!")) {
@@ -79,7 +96,7 @@ class GroovyTokenIndex private constructor(private val spans: List<TokenSpan>) {
 
                         val context = when {
                             symbolicName in setOf("SINGLE_LINE_COMMENT", "SH_COMMENT") ||
-                                (symbolicName == "NL" && (text.startsWith("//") || text.startsWith("#"))) ->
+                                (symbolicName == "NL" && (text.startsWith("//") || text.startsWith("#!"))) ->
                                 TokenContext.LineComment
 
                             symbolicName == "DELIMITED_COMMENT" ||
@@ -103,10 +120,10 @@ class GroovyTokenIndex private constructor(private val spans: List<TokenSpan>) {
                         }
 
                         if (context != TokenContext.Code) {
-                            // Avoid duplicates if we manually handled shebang
-                            if (token.startIndex == 0 && spans.isNotEmpty() && spans[0].start == 0) {
-                                // Already handled shebang
-                            } else {
+                            // Avoid duplicates if we manually handled shebang at position 0
+                            val alreadyHandledAtZero = token.startIndex == 0 &&
+                                spans.any { it.start == 0 && it.context is TokenContext.LineComment }
+                            if (!alreadyHandledAtZero) {
                                 spans.add(TokenSpan(token.startIndex, token.stopIndex + 1, context))
                             }
                         }

@@ -88,6 +88,18 @@ class GroovyTokenIndexTest {
     }
 
     @Test
+    fun `should detect triple quoted GStrings`() {
+        val source = "def s = \"\"\"hello \${name}\"\"\""
+        val index = GroovyTokenIndex.build(source)
+
+        // For triple-quoted GStrings, verify the string start is detected
+        val gstringStart = source.indexOf("\"\"\"")
+        assertTrue(index.isInString(gstringStart), "Triple-quoted GString start")
+        // The 'h' after opening """ should be inside the string
+        assertTrue(index.isInString(gstringStart + 3), "First character inside triple-quoted GString")
+    }
+
+    @Test
     fun `should detect shebang comments`() {
         val source = "#!/usr/bin/env groovy\ndef x = 1"
         val index = GroovyTokenIndex.build(source)
