@@ -2,19 +2,31 @@
  * Prepares the Groovy Language Server JAR
  * Priority order:
  * 1. Use explicitly provided local JAR (--local/GROOVY_LSP_LOCAL_JAR)
- * 2. Use existing server/groovy-lsp.jar if present (unless FORCE_DOWNLOAD=true)
- * 3. Copy from local groovy-lsp build if available and PREFER_LOCAL=true
- * 4. Download from GitHub releases (pinned, latest, nightly, or explicit tag)
+ * 2. Use explicitly provided URL (--url/GROOVY_LSP_URL)
+ * 3. Use existing server/groovy-lsp.jar if present (unless FORCE_DOWNLOAD=true)
+ * 4. Copy from local groovy-lsp build if available and PREFER_LOCAL=true
+ * 5. Download from GitHub releases (pinned, latest, nightly, or explicit tag)
  */
 
 const fs = require("node:fs");
 const path = require("node:path");
-const https = require("node:https");
 const crypto = require("node:crypto");
+const os = require("node:os");
 const { validateJarFile } = require("./validate-server.js");
+const { extractOrCopyJar, isZipFile } = require("./zip.js");
+const { HttpError, downloadToFile } = require("./http.js");
+const {
+  getLatestReleaseInfo,
+  getReleaseByTag,
+  getLatestNightlyRelease,
+  selectJarAsset,
+  fetchChecksumForAsset,
+} = require("./github-releases.js");
+const {
+  resolveGitHubToken,
+  resolveGitHubArtifactDownload,
+} = require("./github-token.js");
 
-const GITHUB_API_BASE =
-  "https://api.github.com/repos/albertocavalcante/groovy-lsp";
 const SERVER_DIR = path.join(__dirname, "..", "server");
 const CANONICAL_JAR_NAME = "groovy-lsp.jar";
 const JAR_PATH = path.join(SERVER_DIR, CANONICAL_JAR_NAME);
@@ -27,9 +39,6 @@ const PINNED_JAR_ASSET = "groovy-lsp-0.2.0-linux-amd64.jar";
 const PINNED_DOWNLOAD_URL = `https://github.com/albertocavalcante/groovy-lsp/releases/download/${PINNED_RELEASE_TAG}/${PINNED_JAR_ASSET}`;
 const PINNED_JAR_SHA256 =
   "0ec247be16c0cce5217a1bd4b6242f67c9ed002e486b749479d50c980a328601";
-const GITHUB_RELEASE_API = `${GITHUB_API_BASE}/releases/latest`;
-const GITHUB_RELEASES_API = `${GITHUB_API_BASE}/releases?per_page=30`;
-const GITHUB_RELEASE_TAG_API = `${GITHUB_API_BASE}/releases/tags`;
 
 function expectValue(argv, index, flag) {
   if (index >= argv.length || argv[index].startsWith("--")) {
@@ -45,6 +54,8 @@ function parseArgs(argv = []) {
     latest: false,
     tag: null,
     local: null,
+    url: null,
+    checksum: null,
     forceDownload: false,
     channel: null,
     preferLocal: false,
@@ -74,6 +85,14 @@ function parseArgs(argv = []) {
         break;
       case "--local":
         parsed.local = expectValue(argv, i + 1, "--local");
+        i += 1;
+        break;
+      case "--url":
+        parsed.url = expectValue(argv, i + 1, "--url");
+        i += 1;
+        break;
+      case "--checksum":
+        parsed.checksum = expectValue(argv, i + 1, "--checksum");
         i += 1;
         break;
       case "--force-download":
@@ -242,7 +261,7 @@ function deriveSelection(cliOptions) {
   return { type: "pinned" };
 }
 
-async function resolveTarget(selection) {
+async function resolveTarget(selection, { authToken } = {}) {
   const buildTargetFromReleaseInfo = async (
     info,
     { noJarError, logMessage },
@@ -254,7 +273,9 @@ async function resolveTarget(selection) {
     if (!jarAsset) {
       throw new Error(noJarError(info));
     }
-    const checksum = await fetchChecksumForAsset(info.assets, jarAsset.name);
+    const checksum = await fetchChecksumForAsset(info.assets, jarAsset.name, {
+      authToken,
+    });
     console.log(`${logMessage}: ${info.tag_name}`);
     return {
       tag: info.tag_name,
@@ -265,7 +286,7 @@ async function resolveTarget(selection) {
   };
 
   if (selection.type === "tag") {
-    const info = await getReleaseByTag(selection.tag);
+    const info = await getReleaseByTag(selection.tag, { authToken });
     return await buildTargetFromReleaseInfo(info, {
       noJarError: (i) => `No JAR file found in release ${i.tag_name}`,
       logMessage: "Selected Groovy LSP release tag",
@@ -273,7 +294,7 @@ async function resolveTarget(selection) {
   }
 
   if (selection.type === "nightly") {
-    const info = await getLatestNightlyRelease();
+    const info = await getLatestNightlyRelease({ authToken });
     if (!info) {
       throw new Error("No nightly Groovy LSP release found");
     }
@@ -284,7 +305,7 @@ async function resolveTarget(selection) {
   }
 
   if (selection.type === "latest") {
-    const info = await getLatestReleaseInfo();
+    const info = await getLatestReleaseInfo({ authToken });
     return await buildTargetFromReleaseInfo(info, {
       noJarError: () => "No JAR file found in the latest release",
       logMessage: "Selected latest Groovy LSP release",
@@ -299,61 +320,6 @@ async function resolveTarget(selection) {
     downloadUrl: PINNED_DOWNLOAD_URL,
     checksum: PINNED_JAR_SHA256,
   };
-}
-
-/**
- * Downloads a file from URL to local path
- */
-function downloadFile(url, filePath) {
-  return new Promise((resolve, reject) => {
-    function handleRequest(requestUrl) {
-      const request = https.get(requestUrl, (response) => {
-        // Handle redirects
-        if (
-          response.statusCode >= 300 &&
-          response.statusCode < 400 &&
-          response.headers.location
-        ) {
-          console.log(`Following redirect...`);
-          return handleRequest(response.headers.location);
-        }
-
-        if (response.statusCode !== 200) {
-          reject(
-            new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`),
-          );
-          return;
-        }
-
-        // Create file stream only when we have a successful response
-        const file = fs.createWriteStream(filePath);
-
-        file.on("error", (error) => {
-          fs.unlink(filePath, () => {}); // Clean up on error
-          reject(error);
-        });
-
-        file.on("finish", () => {
-          file.close();
-          resolve();
-        });
-
-        response.pipe(file);
-      });
-
-      request.on("error", (error) => {
-        fs.unlink(filePath, () => {}); // Clean up on error
-        reject(error);
-      });
-
-      request.setTimeout(60000, () => {
-        request.destroy();
-        reject(new Error("Download timeout"));
-      });
-    }
-
-    handleRequest(url);
-  });
 }
 
 /**
@@ -407,11 +373,114 @@ async function verifyChecksum(filePath, expectedHash) {
 }
 
 /**
+ * Downloads a JAR from a URL (handles ZIP extraction for GitHub artifacts)
+ * @param {string} url - URL to download from
+ * @param {string|null} expectedChecksum - Optional SHA256 checksum
+ */
+async function downloadFromUrl(url, expectedChecksum) {
+  const artifact = resolveGitHubArtifactDownload(url);
+  const downloadUrl = artifact.downloadUrl;
+  const isArtifactZip = artifact.isArtifactZip;
+
+  if (artifact.kind === "browser") {
+    console.log("Detected GitHub Actions artifact URL, transforming...");
+    console.log(`API URL: ${downloadUrl}`);
+  }
+
+  // Resolve auth token (required for GitHub Actions artifact downloads)
+  const authToken = resolveGitHubToken();
+
+  if (isArtifactZip && !authToken) {
+    throw new Error(
+      [
+        "GitHub Actions artifact downloads require authentication.",
+        "Set GH_TOKEN or GITHUB_TOKEN, or run 'gh auth login' first.",
+        "Token must have permission to read Actions artifacts for the repository.",
+      ].join(" "),
+    );
+  } else if (!authToken && downloadUrl.includes("api.github.com")) {
+    console.warn(
+      "⚠️  No GitHub token found. GitHub API downloads may be rate-limited.",
+    );
+  }
+
+  // Create temp directory for download
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "groovy-lsp-"));
+  const tempFile = path.join(tempDir, "download");
+
+  try {
+    console.log(`Downloading from URL: ${downloadUrl}`);
+    const { contentType } = await downloadToFile(downloadUrl, tempFile, {
+      authToken,
+    });
+
+    // Determine if we need to extract based on artifact flag, content-type (if present), or file inspection
+    const isZip =
+      isArtifactZip ||
+      contentType?.includes("application/zip") ||
+      contentType?.includes("application/x-zip") ||
+      isZipFile(tempFile);
+
+    if (isZip) {
+      console.log("Download is a ZIP archive, extracting JAR...");
+      extractOrCopyJar(tempFile, JAR_PATH);
+    } else {
+      // Direct JAR download
+      console.log("Download is a direct JAR file...");
+      fs.copyFileSync(tempFile, JAR_PATH);
+    }
+
+    // Validate extracted/copied JAR
+    try {
+      validateJarFile(JAR_PATH);
+    } catch (error) {
+      try {
+        fs.unlinkSync(JAR_PATH);
+      } catch {
+        // ignore cleanup error
+      }
+      throw new Error(`Downloaded JAR validation failed: ${error.message}`);
+    }
+
+    // Verify checksum if provided
+    if (expectedChecksum) {
+      await verifyChecksum(JAR_PATH, expectedChecksum);
+      console.log("✓ Checksum verified");
+    } else {
+      console.warn(
+        "⚠️  No checksum provided for URL download; skipping verification.",
+      );
+    }
+
+    // Write version marker
+    const urlObj = new URL(url);
+    const pathSegments = urlObj.pathname.split("/").filter(Boolean);
+    let markerId =
+      pathSegments.length > 0
+        ? pathSegments[pathSegments.length - 1]
+        : urlObj.hostname || "unknown";
+    if (markerId === "zip" && pathSegments.length >= 2) {
+      markerId = pathSegments[pathSegments.length - 2];
+    }
+    writeInstalledVersion(`url:${markerId}`);
+
+    console.log(`✓ Downloaded and saved as ${CANONICAL_JAR_NAME}`);
+  } finally {
+    // Clean up temp directory
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      // ignore cleanup error
+    }
+  }
+}
+
+/**
  * Downloads the target release JAR from GitHub
  */
 async function downloadRelease(target) {
   console.log(`Downloading Groovy LSP ${target.tag} (${target.assetName})...`);
-  await downloadFile(target.downloadUrl, JAR_PATH);
+  await downloadToFile(target.downloadUrl, JAR_PATH);
 
   // Validate downloaded JAR
   try {
@@ -448,6 +517,7 @@ async function downloadRelease(target) {
  * Main function to prepare the server JAR
  */
 async function prepareServer(runtimeOptions = {}) {
+  let requestedSelection = null;
   try {
     if (process.env.SKIP_PREPARE_SERVER === "true") {
       console.log("SKIP_PREPARE_SERVER=true, skipping server preparation.");
@@ -476,6 +546,13 @@ async function prepareServer(runtimeOptions = {}) {
       runtimeOptions.local ??
       cliOptions.local ??
       process.env.GROOVY_LSP_LOCAL_JAR ??
+      null;
+    const explicitUrl =
+      runtimeOptions.url ?? cliOptions.url ?? process.env.GROOVY_LSP_URL ?? null;
+    const explicitChecksum =
+      runtimeOptions.checksum ??
+      cliOptions.checksum ??
+      process.env.GROOVY_LSP_CHECKSUM ??
       null;
     const installedVersion = readInstalledVersion();
 
@@ -545,6 +622,13 @@ async function prepareServer(runtimeOptions = {}) {
       return;
     }
 
+    // URL override (second highest precedence)
+    if (explicitUrl) {
+      console.log("Using explicitly provided URL for download...");
+      await downloadFromUrl(explicitUrl, explicitChecksum);
+      return;
+    }
+
     // Try local build first if preferred
     if (preferLocal) {
       const localJarPath = findLocalGroovyLspJar();
@@ -559,14 +643,34 @@ async function prepareServer(runtimeOptions = {}) {
       }
     }
 
-    const selection = deriveSelection({
+    requestedSelection = deriveSelection({
       ...cliOptions,
       tag: runtimeOptions.tag ?? cliOptions.tag,
       nightly: runtimeOptions.nightly ?? cliOptions.nightly,
       latest: runtimeOptions.latest ?? cliOptions.latest,
       channel: runtimeOptions.channel ?? cliOptions.channel,
     });
-    const target = await resolveTarget(selection);
+
+    const selectionLabel =
+      requestedSelection.type === "tag"
+        ? `tag:${requestedSelection.tag}`
+        : requestedSelection.type;
+
+    let authToken = null;
+    if (requestedSelection.type !== "pinned") {
+      authToken = resolveGitHubToken();
+      if (!authToken) {
+        console.warn(
+          [
+            "⚠️  No GitHub token found. GitHub API requests may be rate-limited.",
+            "Tip: run 'gh auth login' or set GH_TOKEN/GITHUB_TOKEN to avoid 403 rate limits.",
+          ].join("\n"),
+        );
+      }
+    }
+
+    console.log(`Requested Groovy LSP selection: ${selectionLabel}`);
+    const target = await resolveTarget(requestedSelection, { authToken });
     if (!target.checksum) {
       console.warn(
         `⚠️  No checksum available for ${target.assetName}; proceeding without verification.`,
@@ -656,6 +760,20 @@ async function prepareServer(runtimeOptions = {}) {
     console.error("❌ Error preparing Groovy Language Server:");
     console.error(error.message);
 
+    if (error instanceof HttpError && error.isGitHubRateLimit) {
+      const reset = error.rateLimit?.reset
+        ? new Date(Number(error.rateLimit.reset) * 1000).toISOString()
+        : null;
+      console.error("");
+      console.error("GitHub API rate limit exceeded.");
+      console.error(
+        "Authenticate to get a higher limit: run 'gh auth login' or set GH_TOKEN/GITHUB_TOKEN.",
+      );
+      if (reset) {
+        console.error(`Rate limit resets at: ${reset}`);
+      }
+    }
+
     // Provide helpful error messages
     if (
       error.message.includes("ENOTFOUND") ||
@@ -668,8 +786,15 @@ async function prepareServer(runtimeOptions = {}) {
     }
 
     console.error("");
-    console.error(`Pinned release: ${PINNED_RELEASE_TAG}`);
-    console.error(`Pinned asset: ${PINNED_JAR_ASSET}`);
+    if (requestedSelection) {
+      const selectionLabel =
+        requestedSelection.type === "tag"
+          ? `tag:${requestedSelection.tag}`
+          : requestedSelection.type;
+      console.error(`Requested selection: ${selectionLabel}`);
+    }
+    console.error(`Default pinned release: ${PINNED_RELEASE_TAG}`);
+    console.error(`Default pinned asset: ${PINNED_JAR_ASSET}`);
     console.error(
       `Release page: https://github.com/albertocavalcante/groovy-lsp/releases/tag/${PINNED_RELEASE_TAG}`,
     );
@@ -734,150 +859,6 @@ if (require.main === module) {
   }); // NOSONAR: top-level await is not available in this CommonJS entrypoint
 }
 
-module.exports = {
-  PINNED_RELEASE_TAG,
-};
-/**
- * Fetches JSON data from a URL
- */
-function fetchJson(url) {
-  return new Promise((resolve, reject) => {
-    const headers = {
-      "User-Agent": "vscode-groovy-extension",
-    };
-
-    // Add GitHub authentication if token is available (for CI rate limiting)
-    if (process.env.GITHUB_TOKEN) {
-      headers["Authorization"] = `token ${process.env.GITHUB_TOKEN}`;
-    }
-
-    const request = https.get(url, { headers }, (response) => {
-      let data = "";
-
-      response.on("data", (chunk) => {
-        data += chunk;
-      });
-
-      response.on("end", () => {
-        try {
-          const json = JSON.parse(data);
-
-          if (response.statusCode >= 400) {
-            reject(
-              new Error(
-                `HTTP ${response.statusCode}: ${json.message || "Request failed"}`,
-              ),
-            );
-            return;
-          }
-
-          resolve(json);
-        } catch (error) {
-          reject(new Error(`Failed to parse JSON: ${error.message}`));
-        }
-      });
-    });
-
-    request.on("error", (error) => reject(error));
-    request.setTimeout(30000, () => {
-      request.destroy();
-      reject(new Error("Request timeout"));
-    });
-  });
-}
-
-/**
- * Fetches text content from a URL
- */
-function fetchText(url) {
-  return new Promise((resolve, reject) => {
-    const headers = { "User-Agent": "vscode-groovy-extension" };
-    if (process.env.GITHUB_TOKEN) {
-      headers["Authorization"] = `token ${process.env.GITHUB_TOKEN}`;
-    }
-
-    const request = https.get(url, { headers }, (response) => {
-      let data = "";
-      response.on("data", (chunk) => {
-        data += chunk;
-      });
-      response.on("end", () => resolve(data));
-    });
-
-    request.on("error", reject);
-    request.setTimeout(30000, () => {
-      request.destroy();
-      reject(new Error("Request timeout"));
-    });
-  });
-}
-
-/**
- * Gets latest release info from GitHub (non-prerelease)
- */
-async function getLatestReleaseInfo() {
-  return await fetchJson(GITHUB_RELEASE_API);
-}
-
-/**
- * Gets release info for a specific tag (includes prereleases/nightlies)
- */
-async function getReleaseByTag(tag) {
-  return await fetchJson(
-    `${GITHUB_RELEASE_TAG_API}/${encodeURIComponent(tag)}`,
-  );
-}
-
-/**
- * Gets the latest nightly (prerelease) release
- */
-async function getLatestNightlyRelease() {
-  const releases = await fetchJson(GITHUB_RELEASES_API);
-  if (!Array.isArray(releases) || releases.length === 0) return null;
-
-  const candidates = releases
-    .filter((r) => !r.draft && /nightly/i.test(r.tag_name || ""))
-    .sort(
-      (a, b) =>
-        new Date(b.published_at || b.created_at) -
-        new Date(a.published_at || a.created_at),
-    );
-
-  return candidates[0] || null;
-}
-
-/**
- * Picks a JAR asset; prefer linux-amd64/universal
- */
-function selectJarAsset(assets) {
-  if (!assets || assets.length === 0) return null;
-  const preferred = assets.find(
-    (a) => a.name.endsWith(".jar") && a.name.includes("linux-amd64"),
-  );
-  if (preferred) return preferred;
-  return assets.find((a) => a.name.endsWith(".jar")) || null;
-}
-
-/**
- * Attempts to find a checksum for the given asset name from checksums.txt
- */
-async function fetchChecksumForAsset(assets, assetName) {
-  const checksumAsset = assets?.find((a) => a.name === "checksums.txt");
-  if (!checksumAsset) return null;
-  try {
-    const content = await fetchText(checksumAsset.browser_download_url);
-    const line = content
-      .split("\n")
-      .find((l) => l.trim().endsWith(` ${assetName}`));
-    if (!line) return null;
-    const [hash] = line.trim().split(/\s+/);
-    return hash || null;
-  } catch (error) {
-    console.warn(`Warning: Unable to read checksums.txt: ${error.message}`);
-    return null;
-  }
-}
-
 function printHelp() {
   const help = `
 Usage: node tools/prepare-server.js [options]
@@ -888,15 +869,28 @@ Options:
   --latest               Download the latest stable release (same as USE_LATEST_GROOVY_LSP=true)
   --channel <name>       Select channel: nightly | release
   --local <path>         Use a specific local groovy-lsp JAR (skips download)
+  --url <url>            Download from a URL (supports GitHub Actions artifacts)
+  --checksum <sha256>    Optional SHA256 checksum for URL downloads
   --prefer-local         Prefer local groovy-lsp builds from common paths
   --force-download       Always download/copy even if a JAR already exists
   --print-release-tag    Print the pinned release tag and exit
   -h, --help             Show this help message
 
+Notes:
+  Precedence: --local > --url > existing bundled JAR > --prefer-local > GitHub download
+
 Environment:
   GROOVY_LSP_TAG, GROOVY_LSP_CHANNEL=nightly|release, GROOVY_LSP_LOCAL_JAR,
-  PREFER_LOCAL, USE_LATEST_GROOVY_LSP, FORCE_DOWNLOAD, SKIP_PREPARE_SERVER.
+  GROOVY_LSP_URL, GROOVY_LSP_CHECKSUM, PREFER_LOCAL, USE_LATEST_GROOVY_LSP,
+  FORCE_DOWNLOAD, SKIP_PREPARE_SERVER.
+
+Token resolution (for GitHub API requests):
+  GH_TOKEN > GITHUB_TOKEN > gh auth token
 `.trim();
 
   console.log(help);
 }
+
+module.exports = {
+  PINNED_RELEASE_TAG,
+};

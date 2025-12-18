@@ -26,6 +26,8 @@ function parseArgs(argv = []) {
     nightly: false,
     latest: false,
     local: null,
+    url: null,
+    checksum: null,
     channel: null,
     forceDownload: false,
     installer: null,
@@ -54,6 +56,14 @@ function parseArgs(argv = []) {
         break;
       case "--local":
         parsed.local = expectValue(argv, i + 1, "--local");
+        i += 1;
+        break;
+      case "--url":
+        parsed.url = expectValue(argv, i + 1, "--url");
+        i += 1;
+        break;
+      case "--checksum":
+        parsed.checksum = expectValue(argv, i + 1, "--checksum");
         i += 1;
         break;
       case "--force-download":
@@ -169,6 +179,19 @@ function buildEnv(args) {
     delete env.GROOVY_LSP_TAG;
     delete env.USE_LATEST_GROOVY_LSP;
     delete env.GROOVY_LSP_CHANNEL;
+    delete env.GROOVY_LSP_URL;
+  }
+
+  if (args.url) {
+    env.GROOVY_LSP_URL = args.url;
+    delete env.GROOVY_LSP_TAG;
+    delete env.USE_LATEST_GROOVY_LSP;
+    delete env.GROOVY_LSP_CHANNEL;
+    delete env.GROOVY_LSP_LOCAL_JAR;
+  }
+
+  if (args.checksum) {
+    env.GROOVY_LSP_CHECKSUM = args.checksum;
   }
 
   if (args.forceDownload) {
@@ -189,11 +212,16 @@ Options:
   --latest               Bundle the latest stable Groovy LSP release
   --channel <name>       Channel shortcut: nightly | release
   --local <path>         Use a specific local Groovy LSP JAR (skips download)
+  --url <url>            Download from URL (supports GitHub Actions artifacts)
+  --checksum <sha256>    Optional SHA256 checksum for URL downloads
   --force-download       Force download/copy of the selected JAR
   --installer <cmd>      Installer binary to use (code, agy, cursor, etc.)
   --package-only         Only build the VSIX; do not install
   --vsix <path>          Install a specific VSIX path (skip auto-detect)
   -h, --help             Show this help message
+
+Token resolution (for GitHub artifact downloads):
+  GH_TOKEN > GITHUB_TOKEN > gh auth token
 `.trim();
 
   console.log(help);
