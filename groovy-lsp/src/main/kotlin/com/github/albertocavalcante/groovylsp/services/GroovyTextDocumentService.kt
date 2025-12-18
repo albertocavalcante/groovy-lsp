@@ -186,7 +186,7 @@ class GroovyTextDocumentService(
         // TODO: Pre-register compilation jobs synchronously on didOpen/didChange so ensureCompiled never returns null
         // for open documents.
         val content = documentProvider.get(uri) ?: return null
-        return compilationService.compile(uri, content)
+        return compilationService.compileAsync(coroutineScope, uri, content).await()
     }
 
     override fun didOpen(params: DidOpenTextDocumentParams) {
