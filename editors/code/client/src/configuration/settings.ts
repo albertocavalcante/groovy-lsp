@@ -68,16 +68,19 @@ export function affectsCodeNarcConfiguration(event: ConfigurationChangeEvent): b
 export function affectsJenkinsConfiguration(event: ConfigurationChangeEvent): boolean {
     return affectsConfiguration(event, 'jenkins.filePatterns') ||
            affectsConfiguration(event, 'jenkins.sharedLibraries') ||
-           affectsConfiguration(event, 'jenkins.gdslPaths');
+           affectsConfiguration(event, 'jenkins.gdslPaths') ||
+           affectsConfiguration(event, 'jenkins.pluginsTxtPath') ||
+           affectsConfiguration(event, 'jenkins.plugins') ||
+           affectsConfiguration(event, 'jenkins.includeDefaultPlugins');
 }
 
 /**
- * Checks if a configuration change affects TODO scanning settings
+ * Checks if a configuration change affects REPL settings
  */
-export function affectsTodoConfiguration(event: ConfigurationChangeEvent): boolean {
-    return affectsConfiguration(event, 'todo.scanEnabled') ||
-           affectsConfiguration(event, 'todo.patterns') ||
-           affectsConfiguration(event, 'todo.semanticTokensEnabled');
+export function affectsReplConfiguration(event: ConfigurationChangeEvent): boolean {
+    return affectsConfiguration(event, 'repl.enabled') ||
+           affectsConfiguration(event, 'repl.maxSessions') ||
+           affectsConfiguration(event, 'repl.sessionTimeoutMinutes');
 }
 
 /**
@@ -88,7 +91,7 @@ export function requiresServerRestart(event: ConfigurationChangeEvent): boolean 
     return affectsJavaConfiguration(event) ||
            affectsConfiguration(event, 'server.path') ||
            affectsConfiguration(event, 'compilation.mode') ||
-           affectsJenkinsConfiguration(event);
+           affectsReplConfiguration(event);
 }
 
 /**
@@ -96,8 +99,8 @@ export function requiresServerRestart(event: ConfigurationChangeEvent): boolean 
  * These settings can be updated without restarting the server
  */
 export function canBeAppliedDynamically(event: ConfigurationChangeEvent): boolean {
-    return affectsCodeNarcConfiguration(event) ||
-           affectsTodoConfiguration(event) ||
+    return affectsJenkinsConfiguration(event) ||
+           affectsCodeNarcConfiguration(event) ||
            affectsConfiguration(event, 'format.enable') ||
            affectsConfiguration(event, 'server.maxNumberOfProblems') ||
            affectsConfiguration(event, 'trace.server') ||

@@ -205,6 +205,23 @@
           "minimum": 1,
           "description": "Maximum number of files to compile in workspace mode. Larger projects automatically use single-file mode."
         },
+        "groovy.repl.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable the Groovy REPL integration"
+        },
+        "groovy.repl.maxSessions": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "description": "Maximum number of concurrent REPL sessions"
+        },
+        "groovy.repl.sessionTimeoutMinutes": {
+          "type": "number",
+          "default": 60,
+          "minimum": 1,
+          "description": "Idle timeout for REPL sessions (minutes)"
+        },
         "groovy.codenarc.enabled": {
           "type": "boolean",
           "default": true,
@@ -226,8 +243,7 @@
           },
           "default": [
             "Jenkinsfile",
-            "*.jenkins",
-            "*.jenkinsfile"
+            "vars/*.groovy"
           ],
           "description": "File patterns to recognize as Jenkins Pipeline files"
         },
@@ -265,37 +281,22 @@
           "default": [],
           "markdownDescription": "Paths to IntelliJ GDSL files for DSL enhancements. GDSL files provide dynamic method and property contributions for pipeline DSLs.\n\nExample: `[\"/path/to/jenkins.gdsl\"]`"
         },
-        "groovy.todo.scanEnabled": {
+        "groovy.jenkins.pluginsTxtPath": {
+          "type": "string",
+          "description": "Explicit path to Jenkins plugins.txt (overrides auto-discovery)"
+        },
+        "groovy.jenkins.plugins": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional Jenkins plugins to include (plugin IDs, e.g. 'workflow-basic-steps')"
+        },
+        "groovy.jenkins.includeDefaultPlugins": {
           "type": "boolean",
           "default": true,
-          "description": "Enable TODO/FIXME comment scanning and reporting"
-        },
-        "groovy.todo.patterns": {
-          "type": "object",
-          "default": {
-            "TODO": "Information",
-            "FIXME": "Warning",
-            "XXX": "Warning",
-            "HACK": "Warning",
-            "NOTE": "Information",
-            "BUG": "Error",
-            "OPTIMIZE": "Hint"
-          },
-          "additionalProperties": {
-            "type": "string",
-            "enum": [
-              "Error",
-              "Warning",
-              "Information",
-              "Hint"
-            ]
-          },
-          "markdownDescription": "TODO comment patterns and their diagnostic severity levels.\n\nExample:\n```json\n{\n  \"TODO\": \"Information\",\n  \"FIXME\": \"Warning\",\n  \"HACK\": \"Error\"\n}\n```"
-        },
-        "groovy.todo.semanticTokensEnabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Use semantic tokens for TODO comment highlighting (requires LSP semantic tokens support)"
+          "description": "Include Groovy LSP built-in default Jenkins plugins (recommended)"
         }
       }
     }

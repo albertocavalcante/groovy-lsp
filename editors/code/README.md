@@ -94,7 +94,7 @@ For Jenkins shared libraries:
 ```json
 {
   // File patterns to recognize as Jenkinsfiles
-  "groovy.jenkins.filePatterns": ["Jenkinsfile", "*.jenkins", "*.jenkinsfile"],
+  "groovy.jenkins.filePatterns": ["Jenkinsfile", "vars/*.groovy"],
 
   // Configure shared libraries
   "groovy.jenkins.sharedLibraries": [
@@ -106,7 +106,12 @@ For Jenkins shared libraries:
   ],
 
   // GDSL files for DSL enhancements
-  "groovy.jenkins.gdslPaths": ["/path/to/jenkins.gdsl"]
+  "groovy.jenkins.gdslPaths": ["/path/to/jenkins.gdsl"],
+
+  // Optional: Jenkins plugin discovery overrides
+  "groovy.jenkins.pluginsTxtPath": "/path/to/plugins.txt",
+  "groovy.jenkins.plugins": ["workflow-basic-steps", "pipeline-model-definition"],
+  "groovy.jenkins.includeDefaultPlugins": true
 }
 ```
 
@@ -125,19 +130,13 @@ For Jenkins shared libraries:
 }
 ```
 
-### TODO Comment Scanning
+### REPL Settings
 
 ```json
 {
-  // Enable TODO/FIXME scanning
-  "groovy.todo.scanEnabled": true,
-
-  // Configure patterns and severity levels
-  "groovy.todo.patterns": {
-    "TODO": "Information",
-    "FIXME": "Warning",
-    "BUG": "Error"
-  }
+  "groovy.repl.enabled": true,
+  "groovy.repl.maxSessions": 10,
+  "groovy.repl.sessionTimeoutMinutes": 60
 }
 ```
 

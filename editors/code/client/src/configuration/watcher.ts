@@ -3,7 +3,7 @@ import {
     requiresServerRestart,
     canBeAppliedDynamically
 } from './settings';
-import { restartClient, getClient } from '../server/client';
+import { restartClient, getClient, buildServerSettingsMap } from '../server/client';
 
 /**
  * Sets up configuration change watchers
@@ -35,10 +35,10 @@ export function setupConfigurationWatcher(): Disposable {
             console.log('Configuration changed, notifying server...');
             const client = getClient();
             if (client) {
-                // The LSP client automatically sends workspace/didChangeConfiguration
-                // when configurationSection is set in client options
-                // No action needed here - just log for debugging
-                console.log('Server will be notified via workspace/didChangeConfiguration');
+                client.sendNotification('workspace/didChangeConfiguration', {
+                    settings: buildServerSettingsMap()
+                });
+                console.log('Sent workspace/didChangeConfiguration to server');
             }
         }
     });
