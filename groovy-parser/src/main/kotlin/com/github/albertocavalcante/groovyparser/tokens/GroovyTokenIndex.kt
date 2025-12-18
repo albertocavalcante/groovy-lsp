@@ -61,45 +61,54 @@ class GroovyTokenIndex private constructor(private val spans: List<TokenSpan>) {
             }
 
             try {
-                while (true) {
+                var finished = false
+                while (!finished) {
                     val token = try {
                         lexer.nextToken()
                     } catch (e: Throwable) {
                         logger.debug("Lexer error at offset {}: {}", spans.lastOrNull()?.end ?: 0, e.message)
-                        break // Stop if lexer is truly broken or throws Error
+                        null
                     }
 
-                    if (token.type == groovyjarjarantlr4.v4.runtime.Token.EOF) break
+                    if (token == null || token.type == groovyjarjarantlr4.v4.runtime.Token.EOF) {
+                        finished = true
+                    } else {
+                        val type = token.type
+                        val symbolicName = lexer.vocabulary.getSymbolicName(type) ?: ""
+                        val text = token.text ?: ""
 
-                    val type = token.type
-                    val symbolicName = lexer.vocabulary.getSymbolicName(type) ?: ""
-                    val text = token.text ?: ""
+                        val context = when {
+                            symbolicName in setOf("SINGLE_LINE_COMMENT", "SH_COMMENT") ||
+                                (symbolicName == "NL" && (text.startsWith("//") || text.startsWith("#"))) ->
+                                TokenContext.LineComment
 
-                    val context = when {
-                        symbolicName in setOf("SINGLE_LINE_COMMENT", "SH_COMMENT") ||
-                            (symbolicName == "NL" && (text.startsWith("//") || text.startsWith("#"))) ->
-                            TokenContext.LineComment
+                            symbolicName == "DELIMITED_COMMENT" ||
+                                (symbolicName == "NL" && text.startsWith("/*")) ->
+                                TokenContext.BlockComment
 
-                        symbolicName == "DELIMITED_COMMENT" ||
-                            (symbolicName == "NL" && text.startsWith("/*")) ->
-                            TokenContext.BlockComment
+                            symbolicName in setOf(
+                                "StringLiteral",
+                                "SQ_STRING",
+                                "DQ_STRING",
+                                "TQS",
+                                "StringLiteralPart",
+                            ) ->
+                                TokenContext.StringLiteral
 
-                        symbolicName in setOf("StringLiteral", "SQ_STRING", "DQ_STRING", "TQS", "StringLiteralPart") ->
-                            TokenContext.StringLiteral
+                            symbolicName.startsWith("GString") ||
+                                symbolicName.contains("GSTRING_MODE") ->
+                                TokenContext.GString
 
-                        symbolicName.startsWith("GString") ||
-                            symbolicName.contains("GSTRING_MODE") ->
-                            TokenContext.GString
+                            else -> TokenContext.Code
+                        }
 
-                        else -> TokenContext.Code
-                    }
-
-                    if (context != TokenContext.Code) {
-                        // Avoid duplicates if we manually handled shebang
-                        if (token.startIndex == 0 && spans.isNotEmpty() && spans[0].start == 0) {
-                            // Already handled shebang
-                        } else {
-                            spans.add(TokenSpan(token.startIndex, token.stopIndex + 1, context))
+                        if (context != TokenContext.Code) {
+                            // Avoid duplicates if we manually handled shebang
+                            if (token.startIndex == 0 && spans.isNotEmpty() && spans[0].start == 0) {
+                                // Already handled shebang
+                            } else {
+                                spans.add(TokenSpan(token.startIndex, token.stopIndex + 1, context))
+                            }
                         }
                     }
                 }
