@@ -41,9 +41,28 @@ export const vscode = {
         createStatusBarItem: sinon.stub().returns({
             show: sinon.stub(),
             dispose: sinon.stub()
-        })
+        }),
+        showInformationMessage: sinon.stub(),
+        showErrorMessage: sinon.stub()
+    },
+    workspace: {
+        getConfiguration: sinon.stub()
+    },
+    commands: {
+        executeCommand: sinon.stub()
+    },
+    env: {
+        openExternal: sinon.stub()
+    },
+    Uri: {
+        parse: sinon.stub().callsFake((url: string) => ({ toString: () => url }))
     },
     StatusBarAlignment: {
         Right: 2
+    },
+    ConfigurationTarget: {
+        Global: 1,
+        Workspace: 2,
+        WorkspaceFolder: 3
     }
 };
