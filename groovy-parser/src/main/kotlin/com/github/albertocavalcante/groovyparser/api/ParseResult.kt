@@ -16,6 +16,7 @@ data class ParseResult(
     val sourceUnit: SourceUnit,
     val diagnostics: List<ParserDiagnostic>,
     val symbolTable: SymbolTable,
+    val tokenIndex: com.github.albertocavalcante.groovyparser.tokens.GroovyTokenIndex? = null,
     @Deprecated("Use `astModel` instead", replaceWith = ReplaceWith("astModel"))
     val astVisitor: com.github.albertocavalcante.groovyparser.ast.AstVisitor,
     val recursiveVisitor: RecursiveAstVisitor? = null,
