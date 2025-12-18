@@ -11,8 +11,8 @@ import com.github.albertocavalcante.groovyparser.ast.MethodSymbol
 import com.github.albertocavalcante.groovyparser.ast.SymbolCompletionContext
 import com.github.albertocavalcante.groovyparser.ast.SymbolExtractor
 import com.github.albertocavalcante.groovyparser.ast.VariableSymbol
-import com.github.albertocavalcante.groovyspock.SpockDetector
 import com.github.albertocavalcante.groovyparser.tokens.GroovyTokenIndex
+import com.github.albertocavalcante.groovyspock.SpockDetector
 import org.codehaus.groovy.control.CompilationFailedException
 import org.eclipse.lsp4j.CompletionItem
 import org.eclipse.lsp4j.CompletionItemKind
@@ -139,6 +139,7 @@ object CompletionProvider {
         return lines.joinToString("\n")
     }
 
+    @Suppress("LongParameterList") // TODO: Refactor to use a CompletionContext data class
     private fun buildCompletionsList(
         ast: org.codehaus.groovy.ast.ASTNode,
         astModel: com.github.albertocavalcante.groovyparser.ast.GroovyAstModel,
@@ -210,6 +211,7 @@ object CompletionProvider {
         }
     }
 
+    @Suppress("LongParameterList") // TODO: Refactor to use a CompletionContext data class
     private fun CompletionsBuilder.addSpockBlockLabelsIfApplicable(
         content: String,
         line: Int,
