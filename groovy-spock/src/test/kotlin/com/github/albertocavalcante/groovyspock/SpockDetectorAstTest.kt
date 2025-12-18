@@ -3,8 +3,9 @@ package com.github.albertocavalcante.groovyspock
 import com.github.albertocavalcante.groovyparser.GroovyParserFacade
 import com.github.albertocavalcante.groovyparser.api.ParseRequest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.net.URI
-import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -57,9 +58,7 @@ class SpockDetectorAstTest {
     }
 
     @Test
-    fun `does not detect spock spec when class extends other Specification type`() {
-        val workspaceDir = Files.createTempDirectory("spock-detector-ast-test")
-
+    fun `does not detect spock spec when class extends other Specification type`(@TempDir workspaceDir: Path) {
         val otherSpec =
             workspaceDir.resolve("Specification.groovy").also { path ->
                 path.writeText(
