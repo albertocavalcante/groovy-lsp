@@ -432,7 +432,8 @@ class GroovyTextDocumentService(
 
         try {
             val uri = java.net.URI.create(params.textDocument.uri)
-            if (ensureCompiledOrCompileNow(uri) == null) {
+            val compilationResult = ensureCompiledOrCompileNow(uri)
+            if (compilationResult == null) {
                 logger.warn("Document $uri not compiled, cannot provide references")
                 return@future emptyList()
             }
