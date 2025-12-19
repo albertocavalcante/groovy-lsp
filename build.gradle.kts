@@ -92,7 +92,7 @@ subprojects {
         }
         format("markdown") {
             target("**/*.md")
-            targetExclude("**/build/**/*.md", "**/target/**/*.md")
+            targetExclude("**/build/**/*.md", "**/target/**/*.md", "**/src/test/resources/**/*.md")
             prettier()
                 .config(
                     mapOf(
