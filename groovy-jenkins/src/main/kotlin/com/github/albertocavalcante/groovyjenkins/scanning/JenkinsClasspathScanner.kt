@@ -1,4 +1,8 @@
-@file:Suppress("TooGenericExceptionCaught") // Classpath scanning requires catch-all for resilience
+@file:Suppress(
+    "TooGenericExceptionCaught", // Classpath scanning requires catch-all for resilience
+    "ReturnCount", // Step name resolution has multiple early returns
+    "MagicNumber", // Array index 3 is self-documenting in annotation context
+)
 
 package com.github.albertocavalcante.groovyjenkins.scanning
 
