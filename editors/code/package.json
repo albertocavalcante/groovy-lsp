@@ -151,6 +151,38 @@
         "path": "./syntaxes/groovy.tmLanguage.json"
       }
     ],
+    "semanticTokenScopes": [
+      {
+        "language": "jenkinsfile",
+        "scopes": {
+          "macro": [
+            "entity.name.tag.pipeline.jenkins"
+          ],
+          "decorator": [
+            "entity.name.function.decorator.jenkins"
+          ]
+        }
+      },
+      {
+        "language": "groovy",
+        "scopes": {
+          "macro": [
+            "entity.name.tag.pipeline.jenkins"
+          ],
+          "decorator": [
+            "entity.name.function.decorator.jenkins"
+          ]
+        }
+      }
+    ],
+    "configurationDefaults": {
+      "[jenkinsfile]": {
+        "editor.semanticHighlighting.enabled": true
+      },
+      "[groovy]": {
+        "editor.semanticHighlighting.enabled": true
+      }
+    },
     "configuration": {
       "title": "Groovy Language Server",
       "properties": {
