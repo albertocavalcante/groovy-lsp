@@ -1,4 +1,4 @@
-import { Memento, window, env, Uri } from 'vscode';
+import { Memento, window, env, Uri, workspace } from 'vscode';
 import { UpdateChecker, UpdateCheckResult, VersionCache, SystemClock } from './index';
 import { GitHubReleaseProvider } from './GitHubReleaseProvider';
 import { getUpdateConfiguration, UpdateNotificationLevel } from '../../configuration/settings';
@@ -113,8 +113,8 @@ export class UpdateService {
     }
 
     /**
- * Shows update available notification with actions.
- */
+     * Shows update available notification with actions.
+     */
     private async showUpdateAvailable(result: UpdateCheckResult): Promise<void> {
         const latestVersion = result.latestRelease?.version || 'unknown';
         const releaseUrl = result.latestRelease?.releaseUrl;
@@ -122,10 +122,12 @@ export class UpdateService {
 
         const openReleaseAction = 'Open Release';
         const downloadAction = 'Download';
+        const dontShowAgainAction = "Don't Show Again";
 
         const actions: string[] = [];
         if (releaseUrl) actions.push(openReleaseAction);
         if (downloadUrl) actions.push(downloadAction);
+        actions.push(dontShowAgainAction);
 
         const action = await window.showInformationMessage(
             `Groovy Language Server ${latestVersion} is available! (current: ${result.currentVersion})`,
@@ -136,6 +138,9 @@ export class UpdateService {
             await env.openExternal(Uri.parse(releaseUrl));
         } else if (action === downloadAction && downloadUrl) {
             await env.openExternal(Uri.parse(downloadUrl));
+        } else if (action === dontShowAgainAction) {
+            await workspace.getConfiguration('groovy').update('update.notifications', 'off', true);
+            window.showInformationMessage('Update notifications disabled. Re-enable in Settings.');
         }
     }
 

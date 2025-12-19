@@ -140,10 +140,30 @@ For Jenkins shared libraries:
 }
 ```
 
+### Update Checking
+
+The extension periodically checks for new Groovy Language Server releases.
+
+```json
+{
+  // Check for updates when extension starts
+  "groovy.update.checkOnStartup": true,
+
+  // Hours between automatic checks (minimum: 1)
+  "groovy.update.checkIntervalHours": 24,
+
+  // When to show notifications: "off", "onlyWhenOutdated", "always"
+  "groovy.update.notifications": "onlyWhenOutdated"
+}
+```
+
+Use `Groovy: Check for Language Server Updates` command to check manually.
+
 ## Commands
 
 - `Groovy: Restart Language Server` - Restart the language server if something goes wrong
 - `Groovy: Show Language Server Version` - Display the current LSP server version
+- `Groovy: Check for Language Server Updates` - Check for new LSP releases
 
 ## Development
 
