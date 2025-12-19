@@ -7,7 +7,43 @@ Copilot / AI helpers: follow this when working in this repo.
 - Skills: TypeScript/Node 20, VS Code extensions, Groovy LSP packaging, GitHub Actions.
 - Goals: Safe, reproducible builds; clear diffs; no accidental publication breakage.
 
-## Commands (run from repo root)
+## LSP-First Architecture
+
+**Core Principle**: This extension is a **thin wrapper**. All language intelligence lives in the Groovy LSP ([groovy-lsp](https://github.com/GroovyLanguageServer/groovy-lsp)).
+
+### Feature Requests → LSP First
+New features should primarily go to **groovy-lsp**. Only add to this extension if:
+1. It requires VS Code-specific APIs (see below)
+2. It's purely presentation/UI that LSP cannot provide
+3. It's extension lifecycle management
+
+### Extension Responsibilities (ONLY these)
+| Category | Examples |
+|----------|----------|
+| **VS Code UI** | Status bar, notifications, quick picks, tree views, webviews |
+| **Settings** | `package.json` contributions, configuration handling |
+| **Commands** | Command registration and routing to LSP |
+| **Theme/Colors** | `semanticTokenScopes`, color contributions |
+| **Language Config** | Brackets, comments, folding rules |
+| **Extension Lifecycle** | Activation, LSP client management, update checks |
+
+### LSP Responsibilities (offload here)
+| Category | Examples |
+|----------|----------|
+| **Parsing/AST** | Groovy/Jenkins AST analysis |
+| **Completion** | All completion logic and ranking |
+| **Go-to-Definition** | Symbol resolution, vars/ lookup, JAR navigation |
+| **Hover** | Documentation, type info, Javadoc |
+| **Diagnostics** | Linting, error detection, CodeNarc |
+| **Semantic Tokens** | Token classification and generation |
+| **Formatting** | Code formatting logic |
+| **Refactoring** | Rename, code actions |
+| **Jenkins Knowledge** | Pipeline DSL, steps, shared libraries |
+
+### When in Doubt
+Ask: "Can the LSP do this?" If yes → implement in groovy-lsp.
+
+
 - Install deps: `npm ci`
 - Build (dev): `npm run compile`
 - Build (prod): `npm run package-build`
