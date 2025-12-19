@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.0-alpha.0](https://github.com/albertocavalcante/vscode-groovy/compare/v0.1.0-alpha.0...v0.1.0-alpha.0) (2025-12-19)
+
+
+### Features
+
+* **semantics:** add semantic token scopes for Jenkins syntax ([#66](https://github.com/albertocavalcante/vscode-groovy/issues/66)) ([02a59c5](https://github.com/albertocavalcante/vscode-groovy/commit/02a59c525c9262de1ddd995b02fd0d8c9807c77e))
+* **tools:** support groovy-lsp URL and artifact downloads ([#58](https://github.com/albertocavalcante/vscode-groovy/issues/58)) ([16094ee](https://github.com/albertocavalcante/vscode-groovy/commit/16094eec45dca69b3c9e9cbd2df8d3e576ed75e5))
+* **update:** add UpdateChecker orchestration (PR B) ([#62](https://github.com/albertocavalcante/vscode-groovy/issues/62)) ([554cdba](https://github.com/albertocavalcante/vscode-groovy/commit/554cdbabedfacb368c153daf604170773c7cfe70))
+* **update:** add VersionCache with tests ([#61](https://github.com/albertocavalcante/vscode-groovy/issues/61)) ([09d57dd](https://github.com/albertocavalcante/vscode-groovy/commit/09d57ddc99fa49e37c6b4b1b360b3c347f297117))
+* **update:** add VersionChecker with unit tests ([#60](https://github.com/albertocavalcante/vscode-groovy/issues/60)) ([26fe174](https://github.com/albertocavalcante/vscode-groovy/commit/26fe1741667c237ad3e7b789bef20a42c5033e5c))
+* **update:** finalize update checker UX + reliability ([#64](https://github.com/albertocavalcante/vscode-groovy/issues/64)) ([571aed6](https://github.com/albertocavalcante/vscode-groovy/commit/571aed667baee07897b1dfba83f942d7d88a1eba))
+* **update:** wire UpdateChecker into VS Code (PR C) ([#63](https://github.com/albertocavalcante/vscode-groovy/issues/63)) ([e7594b6](https://github.com/albertocavalcante/vscode-groovy/commit/e7594b6062da7d0fbb7db596dc04075185c80a81))
+
+
+### Bug Fixes
+
+* align settings with groovy-lsp config keys ([#57](https://github.com/albertocavalcante/vscode-groovy/issues/57)) ([11b2b30](https://github.com/albertocavalcante/vscode-groovy/commit/11b2b3026c7057e40d1a580116f1b4651e7f43b8))
+* make VSIX packaging allowlist-based ([#53](https://github.com/albertocavalcante/vscode-groovy/issues/53)) ([6b48075](https://github.com/albertocavalcante/vscode-groovy/commit/6b4807586cc9239985e9412bd167a191c2fc8c94))
+
 ## 0.1.0-alpha.0 (2025-11-30)
 
 
