@@ -1,21 +1,21 @@
 name: Magalu Runner Integration
 
 on:
-  workflow_dispatch: # Manual trigger for now
-  # push:
-  #   branches: [ main ]
+  workflow_dispatch:
 
 env:
   TF_CLOUD_ORGANIZATION: "alberto"
   TF_WORKSPACE: "groovy-lsp-runner"
   TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-  TF_VAR_github_token: ${{ secrets.GH_PAT_RUNNER }} # PAT to register the runner
-  TF_VAR_mgc_api_key: ${{ secrets.MGC_API_KEY }}    # Magalu credentials
+  TF_VAR_github_token: ${{ secrets.GH_PAT_RUNNER }}
+  TF_VAR_mgc_api_key: ${{ secrets.MGC_API_KEY }}
 
 jobs:
-  provision-runner:
-    name: Provision Runner
+  provision-plan:
+    name: Plan Provisioning
     runs-on: ubuntu-latest
+    outputs:
+      plan_exists: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -34,13 +34,44 @@ jobs:
         working-directory: infra/runner
         run: terraform plan -out=tfplan
 
+      - name: Upload Provision Plan
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: provision-tfplan
+          path: infra/runner/tfplan
+
+  provision-apply:
+    name: Apply Provisioning
+    needs: provision-plan
+    runs-on: ubuntu-latest
+    environment: production # Requires manual approval in GitHub Settings
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36 # v3.0.0
+        with:
+          terraform_version: 1.5.7
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Download Provision Plan
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: provision-tfplan
+          path: infra/runner
+
+      - name: Terraform Init
+        working-directory: infra/runner
+        run: terraform init
+
       - name: Terraform Apply
         working-directory: infra/runner
         run: terraform apply -input=false tfplan
 
   run-tests:
-    name: Run Tests on Magalu Cloud
-    needs: provision-runner
+    name: Run Tests
+    needs: provision-apply
     runs-on: [self-hosted, magalu]
     timeout-minutes: 30
     steps:
@@ -48,7 +79,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Java
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.0.0
+        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v5 (pinned)
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -56,10 +87,10 @@ jobs:
       - name: Run Gradle Tests
         run: ./gradlew test
 
-  destroy-runner:
-    name: Destroy Runner
-    needs: [provision-runner, run-tests]
-    if: always() # Always run destroy, even if tests fail
+  destroy-plan:
+    name: Plan Destruction
+    needs: [run-tests, provision-apply] # Run even if tests fail, but apply must have happened
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -77,8 +108,40 @@ jobs:
 
       - name: Terraform Plan Destroy
         working-directory: infra/runner
-        run: terraform plan -destroy -out=tfplan
+        run: terraform plan -destroy -out=destroy.tfplan
+
+      - name: Upload Destroy Plan
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: destroy-tfplan
+          path: infra/runner/destroy.tfplan
+
+  destroy-apply:
+    name: Apply Destruction
+    needs: destroy-plan
+    if: always()
+    runs-on: ubuntu-latest
+    environment: production # Requires manual approval again
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36 # v3.0.0
+        with:
+          terraform_version: 1.5.7
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Download Destroy Plan
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: destroy-tfplan
+          path: infra/runner
+
+      - name: Terraform Init
+        working-directory: infra/runner
+        run: terraform init
 
       - name: Terraform Destroy
         working-directory: infra/runner
-        run: terraform apply -input=false tfplan
+        run: terraform apply -input=false destroy.tfplan
