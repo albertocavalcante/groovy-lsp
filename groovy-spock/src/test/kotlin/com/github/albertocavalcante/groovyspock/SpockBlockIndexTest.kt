@@ -184,7 +184,11 @@ class SpockBlockIndexTest {
     fun `validNextBlocks returns correct options`() {
         // Empty method - can start with given, setup, when, or expect
         val emptyIndex = SpockBlockIndex("test", emptyList())
-        assertTrue(emptyIndex.validNextBlocks(1).containsAll(listOf(SpockBlock.GIVEN, SpockBlock.SETUP, SpockBlock.WHEN, SpockBlock.EXPECT)))
+        assertTrue(
+            emptyIndex.validNextBlocks(
+                1,
+            ).containsAll(listOf(SpockBlock.GIVEN, SpockBlock.SETUP, SpockBlock.WHEN, SpockBlock.EXPECT)),
+        )
 
         // After GIVEN
         val givenIndex = SpockBlockIndex("test", listOf(BlockSpan(SpockBlock.GIVEN, 1, 5)))

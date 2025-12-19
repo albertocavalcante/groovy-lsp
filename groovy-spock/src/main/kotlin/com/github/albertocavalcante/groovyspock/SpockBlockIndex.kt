@@ -13,12 +13,7 @@ import org.slf4j.LoggerFactory
  * @property endLine End line of the block (1-indexed, inclusive)
  * @property continues For AND blocks, the logical block type it continues (e.g., THEN for `and:` after `then:`)
  */
-data class BlockSpan(
-    val block: SpockBlock,
-    val startLine: Int,
-    val endLine: Int,
-    val continues: SpockBlock? = null,
-)
+data class BlockSpan(val block: SpockBlock, val startLine: Int, val endLine: Int, val continues: SpockBlock? = null)
 
 /**
  * Index of Spock blocks within a feature method.
@@ -38,10 +33,7 @@ data class BlockSpan(
  * }
  * ```
  */
-class SpockBlockIndex(
-    val methodName: String,
-    val blocks: List<BlockSpan>,
-) {
+class SpockBlockIndex(val methodName: String, val blocks: List<BlockSpan>) {
 
     /**
      * Find the Spock block containing the given line.
@@ -49,8 +41,7 @@ class SpockBlockIndex(
      * @param line 1-indexed line number
      * @return The [BlockSpan] containing the line, or null if not within a block
      */
-    fun blockAt(line: Int): BlockSpan? =
-        blocks.find { line >= it.startLine && line <= it.endLine }
+    fun blockAt(line: Int): BlockSpan? = blocks.find { line >= it.startLine && line <= it.endLine }
 
     /**
      * Get the effective block type, resolving AND blocks to their continued type.

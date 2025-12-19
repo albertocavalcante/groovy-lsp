@@ -13,7 +13,8 @@ enum class SpockBlock {
     EXPECT,
     WHERE,
     CLEANUP,
-    AND;
+    AND,
+    ;
 
     companion object {
         private val labelMap = values().associateBy { it.name.lowercase(java.util.Locale.ROOT) }
