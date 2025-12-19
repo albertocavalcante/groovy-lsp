@@ -30,9 +30,13 @@ jobs:
         working-directory: infra/runner
         run: terraform init
 
+      - name: Terraform Plan
+        working-directory: infra/runner
+        run: terraform plan -out=tfplan
+
       - name: Terraform Apply
         working-directory: infra/runner
-        run: terraform apply -auto-approve
+        run: terraform apply -input=false tfplan
 
   run-tests:
     name: Run Tests on Magalu Cloud
@@ -44,7 +48,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Java
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.0.0 (check actual tag mapping if needed, SHA is safer)
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.0.0
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -71,6 +75,10 @@ jobs:
         working-directory: infra/runner
         run: terraform init
 
+      - name: Terraform Plan Destroy
+        working-directory: infra/runner
+        run: terraform plan -destroy -out=tfplan
+
       - name: Terraform Destroy
         working-directory: infra/runner
-        run: terraform destroy -auto-approve
+        run: terraform apply -input=false tfplan
