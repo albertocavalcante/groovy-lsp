@@ -377,7 +377,7 @@
     "lint": "eslint client/src/**/*.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "package": "npm run prepare-server && vsce package",
+    "package": "vsce package",
     "install-extension": "node tools/install-extension.js",
     "clean": "rm -rf client/out/ server/*.jar server/.groovy-lsp-version",
     "postinstall": "cd client && npm install && cd .. && npm run prepare-server",
