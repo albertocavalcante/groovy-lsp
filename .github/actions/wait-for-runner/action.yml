@@ -1,0 +1,40 @@
+name: 'Wait for Runner'
+description: 'Polls GitHub API until a self-hosted runner with specified label is online'
+author: 'albertocavalcante'
+
+inputs:
+  label:
+    description: 'Runner label to wait for'
+    required: true
+  github-token:
+    description: 'GitHub PAT with repo scope for runner API access'
+    required: true
+  max-wait-minutes:
+    description: 'Maximum time to wait for runner (in minutes)'
+    required: false
+    default: '10'
+  poll-interval-seconds:
+    description: 'Interval between API calls (in seconds)'
+    required: false
+    default: '10'
+
+outputs:
+  runner-name:
+    description: 'Name of the runner that came online'
+    value: ${{ steps.wait.outputs.runner_name }}
+  runner-status:
+    description: 'Status of the runner (online)'
+    value: ${{ steps.wait.outputs.runner_status }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Wait for runner registration
+      id: wait
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        LABEL_NAME: ${{ inputs.label }}
+        MAX_WAIT_MINUTES: ${{ inputs.max-wait-minutes }}
+        POLL_INTERVAL: ${{ inputs.poll-interval-seconds }}
+      run: ${{ github.action_path }}/wait-for-runner.sh
