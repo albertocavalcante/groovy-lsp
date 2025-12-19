@@ -6,8 +6,9 @@
 import { ExtensionContext } from 'vscode';
 import { initializeClient, startClient, stopClient } from './server/client';
 import { registerStatusBarItem } from './ui/statusBar';
-import { registerCommands } from './commands';
+import { registerCommands, initializeUpdateService } from './commands';
 import { setupConfigurationWatcher } from './configuration/watcher';
+import { getUpdateConfiguration } from './configuration/settings';
 import { registerFormatting } from './features/formatting/formatter';
 import { replService } from './features/repl';
 import { registerGradleFeatures } from './features/gradle';
@@ -42,6 +43,19 @@ export async function activate(context: ExtensionContext) {
         // Register features that depend on the client
         registerFormatting(context);
         registerGradleFeatures(context);
+
+        // Initialize update service for LSP version checking
+        // Uses extension version from package.json (which bundles the LSP)
+        const extensionVersion = context.extension.packageJSON.version as string;
+        const updateService = initializeUpdateService(context, extensionVersion);
+        const updateConfig = getUpdateConfiguration();
+        if (updateConfig.checkOnStartup) {
+            // Run async, don't block activation
+            updateService.activate().catch((error) => {
+                console.warn('Background update check failed:', error);
+            });
+        }
+        context.subscriptions.push({ dispose: () => updateService.dispose() });
 
         console.log('Groovy Language Extension activated successfully');
 

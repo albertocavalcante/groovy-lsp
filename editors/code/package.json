@@ -39,6 +39,10 @@
         "title": "Groovy: Show Language Server Version"
       },
       {
+        "command": "groovy.checkForUpdates",
+        "title": "Groovy: Check for Language Server Updates"
+      },
+      {
         "command": "groovy.gradle.build",
         "title": "Gradle: Build"
       },
@@ -297,6 +301,32 @@
           "type": "boolean",
           "default": true,
           "description": "Include Groovy LSP built-in default Jenkins plugins (recommended)"
+        },
+        "groovy.update.checkOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check for Language Server updates when the extension is activated"
+        },
+        "groovy.update.checkIntervalHours": {
+          "type": "number",
+          "default": 24,
+          "minimum": 1,
+          "description": "Hours between automatic update checks (minimum: 1)"
+        },
+        "groovy.update.notifications": {
+          "type": "string",
+          "enum": [
+            "off",
+            "onlyWhenOutdated",
+            "always"
+          ],
+          "default": "onlyWhenOutdated",
+          "enumDescriptions": [
+            "Disable update notifications",
+            "Show notification only when a new version is available",
+            "Always show notification after checking for updates"
+          ],
+          "description": "When to show update notifications"
         }
       }
     }

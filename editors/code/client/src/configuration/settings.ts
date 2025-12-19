@@ -40,8 +40,8 @@ export function affectsJavaConfiguration(event: ConfigurationChangeEvent): boole
  */
 export function affectsServerConfiguration(event: ConfigurationChangeEvent): boolean {
     return affectsConfiguration(event, 'trace.server') ||
-           affectsConfiguration(event, 'server.maxNumberOfProblems') ||
-           affectsConfiguration(event, 'server.path');
+        affectsConfiguration(event, 'server.maxNumberOfProblems') ||
+        affectsConfiguration(event, 'server.path');
 }
 
 /**
@@ -49,8 +49,8 @@ export function affectsServerConfiguration(event: ConfigurationChangeEvent): boo
  */
 export function affectsCompilationConfiguration(event: ConfigurationChangeEvent): boolean {
     return affectsConfiguration(event, 'compilation.mode') ||
-           affectsConfiguration(event, 'compilation.incrementalThreshold') ||
-           affectsConfiguration(event, 'compilation.maxWorkspaceFiles');
+        affectsConfiguration(event, 'compilation.incrementalThreshold') ||
+        affectsConfiguration(event, 'compilation.maxWorkspaceFiles');
 }
 
 /**
@@ -58,8 +58,8 @@ export function affectsCompilationConfiguration(event: ConfigurationChangeEvent)
  */
 export function affectsCodeNarcConfiguration(event: ConfigurationChangeEvent): boolean {
     return affectsConfiguration(event, 'codenarc.enabled') ||
-           affectsConfiguration(event, 'codenarc.propertiesFile') ||
-           affectsConfiguration(event, 'codenarc.autoDetect');
+        affectsConfiguration(event, 'codenarc.propertiesFile') ||
+        affectsConfiguration(event, 'codenarc.autoDetect');
 }
 
 /**
@@ -67,11 +67,11 @@ export function affectsCodeNarcConfiguration(event: ConfigurationChangeEvent): b
  */
 export function affectsJenkinsConfiguration(event: ConfigurationChangeEvent): boolean {
     return affectsConfiguration(event, 'jenkins.filePatterns') ||
-           affectsConfiguration(event, 'jenkins.sharedLibraries') ||
-           affectsConfiguration(event, 'jenkins.gdslPaths') ||
-           affectsConfiguration(event, 'jenkins.pluginsTxtPath') ||
-           affectsConfiguration(event, 'jenkins.plugins') ||
-           affectsConfiguration(event, 'jenkins.includeDefaultPlugins');
+        affectsConfiguration(event, 'jenkins.sharedLibraries') ||
+        affectsConfiguration(event, 'jenkins.gdslPaths') ||
+        affectsConfiguration(event, 'jenkins.pluginsTxtPath') ||
+        affectsConfiguration(event, 'jenkins.plugins') ||
+        affectsConfiguration(event, 'jenkins.includeDefaultPlugins');
 }
 
 /**
@@ -79,8 +79,8 @@ export function affectsJenkinsConfiguration(event: ConfigurationChangeEvent): bo
  */
 export function affectsReplConfiguration(event: ConfigurationChangeEvent): boolean {
     return affectsConfiguration(event, 'repl.enabled') ||
-           affectsConfiguration(event, 'repl.maxSessions') ||
-           affectsConfiguration(event, 'repl.sessionTimeoutMinutes');
+        affectsConfiguration(event, 'repl.maxSessions') ||
+        affectsConfiguration(event, 'repl.sessionTimeoutMinutes');
 }
 
 /**
@@ -89,9 +89,9 @@ export function affectsReplConfiguration(event: ConfigurationChangeEvent): boole
  */
 export function requiresServerRestart(event: ConfigurationChangeEvent): boolean {
     return affectsJavaConfiguration(event) ||
-           affectsConfiguration(event, 'server.path') ||
-           affectsConfiguration(event, 'compilation.mode') ||
-           affectsReplConfiguration(event);
+        affectsConfiguration(event, 'server.path') ||
+        affectsConfiguration(event, 'compilation.mode') ||
+        affectsReplConfiguration(event);
 }
 
 /**
@@ -100,10 +100,48 @@ export function requiresServerRestart(event: ConfigurationChangeEvent): boolean 
  */
 export function canBeAppliedDynamically(event: ConfigurationChangeEvent): boolean {
     return affectsJenkinsConfiguration(event) ||
-           affectsCodeNarcConfiguration(event) ||
-           affectsConfiguration(event, 'format.enable') ||
-           affectsConfiguration(event, 'server.maxNumberOfProblems') ||
-           affectsConfiguration(event, 'trace.server') ||
-           affectsConfiguration(event, 'compilation.incrementalThreshold') ||
-           affectsConfiguration(event, 'compilation.maxWorkspaceFiles');
+        affectsCodeNarcConfiguration(event) ||
+        affectsConfiguration(event, 'format.enable') ||
+        affectsConfiguration(event, 'server.maxNumberOfProblems') ||
+        affectsConfiguration(event, 'trace.server') ||
+        affectsConfiguration(event, 'compilation.incrementalThreshold') ||
+        affectsConfiguration(event, 'compilation.maxWorkspaceFiles') ||
+        affectsUpdateConfiguration(event);
 }
+
+/**
+ * Update notification level
+ */
+export type UpdateNotificationLevel = 'off' | 'onlyWhenOutdated' | 'always';
+
+/**
+ * Update configuration
+ */
+export interface UpdateConfiguration {
+    checkOnStartup: boolean;
+    checkIntervalHours: number;
+    notifications: UpdateNotificationLevel;
+}
+
+/**
+ * Gets the update configuration
+ */
+export function getUpdateConfiguration(): UpdateConfiguration {
+    const config = workspace.getConfiguration('groovy');
+
+    return {
+        checkOnStartup: config.get<boolean>('update.checkOnStartup', true),
+        checkIntervalHours: Math.max(1, config.get<number>('update.checkIntervalHours', 24)),
+        notifications: config.get<UpdateNotificationLevel>('update.notifications', 'onlyWhenOutdated')
+    };
+}
+
+/**
+ * Checks if a configuration change affects update settings
+ */
+export function affectsUpdateConfiguration(event: ConfigurationChangeEvent): boolean {
+    return affectsConfiguration(event, 'update.checkOnStartup') ||
+        affectsConfiguration(event, 'update.checkIntervalHours') ||
+        affectsConfiguration(event, 'update.notifications');
+}
+
