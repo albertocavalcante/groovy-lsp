@@ -18,7 +18,7 @@ terraform {
 }
 
 provider "mgc" {
-  region = "br-se1" // SouthEast 1 (Standard)
+  region = "br-ne1" // NorthEast 1
 }
 
 module "runner" {
