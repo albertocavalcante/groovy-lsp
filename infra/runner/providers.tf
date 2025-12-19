@@ -12,7 +12,7 @@ terraform {
   required_providers {
     mgc = {
       source  = "magalucloud/mgc"
-      version = "0.41.0"
+      version = "~> 0.41.0"
     }
   }
 
@@ -22,5 +22,5 @@ terraform {
 # Configure the Magalu Cloud provider
 provider "mgc" {
   api_key = var.mgc_api_key
-  region  = "br-ne1" # NorthEast 1
+  region  = var.mgc_region
 }
