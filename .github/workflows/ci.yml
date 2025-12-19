@@ -135,7 +135,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_RUNNER }}
         run: |
-          echo "🚀 Triggering runner-provision.yml..."
+          echo "Triggering runner-provision.yml..."
           gh workflow run runner-provision.yml --repo ${{ github.repository }}
           echo "⏳ Provisioning triggered. Manual approval may be required."
           echo ""
