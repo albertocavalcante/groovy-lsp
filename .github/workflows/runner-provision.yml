@@ -100,8 +100,9 @@ jobs:
 
       - name: Wait for Magalu runner to be online
         id: wait
-        uses: ./.github/actions/wait-for-runner
+        uses: ./.github/actions/runner-status
         with:
+          mode: wait-online
           label: magalu
           github-token: ${{ secrets.GH_PAT_RUNNER }}
           max-wait-minutes: '10'
