@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory
  *
  * @property block The type of Spock block
  * @property startLine Start line of the block (1-indexed, inclusive)
- * @property endLine End line of the block (1-indexed, exclusive for ranges, inclusive for last block)
+ * @property endLine End line of the block (1-indexed, inclusive)
  * @property continues For AND blocks, the logical block type it continues (e.g., THEN for `and:` after `then:`)
  */
 data class BlockSpan(
@@ -74,7 +74,11 @@ class SpockBlockIndex(
      * - and → same as the block it continues
      */
     fun validNextBlocks(line: Int): List<SpockBlock> {
-        val current = effectiveBlockAt(line)
+        // Try current position first, then fall back to last block that ends before this line
+        val current = effectiveBlockAt(line) ?: blocks.lastOrNull { it.endLine < line }?.let {
+            if (it.block == SpockBlock.AND) it.continues else it.block
+        }
+
         return when (current) {
             null -> listOf(SpockBlock.GIVEN, SpockBlock.SETUP, SpockBlock.WHEN, SpockBlock.EXPECT)
             SpockBlock.GIVEN, SpockBlock.SETUP -> listOf(SpockBlock.WHEN, SpockBlock.AND)

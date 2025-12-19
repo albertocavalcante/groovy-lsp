@@ -16,22 +16,14 @@ enum class SpockBlock {
     AND;
 
     companion object {
+        private val labelMap = values().associateBy { it.name.lowercase(java.util.Locale.ROOT) }
+
         /**
          * Parse a statement label into a SpockBlock.
          *
          * @param label The label text (e.g., "given", "when")
          * @return The corresponding SpockBlock, or null if not a valid Spock label
          */
-        fun fromLabel(label: String): SpockBlock? = when (label.lowercase()) {
-            "given" -> GIVEN
-            "setup" -> SETUP
-            "when" -> WHEN
-            "then" -> THEN
-            "expect" -> EXPECT
-            "where" -> WHERE
-            "cleanup" -> CLEANUP
-            "and" -> AND
-            else -> null
-        }
+        fun fromLabel(label: String): SpockBlock? = labelMap[label.lowercase(java.util.Locale.ROOT)]
     }
 }
