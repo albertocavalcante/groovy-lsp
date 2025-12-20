@@ -1,5 +1,7 @@
 package com.github.albertocavalcante.groovylsp.e2e
 
+import com.github.albertocavalcante.groovylsp.e2e.JsonBridge.toJavaObject
+import com.github.albertocavalcante.groovylsp.e2e.JsonBridge.wrapJavaObject
 import com.jayway.jsonpath.Configuration
 import com.jayway.jsonpath.JsonPath
 import com.jayway.jsonpath.PathNotFoundException
@@ -10,12 +12,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import org.eclipse.lsp4j.InitializeResult
 
@@ -280,29 +279,4 @@ class JsonExpectationEvaluator {
         (actual is JsonPrimitive && actual.isString && actual.content.isEmpty()) ||
         (actual is JsonArray && actual.isEmpty()) ||
         (actual is JsonObject && actual.isEmpty())
-}
-
-// Helpers for interop with JsonPath (which needs Java Map/List)
-private fun JsonElement.toJavaObject(): Any? = when (this) {
-    is JsonNull -> null
-    is JsonPrimitive -> {
-        if (isString) {
-            content
-        } else {
-            booleanOrNull ?: longOrNull ?: doubleOrNull ?: content
-        }
-    }
-
-    is JsonArray -> map { it.toJavaObject() }
-    is JsonObject -> mapValues { it.value.toJavaObject() }
-}
-
-private fun wrapJavaObject(obj: Any?): JsonElement = when (obj) {
-    null -> JsonNull
-    is String -> JsonPrimitive(obj)
-    is Number -> JsonPrimitive(obj)
-    is Boolean -> JsonPrimitive(obj)
-    is List<*> -> JsonArray(obj.map { wrapJavaObject(it) })
-    is Map<*, *> -> JsonObject(obj.entries.associate { (k, v) -> k.toString() to wrapJavaObject(v) })
-    else -> JsonPrimitive(obj.toString()) // Fallback
 }

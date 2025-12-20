@@ -1,16 +1,13 @@
 package com.github.albertocavalcante.groovylsp.e2e
 
+import com.github.albertocavalcante.groovylsp.e2e.JsonBridge.toJavaObject
+import com.github.albertocavalcante.groovylsp.e2e.JsonBridge.toJsonElement
+import com.github.albertocavalcante.groovylsp.e2e.JsonBridge.wrapJavaObject
 import com.google.gson.Gson
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import org.eclipse.lsp4j.DidChangeTextDocumentParams
 import org.eclipse.lsp4j.DidCloseTextDocumentParams
@@ -129,9 +126,8 @@ class ChangeDocumentStepExecutor : StepExecutor<ScenarioStep.ChangeDocument> {
         val changes: List<org.eclipse.lsp4j.TextDocumentContentChangeEvent> =
             if (step.text != null && step.contentChanges.isEmpty()) {
                 val interpolatedText = context.interpolateString(step.text)
-                // Full document replacement uses null range in LSP (no range specified)
-                @Suppress("DEPRECATION")
-                listOf(org.eclipse.lsp4j.TextDocumentContentChangeEvent(null, 0, interpolatedText))
+                // Full document replacement - use simpler constructor (no range = replace all)
+                listOf(org.eclipse.lsp4j.TextDocumentContentChangeEvent(interpolatedText))
             } else {
                 step.contentChanges.map { change ->
                     val text = context.interpolateString(change.text)
@@ -350,36 +346,4 @@ private fun Gson.toJsonElement(obj: Any?): JsonElement {
     if (obj == null) return JsonNull
     val jsonString = this.toJson(obj)
     return Json.parseToJsonElement(jsonString)
-}
-
-private fun JsonElement.toJavaObject(): Any? = when (this) {
-    is JsonNull -> null
-    is JsonPrimitive -> {
-        if (isString) {
-            content
-        } else {
-            booleanOrNull ?: longOrNull ?: doubleOrNull ?: content
-        }
-    }
-
-    is JsonArray -> map { it.toJavaObject() }
-    is JsonObject -> mapValues { it.value.toJavaObject() }
-}
-
-private fun wrapJavaObject(obj: Any?): JsonElement = when (obj) {
-    null -> JsonNull
-    is String -> JsonPrimitive(obj)
-    is Number -> JsonPrimitive(obj)
-    is Boolean -> JsonPrimitive(obj)
-    is List<*> -> JsonArray(obj.map { wrapJavaObject(it) })
-    is Map<*, *> -> JsonObject(obj.entries.associate { (k, v) -> k.toString() to wrapJavaObject(v) })
-    // If it's a POJO (like from LSP4J), use Gson to convert to JsonElement
-    else -> {
-        // Fallback for POJOs
-        try {
-            gson.toJsonElement(obj)
-        } catch (e: Exception) {
-            JsonPrimitive(obj.toString())
-        }
-    }
 }

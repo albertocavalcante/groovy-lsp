@@ -176,7 +176,7 @@ sealed interface ScenarioStep {
         val path: String? = null,
         val version: Int = 1,
         val text: String? = null, // Full document replacement (null range in LSP)
-        val contentChanges: List<TextDocumentContentChangeEvent> = emptyList(),
+        val contentChanges: List<TestTextDocumentContentChangeEvent> = emptyList(),
     ) : ScenarioStep
 
     data class SaveDocument(val uri: String? = null, val path: String? = null, val text: String? = null) : ScenarioStep
@@ -239,7 +239,11 @@ sealed interface ScenarioStep {
 // Supporting Types
 // =============================================================================
 
-data class TextDocumentContentChangeEvent(
+/**
+ * Test-specific representation of LSP TextDocumentContentChangeEvent.
+ * Named with 'Test' prefix to avoid confusion with org.eclipse.lsp4j.TextDocumentContentChangeEvent.
+ */
+data class TestTextDocumentContentChangeEvent(
     val range: TestRange? = null,
     val rangeLength: Int? = null,
     val text: String = "",
