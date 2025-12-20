@@ -19,3 +19,12 @@ module "runner" {
   # NOTE: "self-hosted" is auto-added by GitHub and does not need to be specified here.
   runner_labels = var.runner_labels
 }
+
+# Validate runner_image against the image_map keys (DRY - single source of truth in locals.tf)
+check "runner_image_valid" {
+  assert {
+    condition     = can(local.image_map[var.runner_image])
+    error_message = "Invalid runner_image \"${var.runner_image}\". Must be one of: ${join(", ", keys(local.image_map))}."
+  }
+}
+

@@ -65,17 +65,7 @@ variable "runner_labels" {
 }
 
 variable "runner_image" {
-  description = "Runner OS image (friendly name). See locals.tf for the mapping to actual cloud image names."
+  description = "Runner OS image (friendly name). See locals.tf for valid options."
   type        = string
   default     = "ubuntu-22"
-
-  validation {
-    condition = contains([
-      "ubuntu-22", "ubuntu-24",
-      "debian-12", "debian-13",
-      "rocky-9",
-      "oracle-8", "oracle-9"
-    ], var.runner_image)
-    error_message = "Image must be one of: ubuntu-22, ubuntu-24, debian-12, debian-13, rocky-9, oracle-8, oracle-9"
-  }
 }
