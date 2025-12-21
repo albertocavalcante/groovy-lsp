@@ -62,6 +62,9 @@ object AutoImportCompletionProvider {
         }
 
         // Search classpath
+        // NOTE: ClasspathService.findClassesByPrefix may throw various runtime exceptions
+        // (ClassNotFoundException, NoClassDefFoundError, etc.) - catch all to prevent completion failure
+        @Suppress("TooGenericExceptionCaught")
         try {
             classpathService.findClassesByPrefix(prefix, MAX_RESULTS)
                 .filter { it.fullName !in existingImports }
@@ -74,7 +77,7 @@ object AutoImportCompletionProvider {
                         ),
                     )
                 }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             logger.warn("Failed to search classpath for types", e)
         }
 

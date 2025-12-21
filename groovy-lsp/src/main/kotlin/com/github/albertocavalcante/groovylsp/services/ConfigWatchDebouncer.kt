@@ -26,6 +26,8 @@ class ConfigWatchDebouncer(private val scope: CoroutineScope, private val deboun
         pendingJobs[key]?.cancel()
 
         // Schedule new job
+        // NOTE: Action may throw various exceptions - catch all to prevent debouncer failure
+        @Suppress("TooGenericExceptionCaught")
         val job = scope.launch {
             delay(debounceDelayMs)
             try {

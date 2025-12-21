@@ -23,14 +23,7 @@ class LibrarySourceLoader {
     }
 
     private fun cleanupExtractionDirectory() {
-        try {
-            if (Files.exists(extractionDir)) {
-                Files.walk(extractionDir).use { stream ->
-                    stream.sorted(Comparator.reverseOrder())
-                        .forEach { Files.deleteIfExists(it) }
-                }
-            }
-        } catch (e: java.io.IOException) {
+        safeDeleteDirectory(extractionDir) { e ->
             logger.warn("Failed to clean up library source extraction directory", e)
         }
     }
@@ -81,14 +74,7 @@ class LibrarySourceLoader {
     }
 
     private fun cleanupPartialExtraction(targetDir: Path) {
-        try {
-            if (Files.exists(targetDir)) {
-                Files.walk(targetDir).use { stream ->
-                    stream.sorted(Comparator.reverseOrder())
-                        .forEach { Files.deleteIfExists(it) }
-                }
-            }
-        } catch (e: java.io.IOException) {
+        safeDeleteDirectory(targetDir) { e ->
             logger.warn("Failed to clean up partial extraction", e)
         }
     }
@@ -144,6 +130,18 @@ class LibrarySourceLoader {
         Files.walk(directory).use { stream ->
             stream.sorted(Comparator.reverseOrder())
                 .forEach { Files.deleteIfExists(it) }
+        }
+    }
+
+    /**
+     * Safely deletes a directory if it exists, calling onError if deletion fails.
+     */
+    private inline fun safeDeleteDirectory(directory: Path, onError: (java.io.IOException) -> Unit) {
+        if (!Files.exists(directory)) return
+        try {
+            deleteDirectoryContents(directory)
+        } catch (e: java.io.IOException) {
+            onError(e)
         }
     }
 }

@@ -14,7 +14,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.withContext
 import org.codehaus.groovy.ast.ASTNode
 import org.eclipse.lsp4j.Diagnostic
 import org.slf4j.LoggerFactory
@@ -24,6 +23,13 @@ import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
 class GroovyCompilationService {
+    companion object {
+        /**
+         * Batch size for parallel workspace indexing.
+         * Balances parallelism with resource usage.
+         */
+        private const val INDEXING_BATCH_SIZE = 10
+    }
 
     private val logger = LoggerFactory.getLogger(GroovyCompilationService::class.java)
     private val cache = CompilationCache()
@@ -158,54 +164,62 @@ class GroovyCompilationService {
      * @return SymbolIndex if indexing succeeded, null otherwise
      */
     suspend fun indexWorkspaceFile(uri: URI): SymbolIndex? {
-        val path = try {
-            Path.of(uri)
-        } catch (e: Exception) {
-            logger.debug("Failed to convert URI to path: $uri", e)
-            return null
-        }
-
-        if (!Files.exists(path) || !Files.isRegularFile(path)) {
-            logger.debug("File does not exist or is not a regular file: $uri")
-            return null
-        }
-
-        // Check if already indexed
+        // Check if already indexed first
         symbolStorageCache.get(uri)?.let {
             logger.debug("File already indexed: $uri")
             return it
         }
 
-        return try {
-            val content = Files.readString(path)
-            val sourcePath = runCatching { Path.of(uri) }.getOrNull()
+        val path = parseUriToPath(uri) ?: return null
 
-            val parseResult = parser.parse(
-                ParseRequest(
-                    uri = uri,
-                    content = content,
-                    classpath = workspaceManager.getDependencyClasspath(),
-                    sourceRoots = workspaceManager.getSourceRoots(),
-                    workspaceSources = emptyList(), // Don't recurse during indexing
-                    locatorCandidates = buildLocatorCandidates(uri, sourcePath),
-                    useRecursiveVisitor = false, // Faster for indexing - don't need full AST traversal
-                ),
-            )
-
-            val astModel = parseResult.astModel
-            if (astModel != null) {
-                val index = SymbolIndex().buildFromVisitor(astModel)
-                symbolStorageCache.put(uri, index)
-                logger.debug("Indexed workspace file: $uri")
-                index
-            } else {
-                logger.debug("Failed to build AST model for indexing: $uri")
+        return when {
+            !Files.exists(path) || !Files.isRegularFile(path) -> {
+                logger.debug("File does not exist or is not a regular file: $uri")
                 null
             }
-        } catch (e: Exception) {
-            logger.warn("Failed to index workspace file: $uri", e)
+            else -> performIndexing(uri, path)
+        }
+    }
+
+    private fun parseUriToPath(uri: URI): Path? = try {
+        Path.of(uri)
+    } catch (e: java.nio.file.InvalidPathException) {
+        logger.debug("Failed to convert URI to path: $uri", e)
+        null
+    }
+
+    // NOTE: Various exceptions possible (IOException, ParseException, etc.)
+    // Catch all to prevent indexing failure from stopping workspace indexing
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun performIndexing(uri: URI, path: Path): SymbolIndex? = try {
+        val content = Files.readString(path)
+        val sourcePath = runCatching { Path.of(uri) }.getOrNull()
+
+        val parseResult = parser.parse(
+            ParseRequest(
+                uri = uri,
+                content = content,
+                classpath = workspaceManager.getDependencyClasspath(),
+                sourceRoots = workspaceManager.getSourceRoots(),
+                workspaceSources = emptyList(), // Don't recurse during indexing
+                locatorCandidates = buildLocatorCandidates(uri, sourcePath),
+                useRecursiveVisitor = false, // Faster for indexing - don't need full AST traversal
+            ),
+        )
+
+        val astModel = parseResult.astModel
+        if (astModel != null) {
+            val index = SymbolIndex().buildFromVisitor(astModel)
+            symbolStorageCache.put(uri, index)
+            logger.debug("Indexed workspace file: $uri")
+            index
+        } else {
+            logger.debug("Failed to build AST model for indexing: $uri")
             null
         }
+    } catch (e: Exception) {
+        logger.warn("Failed to index workspace file: $uri", e)
+        null
     }
 
     /**
@@ -215,10 +229,7 @@ class GroovyCompilationService {
      * @param uris List of URIs to index
      * @param onProgress Callback invoked with (indexed, total) progress
      */
-    suspend fun indexAllWorkspaceSources(
-        uris: List<URI>,
-        onProgress: (Int, Int) -> Unit = { _, _ -> },
-    ) {
+    suspend fun indexAllWorkspaceSources(uris: List<URI>, onProgress: (Int, Int) -> Unit = { _, _ -> }) {
         if (uris.isEmpty()) {
             logger.debug("No workspace sources to index")
             return
@@ -229,7 +240,8 @@ class GroovyCompilationService {
         var indexed = 0
 
         // Index files in parallel batches for better performance
-        val batchSize = 10
+        // NOTE: Batch size balances parallelism with resource usage
+        val batchSize = INDEXING_BATCH_SIZE
         uris.chunked(batchSize).forEach { batch ->
             val results = batch.map { uri ->
                 async(Dispatchers.IO) {
@@ -242,7 +254,12 @@ class GroovyCompilationService {
                     deferred.await()
                     indexed++
                     onProgress(indexed, total)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e // Re-throw cancellation
                 } catch (e: Exception) {
+                    // NOTE: Various exceptions possible (IOException, ParseException, etc.)
+                    // Catch all to prevent batch failure from stopping entire indexing
+                    @Suppress("TooGenericExceptionCaught")
                     logger.warn("Failed to index file in batch", e)
                     indexed++
                     onProgress(indexed, total)
@@ -423,4 +440,3 @@ class GroovyCompilationService {
         }
     }
 }
-
