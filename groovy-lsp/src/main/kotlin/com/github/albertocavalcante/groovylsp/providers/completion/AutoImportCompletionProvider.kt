@@ -46,8 +46,8 @@ object AutoImportCompletionProvider {
 
         // Search workspace symbol index
         val workspaceIndex = compilationService.getAllSymbolStorages()
-        workspaceIndex.values.forEach { index ->
-            index.getSymbols().filterIsInstance<Symbol.Class>()
+        workspaceIndex.forEach { (uri, index) ->
+            index.getSymbols(uri).filterIsInstance<Symbol.Class>()
                 .filter { it.name.startsWith(prefix, ignoreCase = true) }
                 .forEach { symbol ->
                     val fqn = symbol.fullyQualifiedName ?: return@forEach
@@ -86,7 +86,7 @@ object AutoImportCompletionProvider {
         // Deduplicate by FQN (workspace takes precedence)
         val deduplicated = candidates
             .groupBy { it.fqn }
-            .mapValues { (_, list) -> list.first { it.source == TypeSource.WORKSPACE } ?: list.first() }
+            .mapValues { (_, list) -> list.firstOrNull { it.source == TypeSource.WORKSPACE } ?: list.first() }
             .values
             .sortedWith(compareBy({ it.source }, { it.simpleName }))
             .take(MAX_RESULTS)

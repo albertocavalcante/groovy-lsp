@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import org.codehaus.groovy.ast.ASTNode
 import org.eclipse.lsp4j.Diagnostic
 import org.slf4j.LoggerFactory
@@ -243,25 +244,29 @@ class GroovyCompilationService {
         // NOTE: Batch size balances parallelism with resource usage
         val batchSize = INDEXING_BATCH_SIZE
         uris.chunked(batchSize).forEach { batch ->
-            val results = batch.map { uri ->
-                async(Dispatchers.IO) {
-                    indexWorkspaceFile(uri)
+            coroutineScope {
+                val results = batch.map { uri ->
+                    async(Dispatchers.IO) {
+                        indexWorkspaceFile(uri)
+                    }
                 }
-            }
 
-            results.forEach { deferred ->
-                try {
-                    deferred.await()
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e // Re-throw cancellation
-                    // NOTE: Various exceptions possible (IOException, ParseException, etc.)
-                    // Catch all to prevent batch failure from stopping entire indexing
-                    @Suppress("TooGenericExceptionCaught")
-                } catch (e: Exception) {
-                    logger.warn("Failed to index file in batch", e)
-                } finally {
-                    indexed++
-                    onProgress(indexed, total)
+                results.forEach { deferred ->
+                    try {
+                        deferred.await()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e // Re-throw cancellation
+                    } catch (
+                        // NOTE: Various exceptions possible (IOException, ParseException, etc.)
+                        // Catch all to prevent batch failure from stopping entire indexing
+                        @Suppress("TooGenericExceptionCaught")
+                        e: Exception,
+                    ) {
+                        logger.warn("Failed to index file in batch", e)
+                    } finally {
+                        indexed++
+                        onProgress(indexed, total)
+                    }
                 }
             }
         }

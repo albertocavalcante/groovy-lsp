@@ -19,7 +19,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.eclipse.lsp4j.CompletionOptions
-import org.eclipse.lsp4j.FileSystemWatcher
 import org.eclipse.lsp4j.InitializeParams
 import org.eclipse.lsp4j.InitializeResult
 import org.eclipse.lsp4j.InitializedParams
@@ -197,26 +196,9 @@ class GroovyLanguageServer :
 
             // Diagnostics will be pushed
 
-            // File watching support for config files
-            workspace = org.eclipse.lsp4j.WorkspaceServerCapabilities().apply {
-                val configFileWatchers = listOf(
-                    FileSystemWatcher("**/.codenarc"),
-                    FileSystemWatcher("**/codenarc.xml"),
-                    FileSystemWatcher("**/codenarc.groovy"),
-                    FileSystemWatcher("**/*.gdsl"),
-                )
-                fileOperations = org.eclipse.lsp4j.FileOperationsServerCapabilities().apply {
-                    didCreate = org.eclipse.lsp4j.FileOperationRegistrationOptions().apply {
-                        filters = configFileWatchers
-                    }
-                    didChange = org.eclipse.lsp4j.FileOperationRegistrationOptions().apply {
-                        filters = configFileWatchers
-                    }
-                    didDelete = org.eclipse.lsp4j.FileOperationRegistrationOptions().apply {
-                        filters = configFileWatchers
-                    }
-                }
-            }
+            // NOTE: File watching is handled via didChangeWatchedFiles notifications from the client.
+            // The client watches for config files (.codenarc, codenarc.xml, codenarc.groovy, *.gdsl)
+            // and sends notifications which are processed in GroovyWorkspaceService.didChangeWatchedFiles
         }
 
         val serverInfo = ServerInfo().apply {
