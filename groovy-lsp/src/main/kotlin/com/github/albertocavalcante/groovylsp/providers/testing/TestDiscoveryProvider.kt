@@ -1,0 +1,94 @@
+package com.github.albertocavalcante.groovylsp.providers.testing
+
+import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
+import com.github.albertocavalcante.groovyspock.SpockDetector
+import com.github.albertocavalcante.groovyspock.SpockFeatureExtractor
+import org.slf4j.LoggerFactory
+import java.net.URI
+
+/**
+ * Discovers Spock test classes and feature methods in a workspace.
+ *
+ * Used by the `groovy/discoverTests` LSP request to populate VS Code Test Explorer.
+ */
+class TestDiscoveryProvider(private val compilationService: GroovyCompilationService) {
+    private val logger = LoggerFactory.getLogger(TestDiscoveryProvider::class.java)
+
+    /**
+     * Discover all test suites in the workspace.
+     *
+     * @param workspaceUri The workspace root URI
+     * @return List of [TestSuite] containing discovered tests
+     */
+    fun discoverTests(workspaceUri: String): List<TestSuite> {
+        logger.info("Discovering tests in workspace: $workspaceUri")
+
+        val testSuites = mutableListOf<TestSuite>()
+
+        // Get all workspace source URIs
+        val sourceUris = compilationService.workspaceManager.getWorkspaceSourceUris()
+
+        for (uri in sourceUris) {
+            // Skip non-Groovy files
+            if (!uri.path.endsWith(".groovy", ignoreCase = true)) continue
+
+            // Get parsed result for this file
+            val parseResult = compilationService.getParseResult(uri)
+            if (parseResult == null) {
+                logger.debug("No parse result for: $uri")
+                continue
+            }
+
+            // Check if it's a Spock specification
+            if (!SpockDetector.isSpockSpec(uri, parseResult)) {
+                continue
+            }
+
+            // Extract test suites from this file
+            val ast = parseResult.ast ?: continue
+
+            for (classNode in ast.classes) {
+                val features = SpockFeatureExtractor.extractFeatures(classNode)
+
+                if (features.isNotEmpty()) {
+                    val tests = features.map { feature ->
+                        Test(test = feature.name, line = feature.line)
+                    }
+
+                    testSuites.add(
+                        TestSuite(
+                            uri = uri.toString(),
+                            suite = classNode.name,
+                            tests = tests,
+                        ),
+                    )
+
+                    logger.debug(
+                        "Found test suite: {} with {} tests",
+                        classNode.name,
+                        tests.size,
+                    )
+                }
+            }
+        }
+
+        logger.info("Discovered {} test suites", testSuites.size)
+        return testSuites
+    }
+
+    companion object {
+        /**
+         * Parse a workspace URI string to a URI object.
+         * Handles both file:// URIs and plain paths.
+         */
+        fun parseWorkspaceUri(workspaceUri: String): URI? = try {
+            if (workspaceUri.startsWith("file://")) {
+                URI.create(workspaceUri)
+            } else {
+                URI.create("file://$workspaceUri")
+            }
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+}
