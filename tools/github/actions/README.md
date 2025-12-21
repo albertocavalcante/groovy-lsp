@@ -1,55 +1,64 @@
 # GitHub Actions Utilities
 
-This directory contains utility scripts for managing GitHub Actions workflows and runners.
+Utility scripts for managing GitHub Actions workflows and runners.
 
-## Scripts
+## macOS Self-Hosted Runner Setup
 
-### `setup-macos-runner.sh`
-
-Automates the setup of a self-hosted runner on macOS. This is useful for running the heavy test suite (like E2E tests) locally or on a dedicated Mac mini to avoid cloud runner costs or time limits.
-
-#### Prerequisites
-
-1.  A GitHub repository admin must generate a **Runner Token**.
-    *   Go to: [Settings > Actions > Runners > New self-hosted runner](https://github.com/albertocavalcante/groovy-lsp/settings/actions/runners/new)
-    *   Select **macOS**.
-    *   Copy the token from the "Configure" section.
-
-#### Usage
+### Quick Start (Auto-Mode)
 
 ```bash
-./tools/github/actions/setup-macos-runner.sh <RUNNER_TOKEN> [RUNNER_NAME]
+./tools/github/actions/setup-macos-runner.sh
 ```
 
-*   `<RUNNER_TOKEN>`: The token obtained from GitHub.
-*   `[RUNNER_NAME]`: (Optional) A custom name for this runner. Defaults to your computer's hostname.
+By default, this will:
+1. Generate a runner token via `gh` CLI
+2. Download and configure the runner
+3. **Install and start the background service** automatically
 
-**Example:**
+### Prerequisites
+
+1. **gh CLI** installed and authenticated:
+   ```bash
+   brew install gh
+   gh auth login
+   ```
+
+2. **Admin access** to the repository (for token generation)
+
+### Usage Options
 
 ```bash
-./tools/github/actions/setup-macos-runner.sh A1B2C3D4E5F6... my-macbook-pro
+# Auto-mode (default: generates token + installs service)
+./tools/github/actions/setup-macos-runner.sh
+
+# Auto-mode WITHOUT installing service (interactive run only)
+./tools/github/actions/setup-macos-runner.sh --no-svc
+
+# With custom runner version
+./tools/github/actions/setup-macos-runner.sh --version 2.329.0
+
+# With custom name and labels
+./tools/github/actions/setup-macos-runner.sh --name my-mac-builder --labels "fast,ssd"
+
+# Manual mode (explicit token)
+./tools/github/actions/setup-macos-runner.sh <RUNNER_TOKEN>
+
+# Help
+./setup-macos-runner.sh --help
 ```
 
-#### Post-Setup
+### Runner Labels
 
-After the script completes, you can start the runner in two ways:
+| Label | Purpose |
+|-------|---------|
+| `self-hosted` | Required by GitHub Actions |
+| `macOS` | OS type |
+| `arm64` / `x64` | Architecture |
+| `groovy-lsp` | Project identifier |
+| `local-macos` | CI targeting |
 
-1.  **Interactive Mode:**
-    ```bash
-    cd ~/actions-runner
-    ./run.sh
-    ```
+### CI Integration
 
-2.  **Background Service:**
-    ```bash
-    cd ~/actions-runner
-    ./svc.sh install
-    ./svc.sh start
-    ```
-
-#### Workflow Integration
-
-Once the runner is active, you can target it in your CI workflows:
-
-*   **Manual Dispatch:** Run the "CI" workflow and set `runner_label` to `self-hosted`.
-*   **Automatic:** Set the repository variable `CI_RUNNER_LABEL` to `self-hosted` to force all CI runs to this runner.
+Target local macOS runners:
+- **Manual dispatch**: Set `runner_label` to `local-macos`
+- **Automatic**: Set repo variable `CI_RUNNER_LABEL=local-macos`
