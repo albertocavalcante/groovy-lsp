@@ -35,10 +35,10 @@
     "stepEnrichment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["plugin"],
+      "required": ["plugin", "description"],
       "properties": {
         "plugin": { "type": "string", "minLength": 1 },
-        "description": { "type": "string" },
+        "description": { "type": "string", "minLength": 1 },
         "documentationUrl": { "type": "string", "format": "uri" },
         "category": { "$ref": "#/$defs/stepCategory" },
         "examples": { "type": "array", "items": { "type": "string", "minLength": 1 } },
@@ -56,8 +56,9 @@
     "parameterEnrichment": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["description"],
       "properties": {
-        "description": { "type": "string" },
+        "description": { "type": "string", "minLength": 1 },
         "required": { "type": "boolean" },
         "validValues": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "examples": { "type": "array", "items": { "type": "string", "minLength": 1 } }
