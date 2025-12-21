@@ -193,7 +193,7 @@ object CompletionProvider {
                     logger.debug("Adding type parameter classes for prefix '{}'", completionContext.prefix)
                     addTypeParameterClasses(completionContext.prefix, compilationService)
                     // Also add auto-import completions for unimported types
-                    addAutoImportCompletions(completionContext.prefix, content, compilationService)
+                    addAutoImportCompletions(completionContext.prefix, uri, content, compilationService)
                 }
 
                 null -> {
@@ -619,11 +619,13 @@ object CompletionProvider {
      */
     private fun CompletionsBuilder.addAutoImportCompletions(
         prefix: String,
+        uri: java.net.URI,
         content: String,
         compilationService: GroovyCompilationService,
     ) {
         val completions = AutoImportCompletionProvider.getTypeCompletions(
             prefix = prefix,
+            uri = uri,
             content = content,
             compilationService = compilationService,
             classpathService = compilationService.classpathService,

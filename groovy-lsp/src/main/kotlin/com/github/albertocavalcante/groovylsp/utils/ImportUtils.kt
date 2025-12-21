@@ -1,45 +1,86 @@
 package com.github.albertocavalcante.groovylsp.utils
 
+import com.github.albertocavalcante.groovyparser.ast.ImportInfo
+import org.codehaus.groovy.ast.ModuleNode
 import org.eclipse.lsp4j.Position
 
 /**
  * Utilities for working with import statements in Groovy files.
+ *
+ * **Design:**
+ * - Primary: Delegates to [ImportInfo.fromAst] for deterministic AST-based extraction.
+ * - Fallback: Minimal heuristics when AST is unavailable (properly annotated per AGENTS.md).
  */
 object ImportUtils {
 
     /**
-     * Extracts existing import statements from file content.
-     * Properly handles multi-line comments between package and import statements.
+     * Extracts import information from AST (deterministic) or content (heuristic fallback).
+     *
+     * @param ast The ModuleNode if available (preferred)
+     * @param content The file content (used only as fallback)
+     * @return Pair of (existing import FQNs, insert position)
+     */
+    fun extractImportInfo(ast: ModuleNode?, content: String): Pair<Set<String>, Position> = if (ast != null) {
+        // DETERMINISTIC: Use AST-based extraction
+        val info = ImportInfo.fromAst(ast)
+        info.existingImports to Position(info.insertLine, 0)
+    } else {
+        // HEURISTIC FALLBACK: See inline comments
+        extractExistingImports(content) to findImportInsertPosition(content)
+    }
+
+    /**
+     * Extracts existing import FQNs from AST (deterministic).
+     * This is the preferred method when AST is available.
+     *
+     * @param ast The ModuleNode from parsing
+     * @return Set of fully qualified names that are already imported
+     */
+    fun extractExistingImportsFromAst(ast: ModuleNode): Set<String> = ImportInfo.fromAst(ast).existingImports
+
+    /**
+     * Finds the import insertion position from AST (deterministic).
+     * Returns position after the last import, or after package declaration.
+     *
+     * @param ast The ModuleNode from parsing
+     * @return Position for inserting a new import
+     */
+    fun findImportInsertPositionFromAst(ast: ModuleNode): Position = Position(ImportInfo.fromAst(ast).insertLine, 0)
+
+    // ============================================================================
+    // HEURISTIC FALLBACKS - Used only when AST is unavailable (e.g., broken syntax)
+    // ============================================================================
+
+    /**
+     * Extracts existing import FQNs from file content.
+     *
+     * NOTE: HEURISTIC - This is a fallback when AST is unavailable.
+     * Uses simple line-by-line scanning, doesn't handle all edge cases.
+     * TODO: Remove once all callers provide AST. Deterministic: [extractExistingImportsFromAst].
      *
      * @param content The file content
      * @return Set of fully qualified names that are already imported
      */
-    fun extractExistingImports(content: String): Set<String> {
+    internal fun extractExistingImports(content: String): Set<String> {
+        // NOTE: Simple line-by-line scan - intentionally minimal since it's a fallback
         val imports = mutableSetOf<String>()
-        val lines = content.lines()
-        var inMultiLineComment = false
 
-        for (line in lines) {
+        for (line in content.lineSequence()) {
             val trimmed = line.trim()
-
-            // Track multi-line comment state
-            val (newInComment, processedLine) = processCommentState(trimmed, inMultiLineComment)
-            inMultiLineComment = newInComment
-
-            // Skip if we're inside a comment or line was consumed by comment
-            if (inMultiLineComment || processedLine.isBlank()) continue
-
             when {
-                processedLine.startsWith("import ") -> {
-                    parseImport(processedLine)?.let { imports.add(it) }
+                trimmed.startsWith("import ") && !trimmed.startsWith("import static ") -> {
+                    // Extract FQN: "import foo.Bar;" -> "foo.Bar"
+                    val fqn = trimmed
+                        .removePrefix("import ")
+                        .removeSuffix(";")
+                        .trim()
+                    // Skip star imports
+                    if (!fqn.endsWith(".*")) {
+                        imports.add(fqn)
+                    }
                 }
-                processedLine.startsWith("package ") -> {
-                    // Package declarations appear before imports, continue scanning
-                }
-                processedLine.isNotEmpty() && !isCommentLine(processedLine) -> {
-                    // Stop at first non-comment, non-empty line that's not import/package
-                    return imports
-                }
+                // Stop at first code line (class, interface, etc.)
+                isCodeDeclaration(trimmed) -> break
             }
         }
 
@@ -47,44 +88,29 @@ object ImportUtils {
     }
 
     /**
-     * Finds the position where a new import statement should be inserted.
-     * Returns the position after the last import statement, or after the package statement.
-     * Properly handles multi-line comments.
+     * Finds the position where a new import should be inserted.
+     *
+     * NOTE: HEURISTIC - This is a fallback when AST is unavailable.
+     * Uses simple line-by-line scanning.
+     * TODO: Remove once all callers provide AST. Deterministic: [findImportInsertPositionFromAst].
      *
      * @param content The file content
      * @return Position for inserting a new import
      */
-    fun findImportInsertPosition(content: String): Position {
+    internal fun findImportInsertPosition(content: String): Position {
         val lines = content.lines()
         var lastImportLine = -1
         var packageLine = -1
-        var inMultiLineComment = false
 
         for (i in lines.indices) {
             val trimmed = lines[i].trim()
-
-            // Track multi-line comment state
-            val (newInComment, processedLine) = processCommentState(trimmed, inMultiLineComment)
-            inMultiLineComment = newInComment
-
-            // Skip if we're inside a comment or line was consumed by comment
-            if (inMultiLineComment || processedLine.isBlank()) continue
-
             when {
-                processedLine.startsWith("package ") -> {
-                    packageLine = i
-                }
-                processedLine.startsWith("import ") -> {
-                    lastImportLine = i
-                }
-                processedLine.isNotEmpty() && !isCommentLine(processedLine) -> {
-                    // Stop at first non-comment, non-empty line that's not import/package
-                    break
-                }
+                trimmed.startsWith("package ") -> packageLine = i
+                trimmed.startsWith("import ") -> lastImportLine = i
+                isCodeDeclaration(trimmed) -> break
             }
         }
 
-        // Insert after last import, or after package, or at line 0
         val insertLine = when {
             lastImportLine >= 0 -> lastImportLine + 1
             packageLine >= 0 -> packageLine + 1
@@ -95,61 +121,14 @@ object ImportUtils {
     }
 
     /**
-     * Processes comment state for a line.
-     * Returns (isStillInComment, processedLineContent).
+     * Checks if a line looks like a code declaration (heuristic stop condition).
      */
-    private fun processCommentState(line: String, inMultiLineComment: Boolean): Pair<Boolean, String> {
-        var stillInComment = inMultiLineComment
-        var remaining = line
-
-        // If we're in a multi-line comment, look for the end
-        if (stillInComment) {
-            val endIndex = remaining.indexOf("*/")
-            if (endIndex >= 0) {
-                remaining = remaining.substring(endIndex + 2).trim()
-                stillInComment = false
-            } else {
-                return true to "" // Still in comment, nothing to process
-            }
-        }
-
-        // Look for start of multi-line comment
-        val startIndex = remaining.indexOf("/*")
-        if (startIndex >= 0) {
-            val beforeComment = remaining.substring(0, startIndex).trim()
-            val afterStart = remaining.substring(startIndex + 2)
-            val endIndex = afterStart.indexOf("*/")
-
-            if (endIndex >= 0) {
-                // Comment ends on same line
-                val afterEnd = afterStart.substring(endIndex + 2).trim()
-                remaining = beforeComment + " " + afterEnd
-            } else {
-                // Multi-line comment continues
-                stillInComment = true
-                remaining = beforeComment
-            }
-        }
-
-        return stillInComment to remaining.trim()
-    }
-
-    /**
-     * Parses an import line and extracts the fully qualified name.
-     * Returns null for static imports and star imports.
-     */
-    private fun parseImport(line: String): String? {
-        val importStatement = line.removePrefix("import ").removeSuffix(";").trim()
-        return when {
-            importStatement.startsWith("static ") -> null
-            importStatement.endsWith(".*") -> null
-            else -> importStatement
-        }
-    }
-
-    /**
-     * Checks if a line is a single-line comment.
-     */
-    private fun isCommentLine(line: String): Boolean =
-        line.startsWith("//") || line.startsWith("/*") || line.startsWith("*")
+    private fun isCodeDeclaration(trimmed: String): Boolean = trimmed.startsWith("class ") ||
+        trimmed.startsWith("interface ") ||
+        trimmed.startsWith("enum ") ||
+        trimmed.startsWith("trait ") ||
+        trimmed.startsWith("def ") ||
+        (trimmed.startsWith("@") && !trimmed.startsWith("@interface")) ||
+        trimmed.startsWith("public class ") ||
+        trimmed.startsWith("abstract class ")
 }

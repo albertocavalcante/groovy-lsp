@@ -4,6 +4,7 @@ import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationServi
 import com.github.albertocavalcante.groovylsp.services.ClasspathService
 import com.github.albertocavalcante.groovylsp.utils.ImportUtils
 import com.github.albertocavalcante.groovyparser.ast.symbols.Symbol
+import org.codehaus.groovy.ast.ModuleNode
 import org.eclipse.lsp4j.CompletionItem
 import org.eclipse.lsp4j.CompletionItemKind
 import org.eclipse.lsp4j.MarkupContent
@@ -13,6 +14,7 @@ import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.slf4j.LoggerFactory
+import java.net.URI
 
 /**
  * Provides auto-import completion for types not yet imported.
@@ -24,30 +26,58 @@ object AutoImportCompletionProvider {
 
     /**
      * Gets type completions with auto-import support.
+     * Uses AST-based import extraction when available for deterministic results.
      *
      * @param prefix The prefix typed by the user (e.g., "ArrayL")
-     * @param content The file content to determine import insertion position
-     * @param compilationService The compilation service for workspace index access
+     * @param uri The document URI for AST lookup
+     * @param content The file content (fallback for import extraction)
+     * @param compilationService The compilation service for workspace index and AST access
      * @param classpathService The classpath service for classpath type search
      * @return List of completion items with additionalTextEdits for imports
      */
     fun getTypeCompletions(
         prefix: String,
+        uri: URI,
         content: String,
         compilationService: GroovyCompilationService,
         classpathService: ClasspathService,
     ): List<CompletionItem> {
         if (prefix.isBlank()) return emptyList()
 
-        val existingImports = ImportUtils.extractExistingImports(content)
-        val importPosition = ImportUtils.findImportInsertPosition(content)
+        // Extract import info: AST-based (deterministic) when available, heuristic fallback otherwise
+        val ast = compilationService.getAst(uri) as? ModuleNode
+        val (existingImports, importPosition) = ImportUtils.extractImportInfo(ast, content)
 
         val candidates = mutableListOf<TypeCandidate>()
 
         // Search workspace symbol index
+        collectWorkspaceCandidates(compilationService, prefix, existingImports, candidates)
+
+        // Search classpath
+        collectClasspathCandidates(classpathService, prefix, existingImports, candidates)
+
+        // Deduplicate by FQN (workspace takes precedence)
+        val deduplicated = candidates
+            .groupBy { it.fqn }
+            .mapValues { (_, list) -> list.firstOrNull { it.source == TypeSource.WORKSPACE } ?: list.first() }
+            .values
+            .sortedWith(compareBy({ it.source }, { it.simpleName }))
+            .take(MAX_RESULTS)
+
+        return deduplicated.map { candidate ->
+            candidate.toCompletionItem(importPosition, existingImports.contains(candidate.fqn))
+        }
+    }
+
+    private fun collectWorkspaceCandidates(
+        compilationService: GroovyCompilationService,
+        prefix: String,
+        existingImports: Set<String>,
+        candidates: MutableList<TypeCandidate>,
+    ) {
         val workspaceIndex = compilationService.getAllSymbolStorages()
-        workspaceIndex.forEach { (uri, index) ->
-            index.getSymbols(uri).filterIsInstance<Symbol.Class>()
+        workspaceIndex.forEach { (indexUri, index) ->
+            index.getSymbols(indexUri).filterIsInstance<Symbol.Class>()
                 .filter { it.name.startsWith(prefix, ignoreCase = true) }
                 .forEach { symbol ->
                     val fqn = symbol.fullyQualifiedName ?: return@forEach
@@ -62,11 +92,22 @@ object AutoImportCompletionProvider {
                     }
                 }
         }
+    }
 
-        // Search classpath
-        // NOTE: ClasspathService.findClassesByPrefix may throw various runtime exceptions
-        // (ClassNotFoundException, NoClassDefFoundError, etc.) - catch all to prevent completion failure
-        @Suppress("TooGenericExceptionCaught")
+    /**
+     * Collects classpath type candidates matching the prefix.
+     *
+     * NOTE: ClasspathService.findClassesByPrefix may throw various runtime exceptions
+     * (ClassNotFoundException, NoClassDefFoundError, etc.) due to classloader issues.
+     * We catch all exceptions to prevent completion failure - this is intentional.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private fun collectClasspathCandidates(
+        classpathService: ClasspathService,
+        prefix: String,
+        existingImports: Set<String>,
+        candidates: MutableList<TypeCandidate>,
+    ) {
         try {
             classpathService.findClassesByPrefix(prefix, MAX_RESULTS)
                 .filter { it.fullName !in existingImports }
@@ -81,18 +122,6 @@ object AutoImportCompletionProvider {
                 }
         } catch (e: Exception) {
             logger.warn("Failed to search classpath for types", e)
-        }
-
-        // Deduplicate by FQN (workspace takes precedence)
-        val deduplicated = candidates
-            .groupBy { it.fqn }
-            .mapValues { (_, list) -> list.firstOrNull { it.source == TypeSource.WORKSPACE } ?: list.first() }
-            .values
-            .sortedWith(compareBy({ it.source }, { it.simpleName }))
-            .take(MAX_RESULTS)
-
-        return deduplicated.map { candidate ->
-            candidate.toCompletionItem(importPosition, existingImports.contains(candidate.fqn))
         }
     }
 

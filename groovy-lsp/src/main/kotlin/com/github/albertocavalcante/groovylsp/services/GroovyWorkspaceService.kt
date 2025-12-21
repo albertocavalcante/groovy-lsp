@@ -138,38 +138,32 @@ class GroovyWorkspaceService(
         }
     }
 
-    private enum class FileType {
-        CODENARC,
-        GDSL,
-        BUILD,
-        SOURCE,
-        OTHER,
+    private enum class FileType(val suffixes: List<String>) {
+        CODENARC(listOf(".codenarc", "codenarc.xml", "codenarc.groovy", "codenarc.properties")),
+        GDSL(listOf(".gdsl")),
+        BUILD(
+            listOf(
+                "build.gradle",
+                "build.gradle.kts",
+                "settings.gradle",
+                "settings.gradle.kts",
+                "pom.xml",
+                "gradle.properties",
+            ),
+        ),
+        SOURCE(listOf(".groovy", ".java")),
+        OTHER(emptyList()),
+        ;
+
+        companion object {
+            fun fromPath(path: String): FileType =
+                entries.firstOrNull { type -> type.suffixes.any { path.endsWith(it) } } ?: OTHER
+        }
     }
 
     private fun classifyFileChange(uriString: String): FileType {
-        val uri = try {
-            java.net.URI.create(uriString)
-        } catch (e: Exception) {
-            return FileType.OTHER
-        }
-
-        val path = uri.path ?: return FileType.OTHER
-
-        return when {
-            path.endsWith(".codenarc") ||
-                path.endsWith("codenarc.xml") ||
-                path.endsWith("codenarc.groovy") ||
-                path.endsWith("codenarc.properties") -> FileType.CODENARC
-            path.endsWith(".gdsl") -> FileType.GDSL
-            path.endsWith("build.gradle") ||
-                path.endsWith("build.gradle.kts") ||
-                path.endsWith("settings.gradle") ||
-                path.endsWith("settings.gradle.kts") ||
-                path.endsWith("pom.xml") ||
-                path.endsWith("gradle.properties") -> FileType.BUILD
-            path.endsWith(".groovy") || path.endsWith(".java") -> FileType.SOURCE
-            else -> FileType.OTHER
-        }
+        val path = runCatching { java.net.URI.create(uriString).path }.getOrNull() ?: return FileType.OTHER
+        return FileType.fromPath(path)
     }
 
     override fun symbol(
