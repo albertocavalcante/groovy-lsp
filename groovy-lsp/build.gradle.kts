@@ -116,7 +116,8 @@ tasks.test {
     maxHeapSize = "1G"
 
     // Fail tests that take too long (5 minutes default)
-    systemProperty("junit.jupiter.execution.timeout.default", "300s")
+    val junitTimeoutProperty = "junit.jupiter.execution.timeout.default"
+    systemProperty(junitTimeoutProperty, "300s")
 
     // ============================================================================
     // TEST MONITORING & DEADLOCK DETECTION
@@ -153,19 +154,21 @@ tasks.test {
     }
 
     // Detect and warn about slow tests (potential deadlock indicators)
+    val slowTestThresholdMs = 60_000L
+    val verySlowTestThresholdMs = 180_000L
+
     afterTest(
         KotlinClosure2<org.gradle.api.tasks.testing.TestDescriptor, org.gradle.api.tasks.testing.TestResult, Unit>({
             descriptor,
             result,
             ->
             val duration = result.endTime - result.startTime
-            if (duration > 60_000) { // Warn if test took >1 minute
-                logger.warn("⚠️  SLOW TEST: ${descriptor.className}.${descriptor.name} took ${duration}ms")
-            }
-            if (duration > 180_000) { // Error if test took >3 minutes
+            if (duration > verySlowTestThresholdMs) { // Error if test took >3 minutes
                 logger.error(
                     "❌ VERY SLOW TEST: ${descriptor.className}.${descriptor.name} took ${duration}ms - possible deadlock?",
                 )
+            } else if (duration > slowTestThresholdMs) { // Warn if test took >1 minute
+                logger.warn("⚠️  SLOW TEST: ${descriptor.className}.${descriptor.name} took ${duration}ms")
             }
         }),
     )
@@ -176,7 +179,7 @@ tasks.test {
         logger.lifecycle("║      Test Monitoring Active            ║")
         logger.lifecycle("╠════════════════════════════════════════╣")
         logger.lifecycle("║ Task timeout:        ${timeout.get().toMinutes()} minutes")
-        logger.lifecycle("║ JUnit timeout:       ${systemProperties["junit.jupiter.execution.timeout.default"]}")
+        logger.lifecycle("║ JUnit timeout:       ${systemProperties[junitTimeoutProperty]}")
         logger.lifecycle("║ Max parallel forks:  $maxParallelForks")
         logger.lifecycle("║ CPU cores:           ${Runtime.getRuntime().availableProcessors()}")
         logger.lifecycle("║ Max heap:            $maxHeapSize")
