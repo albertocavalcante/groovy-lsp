@@ -15,6 +15,8 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicInteger
 import org.codehaus.groovy.ast.ASTNode
 import org.eclipse.lsp4j.Diagnostic
 import org.slf4j.LoggerFactory
@@ -238,40 +240,44 @@ class GroovyCompilationService {
 
         logger.info("Starting workspace indexing: ${uris.size} files")
         val total = uris.size
-        var indexed = 0
+        val indexed = AtomicInteger(0)
 
-        // Index files in parallel batches for better performance
+        // Index files in truly parallel batches using launch
         // NOTE: Batch size balances parallelism with resource usage
-        val batchSize = INDEXING_BATCH_SIZE
-        uris.chunked(batchSize).forEach { batch ->
+        uris.chunked(INDEXING_BATCH_SIZE).forEach { batch ->
             coroutineScope {
-                val results = batch.map { uri ->
-                    async(Dispatchers.IO) {
-                        indexWorkspaceFile(uri)
-                    }
-                }
-
-                results.forEach { deferred ->
-                    try {
-                        deferred.await()
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e // Re-throw cancellation
-                    } catch (
-                        // NOTE: Various exceptions possible (IOException, ParseException, etc.)
-                        // Catch all to prevent batch failure from stopping entire indexing
-                        @Suppress("TooGenericExceptionCaught")
-                        e: Exception,
-                    ) {
-                        logger.warn("Failed to index file in batch", e)
-                    } finally {
-                        indexed++
-                        onProgress(indexed, total)
+                batch.forEach { uri ->
+                    launch(Dispatchers.IO) {
+                        indexFileWithProgress(uri, indexed, total, onProgress)
                     }
                 }
             }
         }
 
-        logger.info("Workspace indexing complete: $indexed/$total files indexed")
+        logger.info("Workspace indexing complete: ${indexed.get()}/$total files indexed")
+    }
+
+    /**
+     * Indexes a single file and reports progress atomically.
+     */
+    @Suppress("TooGenericExceptionCaught") // NOTE: Various exceptions possible (IOException, ParseException, etc.)
+    private suspend fun indexFileWithProgress(
+        uri: URI,
+        indexed: AtomicInteger,
+        total: Int,
+        onProgress: (Int, Int) -> Unit,
+    ) {
+        try {
+            indexWorkspaceFile(uri)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e // Re-throw cancellation
+        } catch (e: Exception) {
+            // Catch all to prevent batch failure from stopping entire indexing
+            logger.warn("Failed to index file: $uri", e)
+        } finally {
+            val currentCount = indexed.incrementAndGet()
+            onProgress(currentCount, total)
+        }
     }
 
     /**

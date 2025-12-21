@@ -1,5 +1,8 @@
 package com.github.albertocavalcante.groovyjenkins
 
+import arrow.core.Either
+import arrow.core.left
+import arrow.core.right
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
@@ -81,16 +84,16 @@ class LibrarySourceLoader {
 
     /**
      * Extracts .groovy and .java files from a JAR to a target directory.
+     * Includes Zip Slip protection to prevent path traversal attacks.
      */
     private fun extractJarContents(jarPath: Path, targetDir: Path) {
+        val normalizedTargetDir = targetDir.normalize()
+
         JarFile(jarPath.toFile()).use { jar ->
             jar.entries().asSequence()
-                .filter { entry ->
-                    val sourceExtensions = listOf(".groovy", ".java")
-                    !entry.isDirectory && sourceExtensions.any { entry.name.endsWith(it, ignoreCase = true) }
-                }
-                .forEach { entry ->
-                    val targetFile = targetDir.resolve(entry.name)
+                .filter { entry -> isSourceFile(entry.name) && !entry.isDirectory }
+                .mapNotNull { entry -> validateAndResolve(entry.name, normalizedTargetDir).getOrNull()?.let { entry to it } }
+                .forEach { (entry, targetFile) ->
                     Files.createDirectories(targetFile.parent)
                     jar.getInputStream(entry).use { input ->
                         Files.copy(input, targetFile)
@@ -100,12 +103,27 @@ class LibrarySourceLoader {
     }
 
     /**
+     * Validates that the resolved path stays within the target directory (Zip Slip protection).
+     * Returns Either.Left with error message if path traversal detected, Either.Right with safe path otherwise.
+     */
+    private fun validateAndResolve(entryName: String, targetDir: Path): Either<String, Path> {
+        val targetFile = targetDir.resolve(entryName).normalize()
+        return if (targetFile.startsWith(targetDir)) {
+            targetFile.right()
+        } else {
+            logger.warn("Zip Slip attack detected: $entryName attempts to escape extraction directory")
+            "Path traversal detected: $entryName".left()
+        }
+    }
+
+    /**
      * Gets all currently extracted library source directories.
+     * Uses .use {} to properly close the directory stream.
      */
     fun getExtractedSourceRoots(): List<Path> = if (Files.exists(extractionDir)) {
-        Files.list(extractionDir)
-            .filter { Files.isDirectory(it) }
-            .toList()
+        Files.list(extractionDir).use { stream ->
+            stream.filter { Files.isDirectory(it) }.toList()
+        }
     } else {
         emptyList()
     }
@@ -141,5 +159,15 @@ class LibrarySourceLoader {
         } catch (e: java.io.IOException) {
             onError(e)
         }
+    }
+
+    companion object {
+        private val SOURCE_EXTENSIONS = listOf(".groovy", ".java")
+
+        /**
+         * Checks if a file name has a source code extension.
+         */
+        private fun isSourceFile(name: String): Boolean =
+            SOURCE_EXTENSIONS.any { name.endsWith(it, ignoreCase = true) }
     }
 }
