@@ -31,7 +31,7 @@ export class GradleExecutionService {
     }
 
     const run = testController.createTestRun(request);
-    const consumer = new TestEventConsumer(run, this.logger);
+    const consumer = new TestEventConsumer(run, this.logger, testController);
 
     // Build test filter from request
     const testFilter = this.buildTestFilter(request);

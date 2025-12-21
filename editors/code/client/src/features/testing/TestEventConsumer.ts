@@ -22,6 +22,7 @@ export interface TestEvent {
 
 /**
  * Consumes JSON test events from Gradle and updates the VS Code TestRun.
+ * Supports dynamic subtest creation for Spock @Unroll iterations.
  */
 export class TestEventConsumer {
     private readonly testItems: Map<string, vscode.TestItem>;
@@ -29,6 +30,7 @@ export class TestEventConsumer {
     constructor(
         private readonly run: vscode.TestRun,
         private readonly logger: vscode.OutputChannel,
+        private readonly testController?: vscode.TestController,
     ) {
         this.testItems = new Map();
     }
@@ -64,7 +66,12 @@ export class TestEventConsumer {
     }
 
     private handleEvent(event: TestEvent): void {
-        const item = this.testItems.get(event.id);
+        let item = this.testItems.get(event.id);
+
+        // For Spock @Unroll: dynamically create subtest if not found
+        if (!item && event.parent && this.testController) {
+            item = this.createDynamicSubtest(event);
+        }
 
         switch (event.event) {
             case 'testStarted':
@@ -91,6 +98,47 @@ export class TestEventConsumer {
                 this.logger.appendLine(`[SUITE] Finished: ${event.name}`);
                 break;
         }
+    }
+
+    /**
+     * Dynamically create a child TestItem for Spock @Unroll iterations.
+     * These appear at runtime with names like "test #0" or "maximum of 1 and 3 is 3".
+     */
+    private createDynamicSubtest(event: TestEvent): vscode.TestItem | undefined {
+        if (!this.testController || !event.parent) {
+            return undefined;
+        }
+
+        const parentItem = this.testItems.get(event.parent);
+        if (!parentItem) {
+            // Parent not found, log and skip
+            this.logger.appendLine(
+                `[WARN] Parent not found for dynamic subtest: ${event.id}`,
+            );
+            return undefined;
+        }
+
+        // Create child TestItem under the parent
+        const childItem = this.testController.createTestItem(
+            event.id,
+            event.name,
+            parentItem.uri,
+        );
+
+        // Add to parent's children
+        parentItem.children.add(childItem);
+
+        // Register for future lookups
+        this.testItems.set(event.id, childItem);
+
+        this.logger.appendLine(
+            `[DYNAMIC] Created subtest: ${event.name} under ${event.parent}`,
+        );
+
+        // Mark as enqueued then started
+        this.run.enqueued(childItem);
+
+        return childItem;
     }
 
     private reportTestResult(item: vscode.TestItem, event: TestEvent): void {
