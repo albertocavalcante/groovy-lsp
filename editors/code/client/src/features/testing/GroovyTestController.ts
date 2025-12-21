@@ -1,5 +1,5 @@
-import * as vscode from "vscode";
-import { GradleExecutionService } from "./GradleExecutionService";
+import * as vscode from 'vscode';
+import { GradleExecutionService } from './GradleExecutionService';
 
 export class GroovyTestController {
   private readonly ctrl: vscode.TestController;
@@ -9,8 +9,8 @@ export class GroovyTestController {
     private readonly executionService: GradleExecutionService,
   ) {
     this.ctrl = vscode.tests.createTestController(
-      "groovy-test-controller",
-      "Groovy Tests",
+      'groovy-test-controller',
+      'Groovy Tests',
     );
     context.subscriptions.push(this.ctrl);
 
@@ -19,14 +19,15 @@ export class GroovyTestController {
 
   private setupRunProfiles() {
     this.ctrl.createRunProfile(
-      "Run",
+      'Run',
       vscode.TestRunProfileKind.Run,
-      (request, token) => this.executionService.runTests(request, token),
+      (request, token) =>
+        this.executionService.runTests(request, token, this.ctrl),
       true,
     );
 
     this.ctrl.createRunProfile(
-      "Debug",
+      'Debug',
       vscode.TestRunProfileKind.Debug,
       (request, token) => this.executionService.debugTests(request, token),
       false,
