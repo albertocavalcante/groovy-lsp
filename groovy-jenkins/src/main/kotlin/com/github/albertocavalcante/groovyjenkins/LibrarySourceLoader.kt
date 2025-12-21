@@ -92,7 +92,11 @@ class LibrarySourceLoader {
         JarFile(jarPath.toFile()).use { jar ->
             jar.entries().asSequence()
                 .filter { entry -> isSourceFile(entry.name) && !entry.isDirectory }
-                .mapNotNull { entry -> validateAndResolve(entry.name, normalizedTargetDir).getOrNull()?.let { entry to it } }
+                .mapNotNull { entry ->
+                    validateAndResolve(entry.name, normalizedTargetDir).getOrNull()?.let {
+                        entry to it
+                    }
+                }
                 .forEach { (entry, targetFile) ->
                     Files.createDirectories(targetFile.parent)
                     jar.getInputStream(entry).use { input ->
@@ -167,7 +171,6 @@ class LibrarySourceLoader {
         /**
          * Checks if a file name has a source code extension.
          */
-        private fun isSourceFile(name: String): Boolean =
-            SOURCE_EXTENSIONS.any { name.endsWith(it, ignoreCase = true) }
+        private fun isSourceFile(name: String): Boolean = SOURCE_EXTENSIONS.any { name.endsWith(it, ignoreCase = true) }
     }
 }
