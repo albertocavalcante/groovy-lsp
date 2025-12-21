@@ -353,6 +353,17 @@ class GroovyCompilationService {
         invalidateClassLoader()
     }
 
+    /**
+     * Invalidates all cached data for a specific URI.
+     * Used when a file is deleted or needs to be fully re-indexed.
+     */
+    fun invalidateCache(uri: URI) {
+        cache.invalidate(uri)
+        symbolStorageCache.remove(uri)
+        compilationJobs.remove(uri)
+        logger.debug("Invalidated cache for: $uri")
+    }
+
     fun getCacheStatistics() = cache.getStatistics()
 
     /**

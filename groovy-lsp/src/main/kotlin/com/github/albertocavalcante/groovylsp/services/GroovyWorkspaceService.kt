@@ -5,6 +5,8 @@ import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationServi
 import com.github.albertocavalcante.groovylsp.config.ServerConfiguration
 import com.github.albertocavalcante.groovylsp.providers.symbols.toSymbolInformation
 import com.github.albertocavalcante.groovyparser.ast.symbols.Symbol
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.eclipse.lsp4j.DidChangeConfigurationParams
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams
 import org.eclipse.lsp4j.ExecuteCommandParams
@@ -21,6 +23,7 @@ import java.util.concurrent.CompletableFuture
  */
 class GroovyWorkspaceService(
     private val compilationService: GroovyCompilationService,
+    private val coroutineScope: CoroutineScope,
     private val textDocumentService: GroovyTextDocumentService? = null,
 ) : WorkspaceService {
 
@@ -88,13 +91,58 @@ class GroovyWorkspaceService(
             compilationService.workspaceManager.reloadJenkinsGdsl()
         }
 
+        // Handle source file changes for incremental indexing
+        changes[FileType.SOURCE]?.let { sourceChanges ->
+            handleSourceFileChanges(sourceChanges)
+        }
+
         // Build file changes are handled by BuildToolFileWatcher in DependencyManager
+    }
+
+    /**
+     * Handles source file changes for incremental workspace indexing.
+     * - Created files: Index the new file
+     * - Changed files: Re-index to update symbols
+     * - Deleted files: Remove from symbol index
+     */
+    private fun handleSourceFileChanges(changes: List<org.eclipse.lsp4j.FileEvent>) {
+        val created = changes.filter { it.type == org.eclipse.lsp4j.FileChangeType.Created }
+        val changed = changes.filter { it.type == org.eclipse.lsp4j.FileChangeType.Changed }
+        val deleted = changes.filter { it.type == org.eclipse.lsp4j.FileChangeType.Deleted }
+
+        // Handle deleted files - remove from cache
+        deleted.forEach { event ->
+            try {
+                val uri = java.net.URI.create(event.uri)
+                compilationService.invalidateCache(uri)
+                logger.debug("Removed deleted file from index: ${event.uri}")
+            } catch (e: Exception) {
+                logger.debug("Failed to process deleted file: ${event.uri}", e)
+            }
+        }
+
+        // Index new and changed files in background
+        val toIndex = (created + changed).mapNotNull { event ->
+            try {
+                java.net.URI.create(event.uri)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        if (toIndex.isNotEmpty()) {
+            logger.info("Indexing ${toIndex.size} changed source files")
+            coroutineScope.launch {
+                compilationService.indexAllWorkspaceSources(toIndex)
+            }
+        }
     }
 
     private enum class FileType {
         CODENARC,
         GDSL,
         BUILD,
+        SOURCE,
         OTHER,
     }
 
@@ -108,13 +156,18 @@ class GroovyWorkspaceService(
         val path = uri.path ?: return FileType.OTHER
 
         return when {
-            path.endsWith(
-                ".codenarc",
-            ) || path.endsWith("codenarc.xml") || path.endsWith("codenarc.groovy") -> FileType.CODENARC
+            path.endsWith(".codenarc") ||
+                path.endsWith("codenarc.xml") ||
+                path.endsWith("codenarc.groovy") ||
+                path.endsWith("codenarc.properties") -> FileType.CODENARC
             path.endsWith(".gdsl") -> FileType.GDSL
-            path.endsWith(
-                "build.gradle",
-            ) || path.endsWith("pom.xml") || path.endsWith("build.gradle.kts") -> FileType.BUILD
+            path.endsWith("build.gradle") ||
+                path.endsWith("build.gradle.kts") ||
+                path.endsWith("settings.gradle") ||
+                path.endsWith("settings.gradle.kts") ||
+                path.endsWith("pom.xml") ||
+                path.endsWith("gradle.properties") -> FileType.BUILD
+            path.endsWith(".groovy") || path.endsWith(".java") -> FileType.SOURCE
             else -> FileType.OTHER
         }
     }
