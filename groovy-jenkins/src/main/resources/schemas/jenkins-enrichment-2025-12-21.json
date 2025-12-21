@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://groovy-lsp.dev/schemas/jenkins-enrichment-v1.json",
+  "$id": "https://groovy-lsp.dev/schemas/jenkins-enrichment-2025-12-21.json",
   "title": "Groovy LSP Jenkins Enrichment (Tier 2) v1",
   "type": "object",
   "additionalProperties": false,
@@ -8,7 +8,7 @@
   "properties": {
     "$schema": {
       "type": "string",
-      "const": "https://groovy-lsp.dev/schemas/jenkins-enrichment-v1.json"
+      "const": "https://groovy-lsp.dev/schemas/jenkins-enrichment-2025-12-21.json"
     },
     "version": {
       "type": "string",
@@ -119,4 +119,3 @@
     }
   }
 }
-

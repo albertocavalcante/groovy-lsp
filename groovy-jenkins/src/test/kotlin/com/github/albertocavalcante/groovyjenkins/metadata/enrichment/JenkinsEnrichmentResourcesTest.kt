@@ -18,7 +18,7 @@ class JenkinsEnrichmentResourcesTest {
 
         val enrichment = json.decodeFromString(JenkinsEnrichment.serializer(), content)
 
-        assertThat(enrichment.schema).isEqualTo("https://groovy-lsp.dev/schemas/jenkins-enrichment-v1.json")
+        assertThat(enrichment.schema).isEqualTo("https://groovy-lsp.dev/schemas/jenkins-enrichment-2025-12-21.json")
         assertThat(enrichment.version).isNotBlank()
 
         // A small, stable contract for PR #3:
@@ -30,8 +30,8 @@ class JenkinsEnrichmentResourcesTest {
 
     @Test
     fun `enrichment schema resource exists and has expected id`() {
-        val schemaContent = requireNotNull(javaClass.getResource("/schemas/jenkins-enrichment-v1.json")) {
-            "Expected schemas/jenkins-enrichment-v1.json to be present on the classpath"
+        val schemaContent = requireNotNull(javaClass.getResource("/schemas/jenkins-enrichment-2025-12-21.json")) {
+            "Expected schemas/jenkins-enrichment-2025-12-21.json to be present on the classpath"
         }.readText()
 
         val schemaElement = json.parseToJsonElement(schemaContent)
@@ -39,6 +39,6 @@ class JenkinsEnrichmentResourcesTest {
 
         assertThat(schemaObject).isNotNull
         assertThat(schemaObject?.get("\$id")?.jsonPrimitive?.content)
-            .isEqualTo("https://groovy-lsp.dev/schemas/jenkins-enrichment-v1.json")
+            .isEqualTo("https://groovy-lsp.dev/schemas/jenkins-enrichment-2025-12-21.json")
     }
 }
