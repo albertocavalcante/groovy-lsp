@@ -1,4 +1,4 @@
-package com.github.albertocavalcante.groovyjupyter.execution
+package com.github.albertocavalcante.groovyrepl
 
 import groovy.lang.Binding
 import groovy.lang.GroovyShell
@@ -29,10 +29,15 @@ data class ExecutionResult(
 )
 
 /**
- * Groovy code executor for Jupyter kernel.
+ * Groovy code executor with REPL-like session state.
  *
- * Maintains state across cell executions like a REPL, capturing stdout/stderr
+ * Maintains state across executions, capturing stdout/stderr
  * and returning structured results. Built on GroovyShell with shared bindings.
+ *
+ * Use cases:
+ * - Jupyter kernel code execution
+ * - LSP REPL integration
+ * - Interactive Groovy evaluation
  *
  * Inspired by lappsgrid-incubator/jupyter-groovy-kernel (Apache 2.0).
  */
