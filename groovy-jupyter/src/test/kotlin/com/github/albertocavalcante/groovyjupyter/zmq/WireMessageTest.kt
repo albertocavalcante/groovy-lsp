@@ -326,4 +326,53 @@ class WireMessageTest {
         assertThat(jupyterMsg.content).containsEntry("silent", false)
         assertThat(jupyterMsg.identities).hasSize(1)
     }
+
+    @Test
+    fun `should filter null values from content when parsing JSON`() {
+        // Given: Content with null value
+        val header = """{"msg_id":"test","session":"sess1","msg_type":"test","version":"5.3"}"""
+        val content = """{"name":"Alice","nickname":null,"age":30}"""
+
+        val frames = listOf(
+            WireMessage.DELIMITER.toByteArray(Charsets.UTF_8),
+            "sig".toByteArray(Charsets.UTF_8),
+            header.toByteArray(Charsets.UTF_8),
+            "{}".toByteArray(Charsets.UTF_8),
+            "{}".toByteArray(Charsets.UTF_8),
+            content.toByteArray(Charsets.UTF_8),
+        )
+
+        // When
+        val jupyterMsg = WireMessage.fromFrames(frames).toJupyterMessage()
+
+        // Then: Null values should be filtered out
+        assertThat(jupyterMsg.content).containsEntry("name", "Alice")
+        assertThat(jupyterMsg.content).containsEntry("age", 30L)
+        assertThat(jupyterMsg.content).doesNotContainKey("nickname")
+    }
+
+    @Test
+    fun `should preserve string type for string literals that look like booleans or numbers`() {
+        // Given: Content with string "true" and string "123"
+        val header = """{"msg_id":"test","session":"sess1","msg_type":"test","version":"5.3"}"""
+        val content = """{"boolString":"true","numString":"123","realBool":true,"realNum":123}"""
+
+        val frames = listOf(
+            WireMessage.DELIMITER.toByteArray(Charsets.UTF_8),
+            "sig".toByteArray(Charsets.UTF_8),
+            header.toByteArray(Charsets.UTF_8),
+            "{}".toByteArray(Charsets.UTF_8),
+            "{}".toByteArray(Charsets.UTF_8),
+            content.toByteArray(Charsets.UTF_8),
+        )
+
+        // When
+        val jupyterMsg = WireMessage.fromFrames(frames).toJupyterMessage()
+
+        // Then: String literals should remain strings, not be converted
+        assertThat(jupyterMsg.content["boolString"]).isEqualTo("true")
+        assertThat(jupyterMsg.content["numString"]).isEqualTo("123")
+        assertThat(jupyterMsg.content["realBool"]).isEqualTo(true)
+        assertThat(jupyterMsg.content["realNum"]).isEqualTo(123L)
+    }
 }

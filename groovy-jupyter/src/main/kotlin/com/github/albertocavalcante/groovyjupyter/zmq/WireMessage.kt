@@ -9,6 +9,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.longOrNull
 
 /**
  * Represents a Jupyter message in wire protocol format.
@@ -111,20 +114,25 @@ data class WireMessage(
     private fun jsonElementToMap(element: JsonElement): Any? = when (element) {
         is JsonNull -> null
         is JsonPrimitive -> parsePrimitive(element)
-        is JsonObject -> element.entries.associate { (k, v) -> k to jsonElementToMap(v) }
-        is JsonArray -> element.map { jsonElementToMap(it) }
+        is JsonObject ->
+            element.entries
+                .mapNotNull { (k, v) -> jsonElementToMap(v)?.let { value -> k to value } }
+                .toMap()
+
+        is JsonArray -> element.mapNotNull { jsonElementToMap(it) }
     }
 
     private fun parsePrimitive(element: JsonPrimitive): Any {
-        // Try to parse as number or boolean, fall back to string
-        val content = element.content
-        return when {
-            content == "true" -> true
-            content == "false" -> false
-            content.contains('.') -> content.toDoubleOrNull() ?: content
-            content.all { it.isDigit() || it == '-' } -> content.toLongOrNull() ?: content
-            else -> content
+        // If it's a quoted string in JSON, keep it as a string
+        if (element.isString) {
+            return element.content
         }
+        // For non-string primitives, use kotlinx.serialization helpers
+        // Order matters: boolean first, then long, then double, finally fall back to string
+        return element.booleanOrNull
+            ?: element.longOrNull
+            ?: element.doubleOrNull
+            ?: element.content
     }
 
     companion object {
