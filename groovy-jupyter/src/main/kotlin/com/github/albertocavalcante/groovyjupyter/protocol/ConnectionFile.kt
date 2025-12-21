@@ -62,13 +62,11 @@ data class ConnectionFile(
         /**
          * Parse connection file from JSON string.
          */
-        fun parse(jsonString: String): ConnectionFile =
-            json.decodeFromString(serializer(), jsonString)
+        fun parse(jsonString: String): ConnectionFile = json.decodeFromString(serializer(), jsonString)
 
         /**
          * Parse connection file from file path.
          */
-        fun fromPath(path: Path): ConnectionFile =
-            parse(path.toFile().readText())
+        fun fromPath(path: Path): ConnectionFile = parse(path.toFile().readText())
     }
 }

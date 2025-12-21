@@ -59,8 +59,8 @@ class GroovyExecutor {
 
         return try {
             // Redirect stdout/stderr
-            System.setOut(PrintStream(stdoutCapture, true))
-            System.setErr(PrintStream(stderrCapture, true))
+            System.setOut(PrintStream(stdoutCapture, true, "UTF-8"))
+            System.setErr(PrintStream(stderrCapture, true, "UTF-8"))
 
             // Execute code
             val result = shell.evaluate(code)
@@ -99,13 +99,11 @@ class GroovyExecutor {
      * Get current binding variables.
      */
     @Suppress("UNCHECKED_CAST")
-    fun getBindings(): Map<String, Any?> =
-        (binding.variables as Map<String, Any?>).toMap()
+    fun getBindings(): Map<String, Any?> = (binding.variables as Map<String, Any?>).toMap()
 
-    private fun createCompilerConfiguration(): CompilerConfiguration =
-        CompilerConfiguration().apply {
-            sourceEncoding = "UTF-8"
-        }
+    private fun createCompilerConfiguration(): CompilerConfiguration = CompilerConfiguration().apply {
+        sourceEncoding = "UTF-8"
+    }
 
     companion object {
         private const val MAX_STACK_FRAMES = 20

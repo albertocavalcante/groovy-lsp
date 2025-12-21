@@ -49,8 +49,7 @@ enum class MessageType(val value: String) {
     ;
 
     companion object {
-        fun fromValue(value: String): MessageType? =
-            entries.find { it.value == value }
+        fun fromValue(value: String): MessageType? = entries.find { it.value == value }
     }
 }
 
@@ -73,8 +72,7 @@ data class Header(
 
         private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
 
-        fun timestamp(): String =
-            Instant.now().atOffset(ZoneOffset.UTC).format(formatter)
+        fun timestamp(): String = Instant.now().atOffset(ZoneOffset.UTC).format(formatter)
     }
 }
 
@@ -102,16 +100,25 @@ data class JupyterMessage(
         identities = identities,
     )
 
-    @Suppress("UNCHECKED_CAST")
+    /**
+     * Recursively convert any value to a JsonElement.
+     * Handles nested maps, lists, and primitive types.
+     */
+    private fun Any?.toJsonElement(): kotlinx.serialization.json.JsonElement = when (this) {
+        null -> kotlinx.serialization.json.JsonNull
+        is String -> kotlinx.serialization.json.JsonPrimitive(this)
+        is Number -> kotlinx.serialization.json.JsonPrimitive(this)
+        is Boolean -> kotlinx.serialization.json.JsonPrimitive(this)
+        is Map<*, *> -> kotlinx.serialization.json.JsonObject(
+            this.map { (k, v) -> k.toString() to v.toJsonElement() }.toMap(),
+        )
+
+        is Iterable<*> -> kotlinx.serialization.json.JsonArray(this.map { it.toJsonElement() })
+        else -> kotlinx.serialization.json.JsonPrimitive(this.toString())
+    }
+
     private fun serializableContent(): Map<String, kotlinx.serialization.json.JsonElement> =
-        content.mapValues { (_, v) ->
-            when (v) {
-                is String -> kotlinx.serialization.json.JsonPrimitive(v)
-                is Number -> kotlinx.serialization.json.JsonPrimitive(v)
-                is Boolean -> kotlinx.serialization.json.JsonPrimitive(v)
-                else -> kotlinx.serialization.json.JsonPrimitive(v.toString())
-            }
-        }
+        content.mapValues { (_, v) -> v.toJsonElement() }
 
     companion object {
         private val json = Json { encodeDefaults = true }

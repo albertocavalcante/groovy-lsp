@@ -46,6 +46,6 @@ class HmacSigner(private val key: String) {
      */
     fun verify(signature: String, parts: List<String>): Boolean {
         if (key.isEmpty()) return signature.isEmpty()
-        return sign(parts) == signature
+        return java.security.MessageDigest.isEqual(sign(parts).toByteArray(), signature.toByteArray())
     }
 }

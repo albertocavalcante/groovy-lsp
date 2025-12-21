@@ -21,7 +21,7 @@ fun main(args: Array<String>) {
     }
 
     val connectionFilePath = java.nio.file.Path.of(args[0])
-    if (!connectionFilePath.toFile().exists()) {
+    if (!java.nio.file.Files.exists(connectionFilePath)) {
         logger.error("Connection file not found: $connectionFilePath")
         exitProcess(1)
     }

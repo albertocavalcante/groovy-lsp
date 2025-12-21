@@ -7,7 +7,7 @@
   ],
   "display_name": "Groovy",
   "language": "groovy",
-  "interrupt_mode": "signal",
+  "interrupt_mode": "message",
   "metadata": {
     "debugger": false
   }
