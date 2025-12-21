@@ -90,9 +90,9 @@ fi
 echo ""
 
 # Find runner directories using glob expansion
-shopt -s nullglob
-RUNNER_DIRS=($SEARCH_PATTERN)
-shopt -u nullglob
+shopt -s nullglob dotglob
+mapfile -t RUNNER_DIRS < <(compgen -G "$SEARCH_PATTERN")
+shopt -u nullglob dotglob
 
 
 if [ ${#RUNNER_DIRS[@]} -eq 0 ]; then
