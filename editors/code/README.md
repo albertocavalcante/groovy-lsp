@@ -165,6 +165,24 @@ Use `Groovy: Check for Language Server Updates` command to check manually.
 - `Groovy: Show Language Server Version` - Display the current LSP server version
 - `Groovy: Check for Language Server Updates` - Check for new LSP releases
 
+## Status Bar
+
+The extension displays real-time language server status in the status bar:
+
+| Display | State | Meaning |
+|---------|-------|---------|
+| `✓ Groovy` | Ready | All features available |
+| `⟳ Groovy: Deps` | Resolving | Loading dependencies |
+| `⟳ Groovy: Indexing` | Indexing | Analyzing source files |
+| `⚠ Groovy` | Degraded | Limited functionality |
+| `■ Groovy` | Stopped | Server not running |
+
+**Tip**: Hover over the status bar for details and quick actions (restart, check updates).
+
+### Why This Matters
+
+When dependencies are loading, you may see import errors. The status bar shows "Groovy: Deps" to indicate this is temporary and will resolve once dependencies finish loading.
+
 ## Development
 
 Want to contribute? Check out the [Contributing Guide](CONTRIBUTING.md).
