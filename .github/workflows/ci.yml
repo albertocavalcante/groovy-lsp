@@ -317,13 +317,37 @@ jobs:
   validate:
     name: Validation Check
     runs-on: ${{ github.event.inputs.runner_label == 'self-hosted' && 'self-hosted' || vars.CI_RUNNER_LABEL == 'self-hosted' && 'self-hosted' || 'ubuntu-latest' }}
-    needs: build
+    needs: [build, check-runner]
     if: always()
     steps:
       - name: Check build status
-        run: |-
-          if [[ "${{ needs.build.result }}" != "success" ]]; then
-            echo "Build failed or was cancelled"
+        run: |
+          BUILD_RESULT="${{ needs.build.result }}"
+          PROVISIONING="${{ needs.check-runner.outputs.provisioning_triggered }}"
+
+          echo "Build result: $BUILD_RESULT"
+          echo "Provisioning triggered: $PROVISIONING"
+
+          # If provisioning was triggered, build is expected to be skipped
+          if [[ "$PROVISIONING" == "true" && "$BUILD_RESULT" == "skipped" ]]; then
+            echo "ℹ️ Build skipped - runner provisioning in progress"
+            echo "   CI will resume automatically after provisioning completes"
+            exit 0
+          fi
+
+          # For workflow_run events, check-runner is skipped so we can't check provisioning_triggered
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            if [[ "$BUILD_RESULT" != "success" ]]; then
+              echo "❌ Build failed after provisioning"
+              exit 1
+            fi
+            echo "✅ All checks passed!"
+            exit 0
+          fi
+
+          # Normal case: build must succeed
+          if [[ "$BUILD_RESULT" != "success" ]]; then
+            echo "❌ Build failed or was cancelled"
             exit 1
           fi
           echo "✅ All checks passed!"
