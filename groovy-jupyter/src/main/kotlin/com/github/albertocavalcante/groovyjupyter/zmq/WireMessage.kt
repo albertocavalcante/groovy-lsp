@@ -1,6 +1,7 @@
 package com.github.albertocavalcante.groovyjupyter.zmq
 
 import com.github.albertocavalcante.groovyjupyter.security.HmacSigner
+import kotlin.text.Charsets
 
 /**
  * Represents a Jupyter message in wire protocol format.
@@ -35,11 +36,11 @@ data class WireMessage(
     fun toFrames(): List<ByteArray> = buildList {
         addAll(identities)
         add(DELIMITER_BYTES)
-        add(signature.toByteArray())
-        add(header.toByteArray())
-        add(parentHeader.toByteArray())
-        add(metadata.toByteArray())
-        add(content.toByteArray())
+        add(signature.toByteArray(Charsets.UTF_8))
+        add(header.toByteArray(Charsets.UTF_8))
+        add(parentHeader.toByteArray(Charsets.UTF_8))
+        add(metadata.toByteArray(Charsets.UTF_8))
+        add(content.toByteArray(Charsets.UTF_8))
         addAll(buffers)
     }
 
@@ -49,22 +50,12 @@ data class WireMessage(
     fun toSignedFrames(signer: HmacSigner): List<ByteArray> {
         val parts = listOf(header, parentHeader, metadata, content)
         val computedSignature = signer.sign(parts)
-
-        return buildList {
-            addAll(identities)
-            add(DELIMITER_BYTES)
-            add(computedSignature.toByteArray())
-            add(header.toByteArray())
-            add(parentHeader.toByteArray())
-            add(metadata.toByteArray())
-            add(content.toByteArray())
-            addAll(buffers)
-        }
+        return this.copy(signature = computedSignature).toFrames()
     }
 
     companion object {
         const val DELIMITER = "<IDS|MSG>"
-        private val DELIMITER_BYTES = DELIMITER.toByteArray()
+        private val DELIMITER_BYTES = DELIMITER.toByteArray(Charsets.UTF_8)
 
         /**
          * Number of required frames after delimiter:
@@ -96,22 +87,22 @@ data class WireMessage(
             val framesAfterDelimiter = frames.size - delimiterIndex - 1
             require(framesAfterDelimiter >= REQUIRED_FRAMES_AFTER_DELIMITER) {
                 "Invalid wire message: need $REQUIRED_FRAMES_AFTER_DELIMITER frames " +
-                        "after delimiter, got $framesAfterDelimiter"
+                    "after delimiter, got $framesAfterDelimiter"
             }
 
             // Extract parts
-            val identities = frames.subList(0, delimiterIndex)
+            val identities = frames.subList(0, delimiterIndex).toList()
             val afterDelimiter = frames.subList(delimiterIndex + 1, frames.size)
 
-            val signature = String(afterDelimiter[IDX_SIGNATURE])
-            val header = String(afterDelimiter[IDX_HEADER])
-            val parentHeader = String(afterDelimiter[IDX_PARENT_HEADER])
-            val metadata = String(afterDelimiter[IDX_METADATA])
-            val content = String(afterDelimiter[IDX_CONTENT])
+            val signature = String(afterDelimiter[IDX_SIGNATURE], Charsets.UTF_8)
+            val header = String(afterDelimiter[IDX_HEADER], Charsets.UTF_8)
+            val parentHeader = String(afterDelimiter[IDX_PARENT_HEADER], Charsets.UTF_8)
+            val metadata = String(afterDelimiter[IDX_METADATA], Charsets.UTF_8)
+            val content = String(afterDelimiter[IDX_CONTENT], Charsets.UTF_8)
 
             // Any remaining frames are buffers
             val buffers = if (afterDelimiter.size > REQUIRED_FRAMES_AFTER_DELIMITER) {
-                afterDelimiter.subList(REQUIRED_FRAMES_AFTER_DELIMITER, afterDelimiter.size)
+                afterDelimiter.subList(REQUIRED_FRAMES_AFTER_DELIMITER, afterDelimiter.size).toList()
             } else {
                 emptyList()
             }

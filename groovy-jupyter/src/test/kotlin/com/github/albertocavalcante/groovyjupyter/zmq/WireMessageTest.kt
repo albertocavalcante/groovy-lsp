@@ -4,19 +4,20 @@ import com.github.albertocavalcante.groovyjupyter.security.HmacSigner
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import kotlin.text.Charsets
 
 /**
  * TDD tests for WireMessage - Jupyter Wire Protocol parsing and serialization.
  *
  * Jupyter messages are multipart ZMQ messages with structure:
- * [identities...] | <IDS|MSG> | signature | header | parent_header | metadata | content | [buffers...]
+ * identities | delimiter | signature | header | parent_header | metadata | content | buffers
  *
  * @see <a href="https://jupyter-client.readthedocs.io/en/stable/messaging.html#the-wire-protocol">
  *     Jupyter Wire Protocol</a>
  */
 class WireMessageTest {
 
-    private val delimiter = "<IDS|MSG>".toByteArray()
+    private val delimiter = "<IDS|MSG>".toByteArray(Charsets.UTF_8)
 
     @Test
     fun `should parse multipart message with single identity`() {
@@ -43,7 +44,7 @@ class WireMessageTest {
 
         // Then: Should extract all parts correctly
         assertThat(wireMsg.identities).hasSize(1)
-        assertThat(String(wireMsg.identities[0])).isEqualTo("client-uuid")
+        assertThat(String(wireMsg.identities[0], Charsets.UTF_8)).isEqualTo("client-uuid")
         assertThat(wireMsg.signature).isEqualTo(signature)
         assertThat(wireMsg.header).isEqualTo(header)
         assertThat(wireMsg.parentHeader).isEqualTo(parentHeader)
@@ -79,8 +80,8 @@ class WireMessageTest {
 
         // Then: Should capture both identities
         assertThat(wireMsg.identities).hasSize(2)
-        assertThat(String(wireMsg.identities[0])).isEqualTo("router-id-1")
-        assertThat(String(wireMsg.identities[1])).isEqualTo("router-id-2")
+        assertThat(String(wireMsg.identities[0], Charsets.UTF_8)).isEqualTo("router-id-1")
+        assertThat(String(wireMsg.identities[1], Charsets.UTF_8)).isEqualTo("router-id-2")
     }
 
     @Test
@@ -185,11 +186,11 @@ class WireMessageTest {
 
         // Then: Should produce correct frame sequence
         assertThat(frames).hasSize(7) // 1 identity + delimiter + 5 message parts
-        assertThat(String(frames[0])).isEqualTo("client-1")
-        assertThat(String(frames[1])).isEqualTo("<IDS|MSG>")
-        assertThat(String(frames[2])).isEqualTo("testsig")
-        assertThat(String(frames[3])).isEqualTo("""{"msg_id":"1"}""")
-        assertThat(String(frames[6])).isEqualTo("""{"status":"ok"}""")
+        assertThat(String(frames[0], Charsets.UTF_8)).isEqualTo("client-1")
+        assertThat(String(frames[1], Charsets.UTF_8)).isEqualTo("<IDS|MSG>")
+        assertThat(String(frames[2], Charsets.UTF_8)).isEqualTo("testsig")
+        assertThat(String(frames[3], Charsets.UTF_8)).isEqualTo("""{"msg_id":"1"}""")
+        assertThat(String(frames[6], Charsets.UTF_8)).isEqualTo("""{"status":"ok"}""")
     }
 
     @Test
@@ -231,7 +232,7 @@ class WireMessageTest {
         val frames = wireMsg.toSignedFrames(signer)
 
         // Then: Signature frame should be valid HMAC
-        val signatureFrame = String(frames[2])
+        val signatureFrame = String(frames[2], Charsets.UTF_8)
         assertThat(signatureFrame).isNotEmpty()
         assertThat(signatureFrame).matches("[0-9a-f]+")
 
@@ -262,31 +263,33 @@ class WireMessageTest {
         val frames = wireMsg.toSignedFrames(signer)
 
         // Then: Signature should be empty
-        val signatureFrame = String(frames[1]) // After delimiter
+        val signatureFrame = String(frames[1], Charsets.UTF_8) // After delimiter
         assertThat(signatureFrame).isEmpty()
     }
 
     @Test
-    fun `should roundtrip parse and serialize`() {
-        // Given: Original frames
+    fun `should roundtrip parse and serialize with binary buffers`() {
+        // Given: Original frames including a binary buffer
+        val buffer = byteArrayOf(1, 2, 3, 4, 5)
         val original = listOf(
-            "identity".toByteArray(),
+            "identity".toByteArray(Charsets.UTF_8),
             delimiter,
-            "signature".toByteArray(),
-            """{"msg_id":"roundtrip"}""".toByteArray(),
-            "{}".toByteArray(),
-            """{"key":"value"}""".toByteArray(),
-            """{"data":123}""".toByteArray(),
+            "signature".toByteArray(Charsets.UTF_8),
+            """{"msg_id":"roundtrip"}""".toByteArray(Charsets.UTF_8),
+            "{}".toByteArray(Charsets.UTF_8),
+            """{"key":"value"}""".toByteArray(Charsets.UTF_8),
+            """{"data":123}""".toByteArray(Charsets.UTF_8),
+            buffer,
         )
 
         // When: Parse then serialize
         val wireMsg = WireMessage.fromFrames(original)
         val roundtripped = wireMsg.toFrames()
 
-        // Then: Should match
-        assertThat(roundtripped).hasSize(original.size)
-        for (i in original.indices) {
-            assertThat(String(roundtripped[i])).isEqualTo(String(original[i]))
+        // Then: Should match byte-for-byte
+        assertThat(roundtripped.size).isEqualTo(original.size)
+        roundtripped.zip(original).forEach { (rtFrame, origFrame) ->
+            assertThat(rtFrame).isEqualTo(origFrame)
         }
     }
 }
