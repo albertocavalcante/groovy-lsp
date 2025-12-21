@@ -22,13 +22,17 @@ jobs:
         run: npm ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SKIP_PREPARE_SERVER: true
+          # Explicitly enable server prep to ensure JAR is downloaded for tests
+          SKIP_PREPARE_SERVER: false
 
       - name: Validate code quality
         run: |
           npm run lint
           npm run check-types
           npm run compile
+          /usr/bin/Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          export DISPLAY=:99
+          npm run test:all
 
       - name: Check bundle size
         run: |

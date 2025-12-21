@@ -189,6 +189,35 @@ Our automated pipeline includes:
 
 ## Testing
 
+### Automated Testing
+
+We use automated tests to ensure the quality of the extension.
+
+**Running All Tests**
+To run both unit and integration tests:
+```bash
+npm run test:all
+```
+*Note: Integration tests on Linux require `xvfb`. Using the CI environment or a Docker container is recommended for headless testing.*
+
+**Running Unit Tests**
+Unit tests cover individual components in isolation:
+```bash
+npm test
+```
+
+**Running Integration Tests**
+Integration tests run within a VS Code Extension Host instance:
+```bash
+npm run test:integration
+```
+
+**Debugging Tests**
+You can debug tests directly in VS Code:
+1. Open the Debug view (`Cmd+Shift+D` / `Ctrl+Shift+D`).
+2. Select **"Extension Tests"** from the configuration dropdown.
+3. Press `F5` to start debugging.
+
 ### Manual Testing Checklist
 
 - [ ] Extension activates without errors
