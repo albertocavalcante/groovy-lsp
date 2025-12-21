@@ -9,8 +9,10 @@ import org.eclipse.lsp4j.CompletionItemKind
 import org.eclipse.lsp4j.MarkupContent
 import org.eclipse.lsp4j.MarkupKind
 import org.eclipse.lsp4j.Position
+import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.jsonrpc.messages.Either
+import org.slf4j.LoggerFactory
 
 /**
  * Provides auto-import completion for types not yet imported.

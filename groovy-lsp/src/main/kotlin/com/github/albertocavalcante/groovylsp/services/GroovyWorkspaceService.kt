@@ -110,7 +110,7 @@ class GroovyWorkspaceService(
         return when {
             path.endsWith(
                 ".codenarc",
-            ) || path.endsWith("codenarc.xml") || path.contains("codenarc.groovy") -> FileType.CODENARC
+            ) || path.endsWith("codenarc.xml") || path.endsWith("codenarc.groovy") -> FileType.CODENARC
             path.endsWith(".gdsl") -> FileType.GDSL
             path.endsWith(
                 "build.gradle",

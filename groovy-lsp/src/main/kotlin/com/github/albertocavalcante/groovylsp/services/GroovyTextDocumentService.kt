@@ -673,14 +673,14 @@ class GroovyTextDocumentService(
     }
 
     /**
-     * Reloads CodeNarc rulesets by recreating the diagnostics service.
-     * Called when .codenarc files change.
+     * Notifies that CodeNarc rulesets should be reloaded.
+     * Currently a placeholder - actual reload happens when diagnostics are re-run.
+     * Called when .codenarc files change; should be followed by rerunDiagnosticsOnOpenFiles().
      */
     fun reloadCodeNarcRulesets() {
-        logger.info("Reloading CodeNarc rulesets")
-        // Force recreation of diagnostics service on next access
-        // The lazy initialization will pick up new ruleset files
-        // Note: This is a simple approach - for production, consider a more sophisticated cache invalidation
+        logger.info("CodeNarc ruleset reload requested")
+        // NOTE: Currently no caching to invalidate. Rulesets are resolved fresh on each analysis.
+        // This method exists as a hook for future cache invalidation logic.
     }
 
     /**

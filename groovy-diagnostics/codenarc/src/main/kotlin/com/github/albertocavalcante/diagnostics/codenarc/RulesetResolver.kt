@@ -71,9 +71,9 @@ class HierarchicalRulesetResolver(
      * Useful when configuration files change.
      */
     fun reloadRulesets() {
-        logger.info("Reloading CodeNarc rulesets - cache cleared")
-        // Currently no caching, but this method exists for future cache invalidation
-        // Rulesets are resolved fresh on each call to resolve()
+        logger.info("Reload requested for CodeNarc rulesets")
+        // This method is a placeholder for future cache invalidation logic.
+        // Currently, rulesets are resolved fresh on each call to resolve(), so no cache clearing is needed.
     }
 
     companion object {

@@ -28,8 +28,7 @@ object ImportUtils {
                     }
                 }
                 trimmed.startsWith("package ") -> {
-                    // Stop at first non-import/package statement
-                    return imports
+                    // Package declarations appear before imports, continue scanning
                 }
                 trimmed.isNotEmpty() && !trimmed.startsWith("//") && !trimmed.startsWith("/*") -> {
                     // Stop at first non-comment, non-empty line that's not import/package

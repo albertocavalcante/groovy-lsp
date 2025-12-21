@@ -252,15 +252,14 @@ class GroovyCompilationService {
             results.forEach { deferred ->
                 try {
                     deferred.await()
-                    indexed++
-                    onProgress(indexed, total)
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e // Re-throw cancellation
-                } catch (e: Exception) {
                     // NOTE: Various exceptions possible (IOException, ParseException, etc.)
                     // Catch all to prevent batch failure from stopping entire indexing
                     @Suppress("TooGenericExceptionCaught")
+                } catch (e: Exception) {
                     logger.warn("Failed to index file in batch", e)
+                } finally {
                     indexed++
                     onProgress(indexed, total)
                 }

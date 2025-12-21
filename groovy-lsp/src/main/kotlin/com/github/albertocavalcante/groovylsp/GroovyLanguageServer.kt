@@ -197,32 +197,23 @@ class GroovyLanguageServer :
 
             // Diagnostics will be pushed
 
-            // File watching support
+            // File watching support for config files
             workspace = org.eclipse.lsp4j.WorkspaceServerCapabilities().apply {
+                val configFileWatchers = listOf(
+                    FileSystemWatcher("**/.codenarc"),
+                    FileSystemWatcher("**/codenarc.xml"),
+                    FileSystemWatcher("**/codenarc.groovy"),
+                    FileSystemWatcher("**/*.gdsl"),
+                )
                 fileOperations = org.eclipse.lsp4j.FileOperationsServerCapabilities().apply {
                     didCreate = org.eclipse.lsp4j.FileOperationRegistrationOptions().apply {
-                        filters = listOf(
-                            FileSystemWatcher("**/.codenarc"),
-                            FileSystemWatcher("**/codenarc.xml"),
-                            FileSystemWatcher("**/codenarc.groovy"),
-                            FileSystemWatcher("**/*.gdsl"),
-                        )
+                        filters = configFileWatchers
                     }
                     didChange = org.eclipse.lsp4j.FileOperationRegistrationOptions().apply {
-                        filters = listOf(
-                            FileSystemWatcher("**/.codenarc"),
-                            FileSystemWatcher("**/codenarc.xml"),
-                            FileSystemWatcher("**/codenarc.groovy"),
-                            FileSystemWatcher("**/*.gdsl"),
-                        )
+                        filters = configFileWatchers
                     }
                     didDelete = org.eclipse.lsp4j.FileOperationRegistrationOptions().apply {
-                        filters = listOf(
-                            FileSystemWatcher("**/.codenarc"),
-                            FileSystemWatcher("**/codenarc.xml"),
-                            FileSystemWatcher("**/codenarc.groovy"),
-                            FileSystemWatcher("**/*.gdsl"),
-                        )
+                        filters = configFileWatchers
                     }
                 }
             }

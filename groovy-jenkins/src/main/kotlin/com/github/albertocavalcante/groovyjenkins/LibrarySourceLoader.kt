@@ -86,10 +86,8 @@ class LibrarySourceLoader {
         JarFile(jarPath.toFile()).use { jar ->
             jar.entries().asSequence()
                 .filter { entry ->
-                    !entry.isDirectory && (
-                        entry.name.endsWith(".groovy", ignoreCase = true) ||
-                            entry.name.endsWith(".java", ignoreCase = true)
-                        )
+                    val sourceExtensions = listOf(".groovy", ".java")
+                    !entry.isDirectory && sourceExtensions.any { entry.name.endsWith(it, ignoreCase = true) }
                 }
                 .forEach { entry ->
                     val targetFile = targetDir.resolve(entry.name)
