@@ -39,18 +39,20 @@ fun main(args: Array<String>) {
         // Initialize Handlers
         val heartbeatHandler = HeartbeatHandler(connection.heartbeatSocket)
 
+        lateinit var server: KernelServer
         val handlers = listOf(
             ExecuteHandler(executor),
             KernelInfoHandler(
                 languageName = "jenkins-groovy",
                 languageVersion = "2.4.21", // Hardcoded for now
             ),
-            ShutdownHandler { connection.close() },
+            ShutdownHandler { server.shutdown() },
         )
 
         // Start Server
-        KernelServer(connection, handlers, heartbeatHandler).use { server ->
-            server.run()
+        server = KernelServer(connection, handlers, heartbeatHandler)
+        server.use {
+            it.run()
         }
     } catch (e: Exception) {
         logger.error("Fatal error starting kernel", e)

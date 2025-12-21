@@ -141,9 +141,121 @@ class ExecuteHandlerSideEffectsTest {
         }
     }
 
+    @Test
+    fun `should increment execution count on non-silent execution`() {
+        val request = createExecuteRequest("1 + 1", silent = false)
+
+        // Mock executor result
+        every { executor.execute(any()) } returns ExecuteResult(
+            status = ExecuteStatus.OK,
+            result = "2",
+        )
+
+        // Initial count is 0
+        val initialCount = handler.executionCount
+
+        handler.handle(request, connection)
+
+        // Count should increment
+        verify { connection.sendMessage(match { it.content["execution_count"] == initialCount + 1 }, any()) }
+    }
+
+    @Test
+    fun `should not increment execution count on silent execution`() {
+        val request = createExecuteRequest("1 + 1", silent = true)
+
+        // Mock executor result
+        every { executor.execute(any()) } returns ExecuteResult(
+            status = ExecuteStatus.OK,
+            result = "2",
+        )
+
+        // Initial count is 0
+        val initialCount = handler.executionCount
+
+        handler.handle(request, connection)
+
+        // Count should NOT increment
+        verify { connection.sendMessage(match { it.content["execution_count"] == initialCount }, any()) }
+    }
+
+    @Test
+    fun `should not publish execute_input for silent execution`() {
+        val request = createExecuteRequest("1 + 1", silent = true)
+
+        // Mock executor result
+        every { executor.execute(any()) } returns ExecuteResult(
+            status = ExecuteStatus.OK,
+            result = "2",
+        )
+
+        handler.handle(request, connection)
+
+        // Verify execute_input is NOT sent
+        verify(exactly = 0) {
+            connection.sendIOPubMessage(match { it.header.msgType == MessageType.EXECUTE_INPUT.value })
+        }
+    }
+
+    @Test
+    fun `should not publish execute_result for silent execution`() {
+        val request = createExecuteRequest("1 + 1", silent = true)
+
+        // Mock executor result
+        every { executor.execute(any()) } returns ExecuteResult(
+            status = ExecuteStatus.OK,
+            result = "2",
+        )
+
+        handler.handle(request, connection)
+
+        // Verify execute_result is NOT sent
+        verify(exactly = 0) {
+            connection.sendIOPubMessage(match { it.header.msgType == MessageType.EXECUTE_RESULT.value })
+        }
+    }
+
+    @Test
+    fun `should use correct execution count in all messages`() {
+        val request1 = createExecuteRequest("1 + 1", silent = false)
+        val request2 = createExecuteRequest("2 + 2", silent = false)
+
+        // Mock executor result
+        every { executor.execute(any()) } returns ExecuteResult(
+            status = ExecuteStatus.OK,
+            result = "result",
+        )
+
+        // First execution
+        handler.handle(request1, connection)
+
+        // Verify first execution used count 1
+        verify {
+            connection.sendIOPubMessage(
+                match {
+                    it.header.msgType == MessageType.EXECUTE_INPUT.value &&
+                        it.content["execution_count"] == 1
+                },
+            )
+        }
+
+        // Second execution
+        handler.handle(request2, connection)
+
+        // Verify second execution used count 2
+        verify {
+            connection.sendIOPubMessage(
+                match {
+                    it.header.msgType == MessageType.EXECUTE_INPUT.value &&
+                        it.content["execution_count"] == 2
+                },
+            )
+        }
+    }
+
     // --- Helpers ---
 
-    private fun createExecuteRequest(code: String): JupyterMessage = JupyterMessage(
+    private fun createExecuteRequest(code: String, silent: Boolean = false): JupyterMessage = JupyterMessage(
         header = Header(
             msgId = "test-msg-id",
             session = "test-session",
@@ -152,8 +264,8 @@ class ExecuteHandlerSideEffectsTest {
         ),
         content = mapOf(
             "code" to code,
-            "silent" to false,
-            "store_history" to true,
+            "silent" to silent,
+            "store_history" to !silent,
         ),
     )
 }

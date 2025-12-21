@@ -33,6 +33,10 @@ class ExecuteHandler(
         logger.info("Handling execute_request")
 
         val statusPublisher = statusPublisherFactory(connection)
+        val silent = request.content["silent"] as? Boolean ?: false
+        if (!silent) {
+            executionCount++
+        }
 
         // 1. Publish busy status
         statusPublisher.publishBusy(request)
@@ -40,7 +44,7 @@ class ExecuteHandler(
         try {
             // 2. Publish execute_input
             val code = (request.content["code"] as? String).orEmpty()
-            if (code.isNotEmpty()) {
+            if (code.isNotEmpty() && !silent) {
                 val inputParams = mapOf(
                     "code" to code,
                     "execution_count" to executionCount,
@@ -81,7 +85,7 @@ class ExecuteHandler(
 
             // 6. Publish result or error
             if (result.status == ExecuteStatus.OK) {
-                if (result.result != null && result.result.toString().isNotEmpty()) {
+                if (result.result != null && result.result.toString().isNotEmpty() && !silent) {
                     val resultContent = mapOf(
                         "execution_count" to executionCount,
                         "data" to mapOf("text/plain" to result.result.toString()),
@@ -158,11 +162,6 @@ class ExecuteHandler(
      */
     fun execute(request: JupyterMessage): ExecuteResult {
         val code = (request.content["code"] as? String).orEmpty()
-        val silent = request.content["silent"] as? Boolean ?: false
-
-        if (!silent) {
-            executionCount++
-        }
 
         if (code.isBlank()) {
             return ExecuteResult(status = ExecuteStatus.OK)

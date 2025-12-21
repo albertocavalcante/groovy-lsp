@@ -46,22 +46,22 @@ class ExecuteHandlerTest {
     }
 
     @Test
-    fun `should increment execution count on each execution`() {
+    fun `should not increment execution count when calling execute helper directly`() {
         // Given: A handler with initial count 0
         assertEquals(0, handler.executionCount)
 
-        // When: Executing code
+        // When: Calling execute() helper directly (not through handle())
         val request = createExecuteRequest("1 + 1")
         handler.execute(request)
 
-        // Then: Count should increment
-        assertEquals(1, handler.executionCount)
+        // Then: Count should NOT increment (increment happens in handle(), not execute())
+        assertEquals(0, handler.executionCount)
 
         // When: Executing again
         handler.execute(createExecuteRequest("2 + 2"))
 
-        // Then: Count should be 2
-        assertEquals(2, handler.executionCount)
+        // Then: Count should still be 0
+        assertEquals(0, handler.executionCount)
     }
 
     @Test

@@ -46,6 +46,10 @@ parse_args() {
                 shift
                 ;;
             --variant)
+                if [[ -z "$2" ]]; then
+                    log_error "Option --variant requires an argument."
+                    exit 1
+                fi
                 VARIANT="$2"
                 shift 2
                 ;;

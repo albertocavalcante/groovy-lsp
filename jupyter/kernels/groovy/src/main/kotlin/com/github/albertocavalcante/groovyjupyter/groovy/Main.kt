@@ -40,18 +40,20 @@ fun main(args: Array<String>) {
         // Heartbeat is handled separately by the server
         val heartbeatHandler = HeartbeatHandler(connection.heartbeatSocket)
 
+        lateinit var server: KernelServer
         val handlers = listOf(
             ExecuteHandler(executor),
             KernelInfoHandler(
                 languageName = "groovy",
                 languageVersion = groovy.lang.GroovySystem.getVersion(),
             ),
-            ShutdownHandler { connection.close() },
+            ShutdownHandler { server.shutdown() },
         )
 
         // Start Server
-        KernelServer(connection, handlers, heartbeatHandler).use { server ->
-            server.run()
+        server = KernelServer(connection, handlers, heartbeatHandler)
+        server.use {
+            it.run()
         }
     } catch (e: Exception) {
         logger.error("Fatal error starting kernel", e)

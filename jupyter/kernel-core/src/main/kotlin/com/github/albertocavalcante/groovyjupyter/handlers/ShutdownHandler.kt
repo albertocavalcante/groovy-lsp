@@ -20,7 +20,11 @@ class ShutdownHandler(private val onShutdown: () -> Unit = {}) : MessageHandler 
         val restart = shouldRestart(request)
         logger.info("Handling shutdown_request (restart={})", restart)
 
-        // TODO: Send shutdown_reply on control socket
+        // Send shutdown_reply on control socket
+        val reply = request.createReply(MessageType.SHUTDOWN_REPLY).apply {
+            content = mapOf("restart" to restart)
+        }
+        connection.sendMessage(reply, connection.controlSocket)
 
         // Trigger shutdown callback
         onShutdown()
