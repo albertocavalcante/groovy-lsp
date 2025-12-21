@@ -98,9 +98,15 @@ class BspClient(private val connection: BspConnectionDetails, private val worksp
 
         val newProcess = ProcessBuilder(connection.argv)
             .directory(workspaceRoot.toFile())
-            .redirectError(ProcessBuilder.Redirect.INHERIT)
             .start()
         this.process = newProcess
+
+        // Asynchronously log stderr from the BSP server for better diagnostics
+        CompletableFuture.runAsync {
+            newProcess.errorStream.bufferedReader().useLines { lines ->
+                lines.forEach { logger.warn("[BSP stderr] {}", it) }
+            }
+        }
 
         val launcher = Launcher.Builder<BuildServer>()
             .setRemoteInterface(BuildServer::class.java)

@@ -21,6 +21,7 @@ class BspBuildTool : BuildTool {
     private val logger = LoggerFactory.getLogger(BspBuildTool::class.java)
 
     private companion object {
+        private const val MAVEN_DATA_KIND = "maven"
         private const val ARTIFACTS_FIELD = "artifacts"
         private const val URI_FIELD = "uri"
     }
@@ -84,6 +85,10 @@ class BspBuildTool : BuildTool {
     private fun extractDependencies(result: DependencyModulesResult?): List<Path> = result?.items
         ?.flatMap { it.modules }
         ?.flatMap { module ->
+            if (module.dataKind != MAVEN_DATA_KIND) {
+                logger.debug("Skipping dependency module of kind '{}', expected '{}'", module.dataKind, MAVEN_DATA_KIND)
+                return@flatMap emptyList<String>()
+            }
             val data = module.data as? Map<String, Any> ?: return@flatMap emptyList()
             val artifacts = data[ARTIFACTS_FIELD] as? List<Map<String, Any>> ?: return@flatMap emptyList()
             artifacts.mapNotNull { it[URI_FIELD] as? String }
