@@ -292,4 +292,38 @@ class WireMessageTest {
             assertThat(rtFrame).isEqualTo(origFrame)
         }
     }
+
+    @Test
+    fun `should convert to JupyterMessage with parsed header and content`() {
+        // Given: Wire message with properly formatted JSON
+        val header =
+            """{"msg_id":"abc123","session":"sess1","username":"user","date":"2024-01-01T00:00:00.000Z","msg_type":"execute_request","version":"5.3"}"""
+        val parentHeader = """{}"""
+        val metadata = """{"key":"value"}"""
+        val content = """{"code":"print('hello')","silent":false}"""
+
+        val frames = listOf(
+            "identity1".toByteArray(Charsets.UTF_8),
+            WireMessage.DELIMITER.toByteArray(Charsets.UTF_8),
+            "signature".toByteArray(Charsets.UTF_8),
+            header.toByteArray(Charsets.UTF_8),
+            parentHeader.toByteArray(Charsets.UTF_8),
+            metadata.toByteArray(Charsets.UTF_8),
+            content.toByteArray(Charsets.UTF_8),
+        )
+
+        // When: Parse and convert to JupyterMessage
+        val wireMsg = WireMessage.fromFrames(frames)
+        val jupyterMsg = wireMsg.toJupyterMessage()
+
+        // Then: Should correctly parse fields
+        assertThat(jupyterMsg.header.msgId).isEqualTo("abc123")
+        assertThat(jupyterMsg.header.session).isEqualTo("sess1")
+        assertThat(jupyterMsg.header.msgType).isEqualTo("execute_request")
+        assertThat(jupyterMsg.parentHeader).isNull()
+        assertThat(jupyterMsg.metadata).containsEntry("key", "value")
+        assertThat(jupyterMsg.content).containsEntry("code", "print('hello')")
+        assertThat(jupyterMsg.content).containsEntry("silent", false)
+        assertThat(jupyterMsg.identities).hasSize(1)
+    }
 }

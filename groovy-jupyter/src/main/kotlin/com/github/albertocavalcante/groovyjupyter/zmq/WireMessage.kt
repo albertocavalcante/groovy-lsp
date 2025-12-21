@@ -1,7 +1,14 @@
 package com.github.albertocavalcante.groovyjupyter.zmq
 
+import com.github.albertocavalcante.groovyjupyter.protocol.Header
+import com.github.albertocavalcante.groovyjupyter.protocol.JupyterMessage
 import com.github.albertocavalcante.groovyjupyter.security.HmacSigner
-import kotlin.text.Charsets
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Represents a Jupyter message in wire protocol format.
@@ -51,6 +58,73 @@ data class WireMessage(
         val parts = listOf(header, parentHeader, metadata, content)
         val computedSignature = signer.sign(parts)
         return this.copy(signature = computedSignature).toFrames()
+    }
+
+    /**
+     * Convert this wire message to a high-level JupyterMessage.
+     *
+     * Parses JSON fields into structured data.
+     */
+    fun toJupyterMessage(): JupyterMessage {
+        val parsedHeader = parseHeader(header)
+        val parsedParentHeader = if (parentHeader.isBlank() || parentHeader == "{}") {
+            null
+        } else {
+            parseHeader(parentHeader)
+        }
+        val parsedMetadata = parseJsonObject(metadata)
+        val parsedContent = parseJsonObject(content)
+
+        return JupyterMessage(
+            header = parsedHeader,
+            parentHeader = parsedParentHeader,
+            metadata = parsedMetadata,
+            content = parsedContent,
+            identities = identities.toMutableList(),
+        )
+    }
+
+    private fun parseHeader(json: String): Header {
+        if (json.isBlank() || json == "{}") {
+            return Header()
+        }
+        return try {
+            Json.decodeFromString<Header>(json)
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            Header()
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseJsonObject(json: String): Map<String, Any> {
+        if (json.isBlank() || json == "{}") {
+            return emptyMap()
+        }
+        return try {
+            val element = Json.parseToJsonElement(json)
+            jsonElementToMap(element) as Map<String, Any>
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            emptyMap()
+        }
+    }
+
+    private fun jsonElementToMap(element: JsonElement): Any? = when (element) {
+        is JsonNull -> null
+        is JsonPrimitive -> parsePrimitive(element)
+        is JsonObject -> element.entries.associate { (k, v) -> k to jsonElementToMap(v) }
+        is JsonArray -> element.map { jsonElementToMap(it) }
+    }
+
+    private fun parsePrimitive(element: JsonPrimitive): Any {
+        // Try to parse as number or boolean, fall back to string
+        val content = element.content
+        return when {
+            content == "true" -> true
+            content == "false" -> false
+            content.contains('.') -> content.toDoubleOrNull() ?: content
+            content.all { it.isDigit() || it == '-' } -> content.toLongOrNull() ?: content
+            else -> content
+        }
     }
 
     companion object {
