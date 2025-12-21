@@ -2,6 +2,9 @@ package com.github.albertocavalcante.diagnostics.codenarc
 
 import com.github.albertocavalcante.diagnostics.api.DiagnosticConfiguration
 import com.github.albertocavalcante.diagnostics.api.WorkspaceContext
+import io.mockk.every
+import io.mockk.mockk
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -16,6 +19,29 @@ import kotlin.test.assertTrue
 class RulesetResolverTest {
 
     private val resolver = HierarchicalRulesetResolver()
+
+    @Nested
+    inner class ClasspathResourceLoaderTest {
+
+        @Test
+        fun `should load existing resource from classpath`() {
+            val loader = ClasspathResourceLoader()
+
+            val content = loader.load("codenarc/rulesets/base/default.groovy")
+
+            assertNotNull(content)
+            assertTrue(content.contains("ruleset"), "Should contain ruleset definition")
+        }
+
+        @Test
+        fun `should return null for non-existent resource`() {
+            val loader = ClasspathResourceLoader()
+
+            val content = loader.load("non/existent/path.groovy")
+
+            assertEquals(null, content)
+        }
+    }
 
     @Test
     fun `should resolve Jenkins ruleset for Jenkins project`(@TempDir tempDir: Path) {
@@ -50,24 +76,124 @@ class RulesetResolverTest {
     }
 
     @Test
-    fun `should fallback to bundled CodeNarc ruleset when custom ruleset missing`(@TempDir tempDir: Path) {
-        // Given: Jenkins project but custom ruleset file doesn't exist in classpath
-        // (This simulates the scenario where resources aren't packaged)
+    fun `should always resolve a valid ruleset for any project type`(@TempDir tempDir: Path) {
+        // Given: Jenkins project
         Files.createFile(tempDir.resolve("Jenkinsfile"))
 
-        // Create a resolver that can't find custom resources
-        // We'll use the real resolver but verify it falls back gracefully
         val context = createWorkspaceContext(tempDir, enabled = true)
         val config = resolver.resolve(context)
 
-        // Then: Should still resolve (either custom or bundled fallback)
+        // Then: Should resolve a valid ruleset (our custom DSL is on the classpath)
         assertNotNull(config.rulesetContent)
         assertTrue(config.rulesetContent.isNotEmpty(), "Ruleset content should not be empty")
-        // Should contain ruleset reference (either custom DSL or bundled wrapper)
+        // Should contain ruleset definition
         assertTrue(
             config.rulesetContent.contains("ruleset"),
             "Ruleset should contain ruleset definition",
         )
+        // Source should indicate where it came from
+        assertTrue(
+            config.source.isNotEmpty(),
+            "Source should be set",
+        )
+    }
+
+    @Nested
+    inner class FallbackBehavior {
+
+        @Test
+        fun `should fallback to bundled XML ruleset when custom resources unavailable`(@TempDir tempDir: Path) {
+            // Given: A resource loader that returns nothing (simulates missing resources)
+            val emptyResourceLoader = mockk<ResourceLoader> {
+                every { load(any()) } returns null
+            }
+            val resolverWithNoResources = HierarchicalRulesetResolver(
+                resourceLoader = emptyResourceLoader,
+            )
+
+            val context = createWorkspaceContext(tempDir, enabled = true)
+            val config = resolverWithNoResources.resolve(context)
+
+            // Then: Should generate bundled wrapper for basic.xml
+            assertNotNull(config.rulesetContent)
+            assertTrue(config.source.startsWith("bundled:"), "Expected bundled source, got: ${config.source}")
+            assertTrue(
+                config.rulesetContent.contains("rulesets/basic.xml"),
+                "Should fallback to basic.xml wrapper",
+            )
+        }
+
+        @Test
+        fun `should fallback to bundled Jenkins XML when Jenkins resources unavailable`(@TempDir tempDir: Path) {
+            // Given: Jenkins project with a resource loader that returns nothing
+            Files.createFile(tempDir.resolve("Jenkinsfile"))
+
+            val emptyResourceLoader = mockk<ResourceLoader> {
+                every { load(any()) } returns null
+            }
+            val resolverWithNoResources = HierarchicalRulesetResolver(
+                resourceLoader = emptyResourceLoader,
+            )
+
+            val context = createWorkspaceContext(tempDir, enabled = true)
+            val config = resolverWithNoResources.resolve(context)
+
+            // Then: Should generate bundled wrapper for jenkins.xml
+            assertNotNull(config.rulesetContent)
+            assertTrue(config.source.startsWith("bundled:"), "Expected bundled source, got: ${config.source}")
+            assertTrue(
+                config.rulesetContent.contains("rulesets/jenkins.xml"),
+                "Should fallback to jenkins.xml wrapper for Jenkins projects",
+            )
+        }
+
+        @Test
+        fun `should fallback to default ruleset when project-specific resource unavailable`(@TempDir tempDir: Path) {
+            // Given: Jenkins project where only default.groovy is available
+            Files.createFile(tempDir.resolve("Jenkinsfile"))
+
+            val defaultRulesetContent = """
+                ruleset {
+                    description 'Default ruleset'
+                    ruleset('rulesets/basic.xml')
+                }
+            """.trimIndent()
+
+            val partialResourceLoader = mockk<ResourceLoader> {
+                // Jenkins-specific ruleset not found
+                every { load("codenarc/rulesets/frameworks/jenkins.groovy") } returns null
+                // But default is available
+                every { load("codenarc/rulesets/base/default.groovy") } returns defaultRulesetContent
+            }
+            val resolver = HierarchicalRulesetResolver(resourceLoader = partialResourceLoader)
+
+            val context = createWorkspaceContext(tempDir, enabled = true)
+            val config = resolver.resolve(context)
+
+            // Then: Should fallback to default.groovy
+            assertNotNull(config.rulesetContent)
+            assertTrue(
+                config.source.contains("default.groovy"),
+                "Should fallback to default.groovy. Got: ${config.source}",
+            )
+        }
+
+        @Test
+        fun `bundled wrapper should have valid DSL structure`(@TempDir tempDir: Path) {
+            // Given: No resources available
+            val emptyResourceLoader = mockk<ResourceLoader> {
+                every { load(any()) } returns null
+            }
+            val resolver = HierarchicalRulesetResolver(resourceLoader = emptyResourceLoader)
+
+            val context = createWorkspaceContext(tempDir, enabled = true)
+            val config = resolver.resolve(context)
+
+            // Then: Bundled wrapper should be valid DSL
+            assertTrue(config.rulesetContent.contains("ruleset {"), "Should start with ruleset block")
+            assertTrue(config.rulesetContent.contains("description"), "Should have description")
+            assertTrue(config.rulesetContent.contains("ruleset('rulesets/"), "Should reference bundled ruleset")
+        }
     }
 
     @Test
@@ -135,22 +261,26 @@ class RulesetResolverTest {
     }
 
     @Test
-    fun `should load bundled Jenkins ruleset via fallback`(@TempDir tempDir: Path) {
+    fun `should include Jenkins CPS rules in Jenkins ruleset`(@TempDir tempDir: Path) {
         // Given: Jenkins project
         Files.createFile(tempDir.resolve("Jenkinsfile"))
 
         val context = createWorkspaceContext(tempDir, enabled = true)
         val config = resolver.resolve(context)
 
-        // Then: Ruleset should be valid and reference Jenkins rules
+        // Then: Ruleset should reference Jenkins CPS rules
         assertNotNull(config.rulesetContent)
-        // The ruleset should either be our custom DSL or a bundled wrapper
-        // Both should reference rulesets/jenkins.xml
-        val hasJenkinsReference = config.rulesetContent.contains("rulesets/jenkins.xml") ||
-            config.rulesetContent.contains("jenkins")
+        // Verify the ruleset includes the bundled Jenkins rules
         assertTrue(
-            hasJenkinsReference,
-            "Ruleset should reference Jenkins rules. Content: ${config.rulesetContent.take(200)}",
+            config.rulesetContent.contains("rulesets/jenkins.xml"),
+            "Jenkins ruleset should include rulesets/jenkins.xml for CPS rules. Content: ${config.rulesetContent.take(
+                300,
+            )}",
+        )
+        // Verify source indicates Jenkins framework
+        assertTrue(
+            config.source.contains("jenkins"),
+            "Source should indicate Jenkins framework: ${config.source}",
         )
     }
 

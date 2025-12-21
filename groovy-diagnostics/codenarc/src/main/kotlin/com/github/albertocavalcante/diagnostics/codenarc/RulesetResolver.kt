@@ -31,6 +31,29 @@ interface RulesetResolver {
 }
 
 /**
+ * Loads resources from a given path.
+ * Extracted for testability - allows mocking resource loading in tests.
+ */
+fun interface ResourceLoader {
+    /**
+     * Loads content from the specified resource path.
+     * @param resourcePath The path to the resource
+     * @return The content as a string, or null if not found
+     */
+    fun load(resourcePath: String): String?
+}
+
+/**
+ * Default implementation that loads resources from the classpath.
+ */
+class ClasspathResourceLoader : ResourceLoader {
+    override fun load(resourcePath: String): String? =
+        this::class.java.classLoader.getResourceAsStream(resourcePath)?.use { stream ->
+            stream.reader().readText()
+        }
+}
+
+/**
  * Default implementation that resolves rulesets hierarchically:
  * 1. Explicit workspace config file
  * 2. Server configuration override
@@ -40,6 +63,7 @@ interface RulesetResolver {
 @Suppress("TooGenericExceptionCaught") // Ruleset resolution needs robust error handling
 class HierarchicalRulesetResolver(
     private val projectTypeDetector: ProjectTypeDetector = DefaultProjectTypeDetector(),
+    private val resourceLoader: ResourceLoader = ClasspathResourceLoader(),
 ) : RulesetResolver {
 
     companion object {
@@ -248,8 +272,8 @@ class HierarchicalRulesetResolver(
         }
 
         logger.warn(
-            "Custom rulesets not found in classpath. " +
-                "Falling back to CodeNarc bundled ruleset: $bundledRulesetPath",
+            "Custom rulesets not found in classpath. Falling back to CodeNarc bundled ruleset: {}",
+            bundledRulesetPath,
         )
 
         // Generate minimal DSL wrapper for bundled XML ruleset
@@ -264,22 +288,15 @@ class HierarchicalRulesetResolver(
     }
 
     /**
-     * Loads ruleset content from a classpath resource.
+     * Loads ruleset content from a classpath resource using the injected ResourceLoader.
      */
-    private fun loadRulesetFromResource(resourcePath: String): String? {
-        return try {
-            val inputStream = this::class.java.classLoader.getResourceAsStream(resourcePath)
-                ?: return null
-
-            inputStream.use { stream ->
-                stream.reader().readText()
-            }.also {
-                logger.debug("Successfully loaded ruleset from $resourcePath (${it.length} characters)")
-            }
-        } catch (e: Exception) {
-            logger.debug("Failed to load ruleset from resource: $resourcePath", e)
-            null
+    private fun loadRulesetFromResource(resourcePath: String): String? = try {
+        resourceLoader.load(resourcePath)?.also {
+            logger.debug("Successfully loaded ruleset from {} ({} characters)", resourcePath, it.length)
         }
+    } catch (e: Exception) {
+        logger.debug("Failed to load ruleset from resource: {}", resourcePath, e)
+        null
     }
 
     /**
