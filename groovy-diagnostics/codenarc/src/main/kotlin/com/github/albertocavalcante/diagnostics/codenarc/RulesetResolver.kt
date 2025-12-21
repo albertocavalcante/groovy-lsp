@@ -66,6 +66,16 @@ class HierarchicalRulesetResolver(
     private val resourceLoader: ResourceLoader = ClasspathResourceLoader(),
 ) : RulesetResolver {
 
+    /**
+     * Clears any cached ruleset data and forces re-resolution on next call.
+     * Useful when configuration files change.
+     */
+    fun reloadRulesets() {
+        logger.info("Reloading CodeNarc rulesets - cache cleared")
+        // Currently no caching, but this method exists for future cache invalidation
+        // Rulesets are resolved fresh on each call to resolve()
+    }
+
     companion object {
         private val logger = LoggerFactory.getLogger(HierarchicalRulesetResolver::class.java)
 

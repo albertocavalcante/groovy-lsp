@@ -19,7 +19,10 @@ import java.util.concurrent.CompletableFuture
 /**
  * Handles all workspace related LSP operations.
  */
-class GroovyWorkspaceService(private val compilationService: GroovyCompilationService) : WorkspaceService {
+class GroovyWorkspaceService(
+    private val compilationService: GroovyCompilationService,
+    private val textDocumentService: GroovyTextDocumentService? = null,
+) : WorkspaceService {
 
     private val logger = LoggerFactory.getLogger(GroovyWorkspaceService::class.java)
 
@@ -58,6 +61,19 @@ class GroovyWorkspaceService(private val compilationService: GroovyCompilationSe
     override fun didChangeWatchedFiles(params: DidChangeWatchedFilesParams) {
         logger.debug("Watched files changed: ${params.changes?.size ?: 0} changes")
 
+        if (params.changes.isNullOrEmpty()) return
+
+        val changes = params.changes.groupBy { classifyFileChange(it.uri) }
+
+        // Handle CodeNarc config changes
+        changes[FileType.CODENARC]?.let { codenarcChanges ->
+            logger.info("CodeNarc config changed, reloading rulesets")
+            textDocumentService?.reloadCodeNarcRulesets()
+            // Re-run diagnostics on open files
+            textDocumentService?.rerunDiagnosticsOnOpenFiles()
+        }
+
+        // Handle GDSL file changes
         val shouldReloadGdsl = params.changes.any { change ->
             try {
                 val uri = java.net.URI.create(change.uri)
@@ -72,7 +88,35 @@ class GroovyWorkspaceService(private val compilationService: GroovyCompilationSe
             compilationService.workspaceManager.reloadJenkinsGdsl()
         }
 
-        // Could trigger re-compilation of affected files
+        // Build file changes are handled by BuildToolFileWatcher in DependencyManager
+    }
+
+    private enum class FileType {
+        CODENARC,
+        GDSL,
+        BUILD,
+        OTHER,
+    }
+
+    private fun classifyFileChange(uriString: String): FileType {
+        val uri = try {
+            java.net.URI.create(uriString)
+        } catch (e: Exception) {
+            return FileType.OTHER
+        }
+
+        val path = uri.path ?: return FileType.OTHER
+
+        return when {
+            path.endsWith(
+                ".codenarc",
+            ) || path.endsWith("codenarc.xml") || path.contains("codenarc.groovy") -> FileType.CODENARC
+            path.endsWith(".gdsl") -> FileType.GDSL
+            path.endsWith(
+                "build.gradle",
+            ) || path.endsWith("pom.xml") || path.endsWith("build.gradle.kts") -> FileType.BUILD
+            else -> FileType.OTHER
+        }
     }
 
     override fun symbol(

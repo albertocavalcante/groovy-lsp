@@ -17,7 +17,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import org.eclipse.lsp4j.CompletionOptions
+import org.eclipse.lsp4j.FileSystemWatcher
 import org.eclipse.lsp4j.InitializeParams
 import org.eclipse.lsp4j.InitializeResult
 import org.eclipse.lsp4j.InitializedParams
@@ -74,7 +76,7 @@ class GroovyLanguageServer :
         client = { client },
     )
 
-    private val workspaceService = GroovyWorkspaceService(compilationService)
+    private val workspaceService = GroovyWorkspaceService(compilationService, textDocumentService)
 
     override fun connect(client: LanguageClient) {
         logger.info("Connected to language client")
@@ -194,6 +196,36 @@ class GroovyLanguageServer :
             }
 
             // Diagnostics will be pushed
+
+            // File watching support
+            workspace = org.eclipse.lsp4j.WorkspaceServerCapabilities().apply {
+                fileOperations = org.eclipse.lsp4j.FileOperationsServerCapabilities().apply {
+                    didCreate = org.eclipse.lsp4j.FileOperationRegistrationOptions().apply {
+                        filters = listOf(
+                            FileSystemWatcher("**/.codenarc"),
+                            FileSystemWatcher("**/codenarc.xml"),
+                            FileSystemWatcher("**/codenarc.groovy"),
+                            FileSystemWatcher("**/*.gdsl"),
+                        )
+                    }
+                    didChange = org.eclipse.lsp4j.FileOperationRegistrationOptions().apply {
+                        filters = listOf(
+                            FileSystemWatcher("**/.codenarc"),
+                            FileSystemWatcher("**/codenarc.xml"),
+                            FileSystemWatcher("**/codenarc.groovy"),
+                            FileSystemWatcher("**/*.gdsl"),
+                        )
+                    }
+                    didDelete = org.eclipse.lsp4j.FileOperationRegistrationOptions().apply {
+                        filters = listOf(
+                            FileSystemWatcher("**/.codenarc"),
+                            FileSystemWatcher("**/codenarc.xml"),
+                            FileSystemWatcher("**/codenarc.groovy"),
+                            FileSystemWatcher("**/*.gdsl"),
+                        )
+                    }
+                }
+            }
         }
 
         val serverInfo = ServerInfo().apply {
@@ -309,6 +341,9 @@ class GroovyLanguageServer :
                         message = "Dependencies loaded: ${resolution.dependencies.size} JARs from $toolName"
                     },
                 )
+
+                // Start workspace indexing after dependencies are resolved
+                startWorkspaceIndexing(workspaceRoot, progressReporter)
             },
             onError = { error ->
                 logger.error("Failed to resolve dependencies", error)
@@ -411,6 +446,45 @@ class GroovyLanguageServer :
     override fun getTextDocumentService(): TextDocumentService = textDocumentService
 
     override fun getWorkspaceService(): WorkspaceService = workspaceService
+
+    /**
+     * Starts workspace indexing in the background after dependencies are resolved.
+     */
+    @Suppress("UNUSED_PARAMETER") // Parameters kept for future use (e.g., per-workspace progress)
+    private fun startWorkspaceIndexing(workspaceRoot: Path, progressReporter: ProgressReporter) {
+        val sourceUris = compilationService.workspaceManager.getWorkspaceSourceUris()
+        if (sourceUris.isEmpty()) {
+            logger.debug("No workspace sources to index")
+            return
+        }
+
+        logger.info("Starting workspace indexing: ${sourceUris.size} files")
+
+        // Create a new progress reporter for indexing
+        val indexingProgressReporter = ProgressReporter(client)
+        indexingProgressReporter.startDependencyResolution(
+            title = "Indexing workspace",
+            initialMessage = "Indexing ${sourceUris.size} Groovy files...",
+        )
+
+        coroutineScope.launch(Dispatchers.Default) {
+            try {
+                compilationService.indexAllWorkspaceSources(sourceUris) { indexed, total ->
+                    val percentage = if (total > 0) (indexed * 100 / total) else 0
+                    indexingProgressReporter.updateProgress(
+                        "Indexed $indexed/$total files",
+                        percentage,
+                    )
+                }
+
+                indexingProgressReporter.complete("✅ Indexed ${sourceUris.size} files")
+                logger.info("Workspace indexing complete: ${sourceUris.size} files")
+            } catch (e: Exception) {
+                logger.error("Workspace indexing failed", e)
+                indexingProgressReporter.completeWithError("Failed to index workspace: ${e.message}")
+            }
+        }
+    }
 
     /**
      * Waits for dependency resolution to complete, useful for CLI/testing.
