@@ -1,8 +1,8 @@
-name: Release Please (Stable)
+name: Release Please (Alpha)
 
 on:
   push:
-    branches: [main]
+    branches: [alpha]
   workflow_dispatch:
 
 permissions:
@@ -18,10 +18,11 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
 
     steps:
-      - name: Create stable release PR or release
+      - name: Create alpha release PR or release
         uses: googleapis/release-please-action@v4
         id: release
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-          config-file: .release-please-config.json
-          manifest-file: .release-please-manifest.json
+          config-file: .github/release-please-config-alpha.json
+          manifest-file: .github/.release-please-manifest-alpha.json
+          target-branch: alpha
