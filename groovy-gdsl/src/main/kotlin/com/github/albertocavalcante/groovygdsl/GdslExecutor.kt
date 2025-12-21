@@ -32,6 +32,7 @@ class GdslExecutor {
      * @param scriptName Name for error reporting
      * @throws Exception if script execution fails
      */
+    @Suppress("TooGenericExceptionCaught")
     fun execute(scriptContent: String, scriptName: String = "script.gdsl") {
         try {
             val shell = createGroovyShell()
@@ -53,6 +54,7 @@ class GdslExecutor {
      * @param scriptName Name for error reporting (default: "script.gdsl")
      * @return GdslParseResult containing captured methods, properties, and success status
      */
+    @Suppress("TooGenericExceptionCaught")
     fun executeAndCapture(scriptContent: String, scriptName: String = "script.gdsl"): GdslParseResult = try {
         val shell = createGroovyShell()
         val script = shell.parse(scriptContent, scriptName) as GdslScript
