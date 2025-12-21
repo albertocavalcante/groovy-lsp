@@ -18,7 +18,13 @@ ruleset {
     // - ForbiddenCallInCpsMethod: Non-CPS methods called with CPS closures
     // - ObjectOverrideOnlyNonCpsMethods: Overridden Object methods must be @NonCPS
     // - ParameterOrReturnTypeNotSerializable: Parameters/returns must be Serializable
-    ruleset('rulesets/jenkins.xml')
+    ruleset('rulesets/jenkins.xml') {
+        // Configure CpsCallFromNonCpsMethod for common Jenkins patterns
+        CpsCallFromNonCpsMethod {
+            cpsScriptVariableName = 'script'
+            cpsPackages = []
+        }
+    }
 
     // Basic rules (excluding patterns common in Jenkinsfiles)
     ruleset('rulesets/basic.xml') {
@@ -32,10 +38,4 @@ ruleset {
     ruleset('rulesets/formatting.xml') {
         exclude 'LineLength'  // Jenkinsfiles often have long lines
     }
-}
-
-// Configure CpsCallFromNonCpsMethodRule for common Jenkins patterns
-CpsCallFromNonCpsMethodRule {
-    cpsScriptVariableName = 'script'
-    cpsPackages = []
 }

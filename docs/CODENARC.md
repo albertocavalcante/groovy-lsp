@@ -264,7 +264,7 @@ When disabled, CodeNarc analysis is skipped entirely (no ruleset loading, no dia
 
 **Fallback Mechanism**: If custom rulesets are missing from the classpath, the LSP automatically falls back to CodeNarc's bundled XML rulesets, preventing crashes.
 
-**Legacy Configuration** (for custom rulesets):
+**Customizing Jenkins Rules** (for custom rulesets):
 
 Jenkins projects require special handling due to DSL patterns and implicit variables:
 

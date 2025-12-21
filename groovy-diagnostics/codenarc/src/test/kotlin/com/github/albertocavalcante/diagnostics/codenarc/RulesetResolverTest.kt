@@ -51,13 +51,16 @@ class RulesetResolverTest {
         val context = createWorkspaceContext(tempDir, enabled = true)
         val config = resolver.resolve(context)
 
-        // Then: Should load Jenkins ruleset
+        // Then: Should load Jenkins ruleset from classpath resource
         assertNotNull(config.rulesetContent)
-        assertTrue(config.source.contains("jenkins"), "Expected Jenkins ruleset, got: ${config.source}")
+        assertEquals(
+            "resource:codenarc/rulesets/frameworks/jenkins.groovy",
+            config.source,
+            "Expected Jenkins ruleset resource",
+        )
         assertTrue(
-            config.rulesetContent.contains("rulesets/jenkins.xml") ||
-                config.rulesetContent.contains("jenkins"),
-            "Ruleset should reference Jenkins rules",
+            config.rulesetContent.contains("ruleset('rulesets/jenkins.xml')"),
+            "Ruleset should reference Jenkins CPS rules",
         )
     }
 
@@ -67,11 +70,12 @@ class RulesetResolverTest {
         val context = createWorkspaceContext(tempDir, enabled = true)
         val config = resolver.resolve(context)
 
-        // Then: Should load default ruleset
+        // Then: Should load default ruleset from classpath resource
         assertNotNull(config.rulesetContent)
-        assertTrue(
-            config.source.contains("default") || config.source.contains("basic"),
-            "Expected default ruleset, got: ${config.source}",
+        assertEquals(
+            "resource:codenarc/rulesets/base/default.groovy",
+            config.source,
+            "Expected default ruleset resource",
         )
     }
 

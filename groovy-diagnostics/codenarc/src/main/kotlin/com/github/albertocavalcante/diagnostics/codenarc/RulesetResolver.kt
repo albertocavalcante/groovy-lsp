@@ -260,7 +260,7 @@ class HierarchicalRulesetResolver(
         // Try default ruleset as fallback
         val defaultResourcePath = "codenarc/rulesets/base/default.groovy"
         loadRulesetFromResource(defaultResourcePath)?.let {
-            logger.info("Falling back to default ruleset: $defaultResourcePath")
+            logger.info("Falling back to default ruleset: {}", defaultResourcePath)
             return ResolvedRuleset(it, "resource:$defaultResourcePath")
         }
 
