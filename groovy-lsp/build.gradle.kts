@@ -549,9 +549,9 @@ abstract class SmokeShadowJarTask
                 """
                 // Minimal Groovy file used for jar smoke checks
                 // Intentionally includes trailing whitespace so `check` reliably emits at least one diagnostic.
-                class Smoke {
+                class Smoke {  \u0020
                   static void main(String[] args) {
-                    println "ok"
+                    println "ok"  \u0020
                   }
                 }
                 """.trimIndent(),
