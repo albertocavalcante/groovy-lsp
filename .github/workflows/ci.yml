@@ -159,6 +159,30 @@ jobs:
           # Set output to signal downstream jobs to skip
           echo "provisioning_triggered=true" >> $GITHUB_OUTPUT
 
+      # --- Local macOS Check ---
+      - name: Check Local macOS runner
+        if: steps.mode.outputs.label == 'local-macos'
+        id: check-local
+        uses: ./.github/actions/runner-status
+        with:
+          mode: check
+          label: local-macos
+          github-token: ${{ secrets.GH_PAT_RUNNER }}
+
+      - name: Verify Local macOS Availability
+        if: steps.mode.outputs.label == 'local-macos' && steps.check-local.outputs.has-runners != 'true'
+        run: |
+          echo "❌ No local macOS runner found online with label 'local-macos'."
+          echo ""
+          echo "To set up a runner on your Mac:"
+          echo "  ./tools/github/actions/setup-macos-runner.sh"
+          echo ""
+          echo "Ensure the runner service is active:"
+          echo "  cd ~/.gha-runners/groovy-lsp-*"
+          echo "  ./svc.sh status"
+          echo ""
+          exit 1
+
   build:
     name: Build and Test
     needs: [check-paths, check-runner]
