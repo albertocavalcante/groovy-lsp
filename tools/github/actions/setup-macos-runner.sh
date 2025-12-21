@@ -137,6 +137,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Save original directory for multi-runner loops
+ORIGINAL_DIR="$(pwd)"
+
 # Loop to create multiple runners
 for ((i=1; i<=RUNNER_COUNT; i++)); do
     if [ "$RUNNER_COUNT" -gt 1 ]; then
@@ -324,4 +327,7 @@ else
     echo "  cd $CURRENT_RUNNER_DIR"
     echo "  ./svc.sh install && ./svc.sh start"
 fi
+
+# Return to original directory for next iteration
+cd "$ORIGINAL_DIR"
 done  # End of runner creation loop
