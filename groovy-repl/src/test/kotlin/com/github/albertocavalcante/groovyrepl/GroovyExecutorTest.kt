@@ -190,4 +190,46 @@ class GroovyExecutorTest {
         assertThat(bindings).containsEntry("name", "Groovy")
         assertThat(bindings).containsEntry("version", 4)
     }
+
+    @Test
+    fun `should have Apache Ivy available for Grape support`() {
+        // This test ensures the Ivy dependency is on the classpath.
+        // Without Ivy, @Grab annotations fail with:
+        // NoClassDefFoundError: org/apache/ivy/util/MessageLogger
+
+        // Given: An executor
+        val executor = GroovyExecutor()
+
+        // When: Checking if Ivy's MessageLogger class is loadable (the class from the error)
+        val result = executor.execute(
+            """
+            try {
+                Class.forName('org.apache.ivy.util.MessageLogger')
+                'ivy-available'
+            } catch (ClassNotFoundException e) {
+                'ivy-missing'
+            }
+            """.trimIndent(),
+        )
+
+        // Then: Ivy should be available
+        assertThat(result.isSuccess).isTrue()
+        assertThat(result.value).isEqualTo("ivy-available")
+    }
+
+    @Test
+    fun `should have Grape engine available`() {
+        // Verifies that Groovy's Grape (dependency grabber) can be instantiated.
+        // This is a prerequisite for @Grab to work.
+
+        // Given: An executor
+        val executor = GroovyExecutor()
+
+        // When: Getting the Grape instance
+        val result = executor.execute("groovy.grape.Grape.getInstance() != null")
+
+        // Then: Should succeed without NoClassDefFoundError
+        assertThat(result.isSuccess).isTrue()
+        assertThat(result.value).isEqualTo(true)
+    }
 }
