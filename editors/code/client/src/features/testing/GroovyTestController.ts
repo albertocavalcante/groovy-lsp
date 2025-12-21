@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { GradleExecutionService } from './GradleExecutionService';
 import { TestService, TestSuite, Test } from './TestService';
+import { CoverageService } from './CoverageService';
 
 export class GroovyTestController {
   private readonly ctrl: vscode.TestController;
@@ -9,6 +10,7 @@ export class GroovyTestController {
     context: vscode.ExtensionContext,
     private readonly executionService: GradleExecutionService,
     private readonly testService?: TestService,
+    private readonly coverageService?: CoverageService,
   ) {
     this.ctrl = vscode.tests.createTestController(
       'groovy-test-controller',
@@ -35,6 +37,22 @@ export class GroovyTestController {
       (request, token) => this.executionService.debugTests(request, token),
       false,
     );
+
+    // Coverage profile requires CoverageService
+    if (this.coverageService) {
+      this.ctrl.createRunProfile(
+        'Run with Coverage',
+        vscode.TestRunProfileKind.Coverage,
+        (request, token) =>
+          this.executionService.runTestsWithCoverage(
+            request,
+            token,
+            this.ctrl,
+            this.coverageService!,
+          ),
+        false,
+      );
+    }
   }
 
   private setupResolveHandler() {
