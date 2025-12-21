@@ -16,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicInteger
 import org.codehaus.groovy.ast.ASTNode
 import org.eclipse.lsp4j.Diagnostic
 import org.slf4j.LoggerFactory
@@ -24,6 +23,7 @@ import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 class GroovyCompilationService {
     companion object {
