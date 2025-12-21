@@ -41,14 +41,14 @@
 
 | Priority | Feature | Spec |
 |----------|---------|------|
-| P1 | [Jenkins @Library Resolution](#jenkins-library-resolution) | [→ Spec](docs/specs/JENKINS_LIBRARY_RESOLUTION.md) |
-| P1 | [Workspace Config Refresh](#workspace-config-refresh) | [→ Spec](docs/specs/WORKSPACE_CONFIG_REFRESH.md) |
-| P1 | [Classpath-Aware Completion](#classpath-aware-completion) | [→ Spec](docs/specs/CLASSPATH_COMPLETION.md) |
-| P1 | [Workspace-Wide Navigation](#workspace-wide-navigation) | [→ Spec](docs/specs/WORKSPACE_NAVIGATION.md) |
-| P2 | [File Change Watching](#file-change-watching) | [→ Spec](docs/specs/FILE_WATCHING.md) |
-| P2 | [Type Hierarchy](#type-hierarchy) | [→ Spec](docs/specs/TYPE_HIERARCHY.md) |
+| P1 | [Jenkins @Library Resolution](#jenkins-library-resolution) | [→ Spec](specs/JENKINS_LIBRARY_RESOLUTION.md) |
+| P1 | [Workspace Config Refresh](#workspace-config-refresh) | [→ Spec](specs/WORKSPACE_CONFIG_REFRESH.md) |
+| P1 | [Classpath-Aware Completion](#classpath-aware-completion) | [→ Spec](specs/CLASSPATH_COMPLETION.md) |
+| P1 | [Workspace-Wide Navigation](#workspace-wide-navigation) | [→ Spec](specs/WORKSPACE_NAVIGATION.md) |
+| P2 | [File Change Watching](#file-change-watching) | [→ Spec](specs/FILE_WATCHING.md) |
+| P2 | [Type Hierarchy](#type-hierarchy) | [→ Spec](specs/TYPE_HIERARCHY.md) |
 
-[📋 Detailed v0.4.0 Plan](docs/ROADMAP-0.4.0.md)
+[📋 Detailed v0.4.0 Plan](../ROADMAP-0.4.0.md)
 
 ---
 
@@ -59,11 +59,11 @@
 
 | Priority | Feature | Spec |
 |----------|---------|------|
-| P1 | [Context-Aware Jenkins Completions](#context-aware-jenkins-completions) | [→ Spec](docs/JENKINS_INTELLISENSE_ARCHITECTURE.md) |
-| P1 | [GDSL Execution Engine](#gdsl-execution-engine) | [→ Spec](docs/specs/GDSL_EXECUTION_ENGINE.md) |
-| P1 | [Versioned Jenkins Metadata](#versioned-jenkins-metadata) | [→ Spec](docs/specs/VERSIONED_METADATA.md) |
-| P2 | [Plugin Introspection](#plugin-introspection) | [→ Spec](docs/specs/PLUGIN_INTROSPECTION.md) |
-| P2 | [User Override System](#user-override-system) | [→ Spec](docs/specs/USER_OVERRIDES.md) |
+| P1 | [Context-Aware Jenkins Completions](#context-aware-jenkins-completions) | [→ Spec](../JENKINS_INTELLISENSE_ARCHITECTURE.md) |
+| P1 | [GDSL Execution Engine](#gdsl-execution-engine) | [→ Spec](specs/GDSL_EXECUTION_ENGINE.md) |
+| P1 | [Versioned Jenkins Metadata](#versioned-jenkins-metadata) | [→ Spec](specs/VERSIONED_METADATA.md) |
+| P2 | [Plugin Introspection](#plugin-introspection) | [→ Spec](specs/PLUGIN_INTROSPECTION.md) |
+| P2 | [User Override System](#user-override-system) | [→ Spec](specs/USER_OVERRIDES.md) |
 
 ---
 
@@ -74,11 +74,11 @@
 
 | Priority | Feature | Spec |
 |----------|---------|------|
-| P1 | [Rename Refactoring](#rename-refactoring) | [→ Spec](docs/specs/RENAME_REFACTORING.md) |
-| P1 | [Extract Method/Variable](#extract-refactoring) | [→ Spec](docs/specs/EXTRACT_REFACTORING.md) |
-| P1 | [Semantic Tokens](#semantic-tokens) | [→ Spec](docs/specs/SEMANTIC_TOKENS.md) |
-| P2 | [Inlay Hints](#inlay-hints) | [→ Spec](docs/specs/INLAY_HINTS.md) |
-| P2 | [Call Hierarchy](#call-hierarchy) | [→ Spec](docs/specs/CALL_HIERARCHY.md) |
+| P1 | [Rename Refactoring](#rename-refactoring) | [→ Spec](specs/RENAME_REFACTORING.md) |
+| P1 | [Extract Method/Variable](#extract-refactoring) | [→ Spec](specs/EXTRACT_REFACTORING.md) |
+| P1 | [Semantic Tokens](#semantic-tokens) | [→ Spec](specs/SEMANTIC_TOKENS.md) |
+| P2 | [Inlay Hints](#inlay-hints) | [→ Spec](specs/INLAY_HINTS.md) |
+| P2 | [Call Hierarchy](#call-hierarchy) | [→ Spec](specs/CALL_HIERARCHY.md) |
 
 ---
 
@@ -89,11 +89,11 @@
 
 | Priority | Feature | Spec |
 |----------|---------|------|
-| P1 | [Gradle DSL Support](#gradle-dsl-support) | [→ Spec](docs/specs/GRADLE_DSL.md) |
-| P1 | [Performance Optimization](#performance-optimization) | [→ Spec](docs/PHASE_3_PERFORMANCE_PLAN.md) |
-| P1 | [DSLD Support](#dsld-support) | [→ Spec](docs/specs/DSLD_SUPPORT.md) |
-| P2 | [Multi-Root Workspace](#multi-root-workspace) | [→ Spec](docs/specs/MULTI_ROOT.md) |
-| P2 | [Debug Adapter Protocol](#debug-adapter) | [→ Spec](docs/specs/DAP.md) |
+| P1 | [Gradle DSL Support](#gradle-dsl-support) | [→ Spec](specs/GRADLE_DSL.md) |
+| P1 | [Performance Optimization](#performance-optimization) | [→ Spec](../PHASE_3_PERFORMANCE_PLAN.md) |
+| P1 | [DSLD Support](#dsld-support) | [→ Spec](specs/DSLD_SUPPORT.md) |
+| P2 | [Multi-Root Workspace](#multi-root-workspace) | [→ Spec](specs/MULTI_ROOT.md) |
+| P2 | [Debug Adapter Protocol](#debug-adapter) | [→ Spec](specs/DAP.md) |
 
 ---
 
@@ -108,9 +108,9 @@
 | Local variable completion | ✅ Done | – |
 | Method completion | ✅ Done | – |
 | Import completion | ✅ Done | – |
-| Classpath completion | 🔲 Planned | [→](docs/specs/CLASSPATH_COMPLETION.md) |
-| Smart completion (type-aware) | 🔲 Planned | [→](docs/specs/SMART_COMPLETION.md) |
-| Postfix completion | 🔲 Planned | [→](docs/specs/POSTFIX_COMPLETION.md) |
+| Classpath completion | 🔲 Planned | [→](specs/CLASSPATH_COMPLETION.md) |
+| Smart completion (type-aware) | 🔲 Planned | [→](specs/SMART_COMPLETION.md) |
+| Postfix completion | 🔲 Planned | [→](specs/POSTFIX_COMPLETION.md) |
 
 #### Navigation
 | Feature | Status | Spec |
@@ -120,25 +120,25 @@
 | Find References | ✅ Done | – |
 | Document Symbols | ✅ Done | – |
 | Workspace Symbols | ✅ Done | – |
-| Go to Implementation | 🔲 Planned | [→](docs/specs/TYPE_HIERARCHY.md) |
-| Call Hierarchy | 🔲 Planned | [→](docs/specs/CALL_HIERARCHY.md) |
-| Type Hierarchy | 🔲 Planned | [→](docs/specs/TYPE_HIERARCHY.md) |
+| Go to Implementation | 🔲 Planned | [→](specs/TYPE_HIERARCHY.md) |
+| Call Hierarchy | 🔲 Planned | [→](specs/CALL_HIERARCHY.md) |
+| Type Hierarchy | 🔲 Planned | [→](specs/TYPE_HIERARCHY.md) |
 
 #### Diagnostics
 | Feature | Status | Spec |
 |---------|--------|------|
 | Compiler errors | ✅ Done | – |
-| CodeNarc linting | ✅ Done | [→](docs/CODENARC.md) |
-| Jenkins CPS rules | ✅ Done | [→](docs/CODENARC.md) |
+| CodeNarc linting | ✅ Done | [→](../CODENARC.md) |
+| Jenkins CPS rules | ✅ Done | [→](../CODENARC.md) |
 | Unused imports | ✅ Done | – |
-| Quick fixes | ⏳ In Progress | [→](docs/specs/QUICK_FIXES.md) |
+| Quick fixes | ⏳ In Progress | [→](specs/QUICK_FIXES.md) |
 
 #### Refactoring
 | Feature | Status | Spec |
 |---------|--------|------|
-| Rename symbol | ⏳ In Progress | [→](docs/specs/RENAME_REFACTORING.md) |
-| Extract variable | 🔲 Planned | [→](docs/specs/EXTRACT_REFACTORING.md) |
-| Extract method | 🔲 Planned | [→](docs/specs/EXTRACT_REFACTORING.md) |
+| Rename symbol | ⏳ In Progress | [→](specs/RENAME_REFACTORING.md) |
+| Extract variable | 🔲 Planned | [→](specs/EXTRACT_REFACTORING.md) |
+| Extract method | 🔲 Planned | [→](specs/EXTRACT_REFACTORING.md) |
 | Inline variable | 🔲 Planned | – |
 | Organize imports | 🔲 Planned | – |
 
@@ -152,11 +152,11 @@
 | Step completion | ✅ Done | – |
 | Global variable completion | ✅ Done | – |
 | Shared library vars completion | ✅ Done | – |
-| @Library resolution | 🔲 Planned | [→](docs/specs/JENKINS_LIBRARY_RESOLUTION.md) |
-| Context-aware completion | 🔲 Planned | [→](docs/JENKINS_INTELLISENSE_ARCHITECTURE.md) |
-| Plugin metadata extraction | 🔲 Planned | [→](docs/specs/PLUGIN_INTROSPECTION.md) |
-| CPS safety diagnostics | ✅ Done | [→](docs/CODENARC.md) |
-| Declarative pipeline support | ⏳ In Progress | [→](docs/JENKINS_INTELLISENSE_ARCHITECTURE.md) |
+| @Library resolution | 🔲 Planned | [→](specs/JENKINS_LIBRARY_RESOLUTION.md) |
+| Context-aware completion | 🔲 Planned | [→](../JENKINS_INTELLISENSE_ARCHITECTURE.md) |
+| Plugin metadata extraction | 🔲 Planned | [→](specs/PLUGIN_INTROSPECTION.md) |
+| CPS safety diagnostics | ✅ Done | [→](../CODENARC.md) |
+| Declarative pipeline support | ⏳ In Progress | [→](../JENKINS_INTELLISENSE_ARCHITECTURE.md) |
 
 ---
 
@@ -165,18 +165,18 @@
 #### Spock Testing Framework
 | Feature | Status | Spec |
 |---------|--------|------|
-| Spec class detection | ✅ Done | [→](docs/SPOCK_SUPPORT.md) |
-| Block detection (given/when/then) | ✅ Done | [→](docs/SPOCK_AST_SUPPORT.md) |
-| Data table completion | 🔲 Planned | [→](docs/SPOCK_NEXT_STEPS.md) |
-| Mock/Stub support | 🔲 Planned | [→](docs/SPOCK_NEXT_STEPS.md) |
+| Spec class detection | ✅ Done | [→](../SPOCK_SUPPORT.md) |
+| Block detection (given/when/then) | ✅ Done | [→](../SPOCK_AST_SUPPORT.md) |
+| Data table completion | 🔲 Planned | [→](../SPOCK_NEXT_STEPS.md) |
+| Mock/Stub support | 🔲 Planned | [→](../SPOCK_NEXT_STEPS.md) |
 
 #### Gradle Build Scripts
 | Feature | Status | Spec |
 |---------|--------|------|
-| build.gradle parsing | 🔲 Planned | [→](docs/specs/GRADLE_DSL.md) |
-| Task completion | 🔲 Planned | [→](docs/specs/GRADLE_DSL.md) |
-| Dependency completion | 🔲 Planned | [→](docs/specs/GRADLE_DSL.md) |
-| Plugin DSL support | 🔲 Planned | [→](docs/specs/GRADLE_DSL.md) |
+| build.gradle parsing | 🔲 Planned | [→](specs/GRADLE_DSL.md) |
+| Task completion | 🔲 Planned | [→](specs/GRADLE_DSL.md) |
+| Dependency completion | 🔲 Planned | [→](specs/GRADLE_DSL.md) |
+| Plugin DSL support | 🔲 Planned | [→](specs/GRADLE_DSL.md) |
 
 ---
 
@@ -184,10 +184,10 @@
 
 | Feature | Status | Spec |
 |---------|--------|------|
-| GDSL script execution | ⏳ In Progress | [→](docs/specs/GDSL_EXECUTION_ENGINE.md) |
-| GDSL text parsing | ✅ Done | [→](docs/JENKINS_INTELLISENSE_ARCHITECTURE.md) |
-| DSLD (Eclipse format) | 🔲 Planned | [→](docs/specs/DSLD_SUPPORT.md) |
-| Custom DSL registration | 🔲 Planned | [→](docs/specs/USER_OVERRIDES.md) |
+| GDSL script execution | ⏳ In Progress | [→](specs/GDSL_EXECUTION_ENGINE.md) |
+| GDSL text parsing | ✅ Done | [→](../JENKINS_INTELLISENSE_ARCHITECTURE.md) |
+| DSLD (Eclipse format) | 🔲 Planned | [→](specs/DSLD_SUPPORT.md) |
+| Custom DSL registration | 🔲 Planned | [→](specs/USER_OVERRIDES.md) |
 
 ---
 
@@ -231,7 +231,7 @@
 └─────────────────┘  └─────────────────┘
 ```
 
-[→ Full Architecture Documentation](docs/ARCHITECTURE.md)
+[→ Full Architecture Documentation](../ARCHITECTURE.md)
 
 ---
 
@@ -241,27 +241,28 @@
 
 | Document | Description |
 |----------|-------------|
-| [LSP Implementation Guide](LSP_SPECIFICATION_IMPLEMENTATION_GUIDE.md) | LSP 3.17 compliance details |
-| [Architecture](docs/ARCHITECTURE.md) | Module structure and design |
-| [Performance Plan](docs/PHASE_3_PERFORMANCE_PLAN.md) | Optimization strategies |
+| [LSP Implementation Guide](../../LSP_SPECIFICATION_IMPLEMENTATION_GUIDE.md) | LSP 3.17 compliance details |
+| [Architecture](../ARCHITECTURE.md) | Module structure and design |
+| [Performance Plan](../PHASE_3_PERFORMANCE_PLAN.md) | Optimization strategies |
 
 ### Feature Specifications
 
 | Document | Description |
 |----------|-------------|
-| [Jenkins IntelliSense](docs/JENKINS_INTELLISENSE_ARCHITECTURE.md) | Jenkins completion architecture |
-| [Spock Support](docs/SPOCK_SUPPORT.md) | Spock framework integration |
-| [CodeNarc Integration](docs/CODENARC.md) | Linting and diagnostics |
-| [BSP Integration](docs/BSP_CLIENT_IMPLEMENTATION.md) | Build Server Protocol |
-| [Gradle Integration](docs/GRADLE_BUILD_SERVER_INTEGRATION.md) | Gradle Build Server |
+| [Jenkins IntelliSense](../JENKINS_INTELLISENSE_ARCHITECTURE.md) | Jenkins completion architecture |
+| [Spock Support](../SPOCK_SUPPORT.md) | Spock framework integration |
+| [CodeNarc Integration](../CODENARC.md) | Linting and diagnostics |
+| [BSP Integration](../BSP_CLIENT_IMPLEMENTATION.md) | Build Server Protocol |
+| [Gradle Integration](../GRADLE_BUILD_SERVER_INTEGRATION.md) | Gradle Build Server |
 
 ### Technical Specifications
 
 | Document | Description |
 |----------|-------------|
-| [GDSL Execution](docs/specs/GDSL_EXECUTION_ENGINE.md) | GDSL script execution |
-| [Versioned Metadata](docs/specs/VERSIONED_METADATA.md) | Jenkins version-aware metadata |
-| [User Overrides](docs/specs/USER_OVERRIDES.md) | Custom configuration system |
+| [Specs Index](specs/INDEX.md) | All technical specifications |
+| [GDSL Execution](specs/GDSL_EXECUTION_ENGINE.md) | GDSL script execution |
+| [Versioned Metadata](specs/VERSIONED_METADATA.md) | Jenkins version-aware metadata |
+| [User Overrides](specs/USER_OVERRIDES.md) | Custom configuration system |
 
 ---
 
@@ -291,7 +292,7 @@
 
 ## 🤝 Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 
 ### Priority Labels
 - **P0-critical:** Blocker bugs, security issues
@@ -327,4 +328,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ---
 
 *Last updated: December 21, 2025*
-

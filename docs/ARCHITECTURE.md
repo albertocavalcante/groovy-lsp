@@ -219,7 +219,8 @@ Priority (high to low):
 5. Bundled Metadata (fallback)
 ```
 
-[→ Jenkins IntelliSense Architecture](JENKINS_INTELLISENSE_ARCHITECTURE.md)
+[→ Jenkins IntelliSense Architecture](JENKINS_INTELLISENSE_ARCHITECTURE.md)  
+[→ Roadmap](roadmap/README.md)
 
 ---
 
@@ -252,7 +253,7 @@ GDSL script execution for dynamic DSL support.
 | `GdslContributor` | Captures DSL contributions |
 | `GdslLoader` | Loads bundled GDSL files |
 
-[→ GDSL Execution Engine Spec](specs/GDSL_EXECUTION_ENGINE.md)
+[→ GDSL Execution Engine Spec](roadmap/specs/GDSL_EXECUTION_ENGINE.md)
 
 ---
 
