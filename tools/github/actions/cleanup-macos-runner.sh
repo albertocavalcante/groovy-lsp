@@ -18,6 +18,7 @@ REPO_NAME="groovy-lsp"
 # Parse arguments
 CLEAN_CACHE=false
 SKIP_UNREGISTER=false
+CUSTOM_PATH=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -29,6 +30,10 @@ while [[ $# -gt 0 ]]; do
             SKIP_UNREGISTER=true
             shift
             ;;
+        --path)
+            CUSTOM_PATH="$2"
+            shift 2
+            ;;
         --help|-h)
             cat << EOF
 GitHub Actions Runner Cleanup
@@ -37,15 +42,27 @@ USAGE:
     $(basename "$0") [OPTIONS]
 
 OPTIONS:
+    --path PATTERN     Custom path/pattern for runner directories
+                       (default: ~/.gha-runners/groovy-lsp-*)
     --all              Also remove cached runner downloads
     --skip-unregister  Skip GitHub unregistration (faster, leaves orphaned entries)
     --help             Show this help
 
+EXAMPLES:
+    # Clean up groovy-lsp runners (default)
+    $(basename "$0")
+
+    # Clean up legacy runners
+    $(basename "$0") --path "~/actions*"
+
+    # Clean specific directory
+    $(basename "$0") --path ~/actions-runner
+
 DESCRIPTION:
-    Removes all groovy-lsp runners from this machine:
+    Removes GitHub Actions runners from this machine:
     - Stops and uninstalls services
     - Unregisters from GitHub (unless --skip-unregister)
-    - Removes runner directories (~/.gha-runners/groovy-lsp-*)
+    - Removes runner directories
     - Optionally removes cache (--all)
 
 EOF
@@ -61,11 +78,25 @@ done
 echo "GitHub Actions Runner Cleanup"
 echo ""
 
-# Find all groovy-lsp runner directories
-RUNNER_DIRS=($(find ~/.gha-runners -maxdepth 1 -type d -name "groovy-lsp-*" 2>/dev/null || true))
+# Determine search pattern
+if [ -n "$CUSTOM_PATH" ]; then
+    # Expand tilde manually for custom paths
+    SEARCH_PATTERN="${CUSTOM_PATH/#\~/$HOME}"
+    echo "Searching: $CUSTOM_PATH"
+else
+    SEARCH_PATTERN="$HOME/.gha-runners/groovy-lsp-*"
+    echo "Searching: ~/.gha-runners/groovy-lsp-*"
+fi
+echo ""
+
+# Find runner directories using glob expansion
+shopt -s nullglob
+RUNNER_DIRS=($SEARCH_PATTERN)
+shopt -u nullglob
+
 
 if [ ${#RUNNER_DIRS[@]} -eq 0 ]; then
-    echo "No groovy-lsp runners found in ~/.gha-runners/"
+    echo "No runner directories found matching pattern."
 
     if [ "$CLEAN_CACHE" = true ]; then
         echo "Checking for cache..."
