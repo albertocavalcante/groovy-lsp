@@ -15,10 +15,10 @@ class BuildToolManagerTest {
     @TempDir
     lateinit var tempDir: Path
 
-    // Test doubles
-    private val bspBuildTool = TestBuildTool("BSP", canHandleCheck = { hasBspDir(it) })
-    private val gradleBuildTool = TestBuildTool("Gradle", canHandleCheck = { hasGradleFiles(it) })
-    private val mavenBuildTool = TestBuildTool("Maven", canHandleCheck = { hasMavenFiles(it) })
+    // Test doubles implement marker interfaces for type-safe filtering
+    private val bspBuildTool = FakeBspBuildTool { hasBspDir(it) }
+    private val gradleBuildTool = FakeGradleBuildTool { hasGradleFiles(it) }
+    private val mavenBuildTool = FakeBuildTool("Maven") { hasMavenFiles(it) }
 
     private fun hasBspDir(workspaceRoot: Path): Boolean = workspaceRoot.resolve(".bsp").toFile().exists()
 
@@ -231,10 +231,36 @@ class BuildToolManagerTest {
         )
     }
 
+    // -------------------------------------------------------------------------
+    // Test Doubles - implement marker interfaces for type-safe filterIsInstance
+    // -------------------------------------------------------------------------
+
     /**
-     * Test double for BuildTool that uses a provided check function.
+     * Fake BuildTool for non-specialized build tools (e.g., Maven).
      */
-    private class TestBuildTool(override val name: String, private val canHandleCheck: (Path) -> Boolean) : BuildTool {
+    private class FakeBuildTool(override val name: String, private val canHandleCheck: (Path) -> Boolean) : BuildTool {
+        override fun canHandle(workspaceRoot: Path): Boolean = canHandleCheck(workspaceRoot)
+        override fun resolve(workspaceRoot: Path, onProgress: ((String) -> Unit)?): WorkspaceResolution =
+            WorkspaceResolution.empty()
+    }
+
+    /**
+     * Fake BSP build tool implementing marker interface.
+     * filterIsInstance<BspCompatibleBuildTool> will match this.
+     */
+    private class FakeBspBuildTool(private val canHandleCheck: (Path) -> Boolean) : BspCompatibleBuildTool {
+        override val name: String = "BSP"
+        override fun canHandle(workspaceRoot: Path): Boolean = canHandleCheck(workspaceRoot)
+        override fun resolve(workspaceRoot: Path, onProgress: ((String) -> Unit)?): WorkspaceResolution =
+            WorkspaceResolution.empty()
+    }
+
+    /**
+     * Fake native Gradle build tool implementing marker interface.
+     * filterIsInstance<NativeGradleBuildTool> will match this.
+     */
+    private class FakeGradleBuildTool(private val canHandleCheck: (Path) -> Boolean) : NativeGradleBuildTool {
+        override val name: String = "Gradle"
         override fun canHandle(workspaceRoot: Path): Boolean = canHandleCheck(workspaceRoot)
         override fun resolve(workspaceRoot: Path, onProgress: ((String) -> Unit)?): WorkspaceResolution =
             WorkspaceResolution.empty()

@@ -72,14 +72,14 @@ class BuildToolManager(
      * Finds a native Gradle build tool (not BSP) that can handle this workspace.
      */
     private fun findGradleBuildTool(workspaceRoot: Path): BuildTool? = buildTools
-        .filter { it.name.equals("Gradle", ignoreCase = true) }
+        .filterIsInstance<NativeGradleBuildTool>()
         .firstOrNull { it.canHandle(workspaceRoot) }
 
     /**
      * Finds a BSP build tool that can handle this workspace.
      */
     private fun findBspBuildTool(workspaceRoot: Path): BuildTool? = buildTools
-        .filter { it.name.equals("BSP", ignoreCase = true) }
+        .filterIsInstance<BspCompatibleBuildTool>()
         .firstOrNull { it.canHandle(workspaceRoot) }
 
     /**
@@ -101,6 +101,6 @@ class BuildToolManager(
     private fun hasBspConnection(workspaceRoot: Path): Boolean {
         val bspDir = workspaceRoot.resolve(".bsp")
         if (!bspDir.exists()) return false
-        return bspDir.toFile().listFiles()?.any { it.extension == "json" } == true
+        return bspDir.toFile().listFiles()?.any { it.extension == "json" } ?: false
     }
 }

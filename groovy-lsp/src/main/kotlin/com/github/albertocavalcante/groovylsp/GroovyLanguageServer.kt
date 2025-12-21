@@ -256,13 +256,15 @@ class GroovyLanguageServer :
         // Initialize build tool manager with configured strategy
         // This allows users to control BSP vs native Gradle resolution
         logger.info("Gradle build strategy: ${config.gradleBuildStrategy}")
-        buildToolManager = BuildToolManager(
+        val newBuildToolManager = BuildToolManager(
             buildTools = availableBuildTools,
             gradleBuildStrategy = config.gradleBuildStrategy,
         )
-        dependencyManager = DependencyManager(buildToolManager!!, coroutineScope)
+        buildToolManager = newBuildToolManager
+        val newDependencyManager = DependencyManager(newBuildToolManager, coroutineScope)
+        dependencyManager = newDependencyManager
 
-        dependencyManager!!.startAsyncResolution(
+        newDependencyManager.startAsyncResolution(
             workspaceRoot = workspaceRoot,
             onProgress = { percentage, message ->
                 progressReporter.updateProgress(message, percentage)
