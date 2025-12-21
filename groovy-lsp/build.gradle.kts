@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.testing.TestDescriptor
+import org.gradle.api.tasks.testing.TestResult
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.process.ExecOperations
 import java.io.ByteArrayOutputStream
 import java.time.Duration
@@ -146,7 +149,7 @@ tasks.test {
     testLogging {
         showStandardStreams = true
         events("passed", "skipped", "failed", "standardOut", "standardError")
-        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        exceptionFormat = TestExceptionFormat.FULL
         showStackTraces = true
         showExceptions = true
         showCauses = true
@@ -158,7 +161,7 @@ tasks.test {
     val verySlowTestThresholdMs = 180_000L
 
     afterTest(
-        KotlinClosure2<org.gradle.api.tasks.testing.TestDescriptor, org.gradle.api.tasks.testing.TestResult, Unit>({
+        KotlinClosure2<TestDescriptor, TestResult, Unit>({
             descriptor,
             result,
             ->
