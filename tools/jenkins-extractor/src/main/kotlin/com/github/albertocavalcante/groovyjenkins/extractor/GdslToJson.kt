@@ -22,6 +22,7 @@ import kotlin.io.path.name
 import kotlin.io.path.readBytes
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import kotlin.system.exitProcess
 
 private val logger = LoggerFactory.getLogger("GdslToJson")
 
@@ -39,6 +40,15 @@ data class ExtractionInputs(
     val gdslSha256: String,
     val pluginsManifestSha256: String,
     val extractedAt: String? = null,
+)
+
+private data class CliArgs(
+    val gdslFile: Path,
+    val outputDir: Path,
+    val jenkinsVersion: String,
+    val pluginId: String,
+    val pluginVersion: String,
+    val pluginDisplayName: String? = null,
 )
 
 /**
@@ -158,47 +168,24 @@ fun writePluginMetadataJson(gdslContent: String, pluginInfo: PluginInfo, inputs:
  *   GdslToJson jenkins.gdsl output/ 2.426.3 workflow-basic-steps 1058.v1 "Pipeline: Basic Steps"
  */
 fun main(args: Array<String>) {
-    if (args.size < REQUIRED_ARGS_COUNT) {
-        System.err.println(
-            """
-            Usage: GdslToJson <gdsl-file> <output-dir> <jenkins-version> <plugin-id> <plugin-version> [plugin-display-name]
-
-            Arguments:
-              gdsl-file             Path to GDSL file
-              output-dir            Output directory for JSON files
-              jenkins-version       Jenkins version (e.g., 2.426.3)
-              plugin-id             Plugin ID (e.g., workflow-basic-steps)
-              plugin-version        Plugin version (e.g., 1058.vcb_fc1e3a_21a_9)
-              plugin-display-name   Optional: Plugin display name
-
-            Environment:
-              GDSL_SHA256              SHA-256 of GDSL file (required)
-              PLUGINS_MANIFEST_SHA256  SHA-256 of plugins.txt (required)
-              EXTRACTED_AT             Optional ISO-8601 timestamp
-            """.trimIndent(),
-        )
-        System.exit(USAGE_EXIT_CODE)
+    val parsed = parseCliArgs(args)
+    if (parsed == null) {
+        System.err.println(usageText())
+        exitProcess(USAGE_EXIT_CODE)
     }
-
-    val gdslFile = Path.of(args[ARG_INDEX_GDSL_FILE])
-    val outputDir = Path.of(args[ARG_INDEX_OUTPUT_DIR])
-    val jenkinsVersion = args[ARG_INDEX_JENKINS_VERSION]
-    val pluginId = args[ARG_INDEX_PLUGIN_ID]
-    val pluginVersion = args[ARG_INDEX_PLUGIN_VERSION]
-    val pluginDisplayName = args.getOrNull(ARG_INDEX_PLUGIN_DISPLAY_NAME)
 
     val pluginsManifestSha256 = System.getenv("PLUGINS_MANIFEST_SHA256")
         ?: error("Missing required env var: PLUGINS_MANIFEST_SHA256")
 
-    val gdslSha256 = System.getenv("GDSL_SHA256") ?: sha256Hex(gdslFile.readBytes())
+    val gdslSha256 = System.getenv("GDSL_SHA256") ?: sha256Hex(parsed.gdslFile.readBytes())
 
-    outputDir.createDirectories()
+    parsed.outputDir.createDirectories()
 
-    val outputFile = outputDir.resolve("$pluginId.json")
-    val gdslContent = gdslFile.readText()
+    val outputFile = parsed.outputDir.resolve("${parsed.pluginId}.json")
+    val gdslContent = parsed.gdslFile.readText()
 
     val inputs = ExtractionInputs(
-        jenkinsVersion = jenkinsVersion,
+        jenkinsVersion = parsed.jenkinsVersion,
         gdslSha256 = gdslSha256,
         pluginsManifestSha256 = pluginsManifestSha256,
         extractedAt = System.getenv("EXTRACTED_AT"),
@@ -207,16 +194,107 @@ fun main(args: Array<String>) {
     writePluginMetadataJson(
         gdslContent = gdslContent,
         pluginInfo = PluginInfo(
-            id = pluginId,
-            version = pluginVersion,
-            displayName = pluginDisplayName,
+            id = parsed.pluginId,
+            version = parsed.pluginVersion,
+            displayName = parsed.pluginDisplayName,
         ),
         inputs = inputs,
         outputFile = outputFile,
     )
 
-    logger.info("Converted ${gdslFile.name} to ${outputFile.name}")
+    logger.info("Converted ${parsed.gdslFile.name} to ${outputFile.name}")
 }
+
+private fun parseCliArgs(args: Array<String>): CliArgs? {
+    if (args.isEmpty()) return null
+
+    if (args.any { it == "--help" || it == "-h" }) return null
+
+    // NOTE: This CLI supports both positional args and `--key=value` / `--key value` flags.
+    // The flag form is more resilient to argument reordering.
+    // TODO: Replace this with a dedicated CLI library (e.g. Clikt or kotlinx-cli) once we want
+    // richer validation, help generation, and subcommands.
+    val hasFlags = args.any { it.startsWith("--") }
+    return if (hasFlags) parseFlagArgs(args) else parsePositionalArgs(args)
+}
+
+private fun parsePositionalArgs(args: Array<String>): CliArgs? {
+    if (args.size < REQUIRED_ARGS_COUNT) return null
+
+    return CliArgs(
+        gdslFile = Path.of(args[ARG_INDEX_GDSL_FILE]),
+        outputDir = Path.of(args[ARG_INDEX_OUTPUT_DIR]),
+        jenkinsVersion = args[ARG_INDEX_JENKINS_VERSION],
+        pluginId = args[ARG_INDEX_PLUGIN_ID],
+        pluginVersion = args[ARG_INDEX_PLUGIN_VERSION],
+        pluginDisplayName = args.getOrNull(ARG_INDEX_PLUGIN_DISPLAY_NAME),
+    )
+}
+
+private fun parseFlagArgs(args: Array<String>): CliArgs? {
+    val values = mutableMapOf<String, String>()
+
+    var i = 0
+    while (i < args.size) {
+        val arg = args[i]
+        if (!arg.startsWith("--")) {
+            // Ignore positional fragments when using flags.
+            i++
+            continue
+        } else {
+            val (key, valueFromEquals) = arg.removePrefix("--").split("=", limit = 2).let { parts ->
+                parts[0] to parts.getOrNull(1)
+            }
+
+            val value = valueFromEquals ?: args.getOrNull(i + 1)?.takeIf { !it.startsWith("--") }
+            if (value == null) return null
+
+            values[key] = value
+            i += if (valueFromEquals != null) 1 else 2
+        }
+    }
+
+    val requiredKeys = listOf(
+        "gdsl-file",
+        "output-dir",
+        "jenkins-version",
+        "plugin-id",
+        "plugin-version",
+    )
+
+    val missingKey = requiredKeys.firstOrNull { values[it].isNullOrBlank() }
+    if (missingKey != null) return null
+
+    return CliArgs(
+        gdslFile = Path.of(values.getValue("gdsl-file")),
+        outputDir = Path.of(values.getValue("output-dir")),
+        jenkinsVersion = values.getValue("jenkins-version"),
+        pluginId = values.getValue("plugin-id"),
+        pluginVersion = values.getValue("plugin-version"),
+        pluginDisplayName = values["plugin-display-name"],
+    )
+}
+
+private fun usageText(): String =
+    """
+    Usage:
+      GdslToJson <gdsl-file> <output-dir> <jenkins-version> <plugin-id> <plugin-version> [plugin-display-name]
+      GdslToJson --gdsl-file <path> --output-dir <dir> --jenkins-version <version> --plugin-id <id> --plugin-version <version> [--plugin-display-name <name>]
+
+    Arguments:
+      gdsl-file             Path to GDSL file
+      output-dir            Output directory for JSON files
+      jenkins-version       Jenkins version (e.g., 2.426.3)
+      plugin-id             Plugin ID (e.g., workflow-basic-steps)
+      plugin-version        Plugin version (e.g., 1058.vcb_fc1e3a_21a_9)
+      plugin-display-name   Optional: Plugin display name
+
+    Environment:
+      GDSL_SHA256              SHA-256 of GDSL file (optional; computed if missing)
+      PLUGINS_MANIFEST_SHA256  SHA-256 of plugins.txt (required)
+      EXTRACTED_AT             Optional ISO-8601 timestamp
+      SOURCE_DATE_EPOCH        Optional epoch seconds (used if EXTRACTED_AT is not set)
+    """.trimIndent()
 
 private fun resolveExtractedAt(extractedAt: String?): String {
     if (extractedAt != null) return extractedAt

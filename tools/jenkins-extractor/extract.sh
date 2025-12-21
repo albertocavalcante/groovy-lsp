@@ -228,7 +228,7 @@ ls -la "$OUTPUT_DIR"
 
 # Validate extraction was successful
 if [ "$METHOD_COUNT" -gt 0 ]; then
-log_info "SUCCESS: Extracted $METHOD_COUNT methods and $PROPERTY_COUNT properties"
+    log_info "SUCCESS: Extracted $METHOD_COUNT methods and $PROPERTY_COUNT properties"
 else
     log_error "FAILURE: No methods extracted. Check Jenkins logs for errors."
     docker logs "$CONTAINER_NAME" | tail -50
