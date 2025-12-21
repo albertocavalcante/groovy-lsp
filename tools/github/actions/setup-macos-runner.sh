@@ -178,12 +178,81 @@ TAR_FILE_NAME="actions-runner-osx-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz"
 CACHED_FILE="$CACHE_DIR/$TAR_FILE_NAME"
 DOWNLOAD_URL="https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/${TAR_FILE_NAME}"
 
-# Download
-if [ -f "$CACHED_FILE" ]; then
-    echo "Using cached runner..."
+# Fetch expected checksum from GitHub
+fetch_checksum() {
+    local version="$1"
+    local filename="$2"
+
+    if ! command -v curl &> /dev/null || ! command -v jq &> /dev/null; then
+        return 1
+    fi
+
+    # Fetch release and extract digest from assets array
+    local checksum
+    checksum=$(curl -sL "https://api.github.com/repos/actions/runner/releases/tags/v${version}" | \
+        jq -r ".assets[] | select(.name == \"$filename\") | .digest" 2>/dev/null | \
+        sed 's/^sha256://')
+
+    if [ -n "$checksum" ] && [ ${#checksum} -eq 64 ]; then
+        echo "$checksum"
+        return 0
+    fi
+
+    return 1
+}
+
+echo "Fetching checksum for v${RUNNER_VERSION}..."
+EXPECTED_CHECKSUM=$(fetch_checksum "$RUNNER_VERSION" "$TAR_FILE_NAME")
+
+if [ -z "$EXPECTED_CHECKSUM" ]; then
+    echo "Warning: Could not fetch checksum from GitHub"
+    echo "  Checksum validation will be skipped (NOT RECOMMENDED)"
+    read -p "  Continue without verification? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
 else
+    echo "Expected SHA256: $EXPECTED_CHECKSUM"
+fi
+
+# Download or use cache
+DOWNLOAD_NEEDED=true
+
+if [ -f "$CACHED_FILE" ]; then
+    if [ -n "$EXPECTED_CHECKSUM" ]; then
+        echo "Verifying cached file..."
+        if echo "${EXPECTED_CHECKSUM}  $CACHED_FILE" | shasum -a 256 -c > /dev/null 2>&1; then
+            echo "Cached file verified."
+            DOWNLOAD_NEEDED=false
+        else
+            echo "Cached file corrupted or version mismatch. Re-downloading..."
+            rm "$CACHED_FILE"
+        fi
+    else
+        echo "Warning: Using cached file without verification"
+        DOWNLOAD_NEEDED=false
+    fi
+fi
+
+# Download
+if [ "$DOWNLOAD_NEEDED" = true ]; then
     echo "Downloading runner v${RUNNER_VERSION}..."
     curl -sL -o "$CACHED_FILE" "$DOWNLOAD_URL"
+
+    if [ -n "$EXPECTED_CHECKSUM" ]; then
+        echo "Verifying download..."
+        if echo "${EXPECTED_CHECKSUM}  $CACHED_FILE" | shasum -a 256 -c; then
+            echo "Download verified."
+        else
+            echo "ERROR: Checksum verification failed!"
+            echo "  The downloaded file may be corrupted or tampered with."
+            rm "$CACHED_FILE"
+            exit 1
+        fi
+    else
+        echo "Warning: Downloaded file without verification"
+    fi
 fi
 
 # Install
