@@ -60,12 +60,20 @@ MODES:
     <TOKEN>         Manual mode: Use provided token
 
 OPTIONS:
+    --count N       Create N runners (default: 1)
     --no-svc        Skip service installation (auto-mode only)
     --version VER   Set runner version (default: $DEFAULT_RUNNER_VERSION)
-    --name NAME     Custom runner name
+    --name NAME     Custom runner name (suffix added for multiple)
     --labels EXTRA  Additional labels (comma-separated)
-    --dir PATH      Custom runner directory
+    --dir PATH      Custom runner directory (suffix added for multiple)
     --help          Show this help message
+
+EXAMPLES:
+    # Create 5 runners at once
+    $(basename "$0") --count 5
+
+    # Create 3 runners without service
+    $(basename "$0") --count 3 --no-svc
 EOF
 }
 
@@ -73,6 +81,7 @@ EOF
 AUTO_MODE=true
 INSTALL_SVC=true
 RUNNER_VERSION="$DEFAULT_RUNNER_VERSION"
+RUNNER_COUNT=1
 TOKEN=""
 RUNNER_NAME=""
 EXTRA_LABELS=""
@@ -87,6 +96,14 @@ while [[ $# -gt 0 ]]; do
         --auto)
             AUTO_MODE=true
             shift
+            ;;
+        --count)
+            RUNNER_COUNT="$2"
+            if ! [[ "$RUNNER_COUNT" =~ ^[0-9]+$ ]] || [ "$RUNNER_COUNT" -lt 1 ]; then
+                echo "Error: --count must be a positive integer"
+                exit 1
+            fi
+            shift 2
             ;;
         --no-svc)
             INSTALL_SVC=false
@@ -120,22 +137,32 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-RUNNER_NAME="${RUNNER_NAME:-$(generate_runner_name)}"
-RUNNER_DIR="${RUNNER_DIR:-$(generate_workspace_dir)}"
+# Loop to create multiple runners
+for ((i=1; i<=RUNNER_COUNT; i++)); do
+    if [ "$RUNNER_COUNT" -gt 1 ]; then
+        echo ""
+        echo "========================================="
+        echo "Setting up runner $i of $RUNNER_COUNT"
+        echo "========================================="
+        echo ""
+    fi
 
-BASE_LABELS="self-hosted,macOS,${RUNNER_ARCH},groovy-lsp,local-macos"
-if [ -n "$EXTRA_LABELS" ]; then
-    ALL_LABELS="${BASE_LABELS},${EXTRA_LABELS}"
-else
-    ALL_LABELS="$BASE_LABELS"
-fi
+    CURRENT_RUNNER_NAME="${RUNNER_NAME:-$(generate_runner_name)}"
+    CURRENT_RUNNER_DIR="${RUNNER_DIR:-$(generate_workspace_dir)}"
 
-echo "GitHub Actions Runner Setup ($RUNNER_VERSION)"
-echo "Name:      $RUNNER_NAME"
-echo "Directory: $RUNNER_DIR"
-echo "Labels:    $ALL_LABELS"
-echo "Service:   $($INSTALL_SVC && echo "Yes" || echo "No")"
-echo ""
+    BASE_LABELS="self-hosted,macOS,${RUNNER_ARCH},groovy-lsp,local-macos"
+    if [ -n "$EXTRA_LABELS" ]; then
+        ALL_LABELS="${BASE_LABELS},${EXTRA_LABELS}"
+    else
+        ALL_LABELS="$BASE_LABELS"
+    fi
+
+    echo "GitHub Actions Runner Setup ($RUNNER_VERSION)"
+    echo "Name:      $CURRENT_RUNNER_NAME"
+    echo "Directory: $CURRENT_RUNNER_DIR"
+    echo "Labels:    $ALL_LABELS"
+    echo "Service:   $($INSTALL_SVC && echo "Yes" || echo "No")"
+    echo ""
 
 # Get token (auto-mode)
 if [ "$AUTO_MODE" = true ]; then
@@ -256,19 +283,19 @@ if [ "$DOWNLOAD_NEEDED" = true ]; then
 fi
 
 # Install
-if [ -d "$RUNNER_DIR" ]; then
-    echo "Directory exists: $RUNNER_DIR"
+if [ -d "$CURRENT_RUNNER_DIR" ]; then
+    echo "Directory exists: $CURRENT_RUNNER_DIR"
     read -p "Remove and replace? (y/N) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        rm -rf "$RUNNER_DIR"
+        rm -rf "$CURRENT_RUNNER_DIR"
     else
         echo "Using existing directory..."
     fi
 fi
-mkdir -p "$RUNNER_DIR"
+mkdir -p "$CURRENT_RUNNER_DIR"
 
-cd "$RUNNER_DIR"
+cd "$CURRENT_RUNNER_DIR"
 echo "Extracting..."
 tar xzf "$CACHED_FILE"
 
@@ -276,7 +303,7 @@ echo "Configuring..."
 ./config.sh \
     --url "$REPO_URL" \
     --token "$TOKEN" \
-    --name "$RUNNER_NAME" \
+    --name "$CURRENT_RUNNER_NAME" \
     --labels "$ALL_LABELS" \
     --work "_work" \
     --unattended \
@@ -292,8 +319,9 @@ if [ "$AUTO_MODE" = true ] && [ "$INSTALL_SVC" = true ]; then
 else
     echo "Setup complete."
     echo "To start manually:"
-    echo "  cd $RUNNER_DIR && ./run.sh"
+    echo "  cd $CURRENT_RUNNER_DIR && ./run.sh"
     echo "To install service:"
-    echo "  cd $RUNNER_DIR"
+    echo "  cd $CURRENT_RUNNER_DIR"
     echo "  ./svc.sh install && ./svc.sh start"
 fi
+done  # End of runner creation loop
