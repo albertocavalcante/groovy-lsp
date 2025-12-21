@@ -96,15 +96,16 @@ class BspClient(private val connection: BspConnectionDetails, private val worksp
     private fun startProcess() {
         logger.info("Starting BSP server: ${connection.argv.joinToString(" ")}")
 
-        process = ProcessBuilder(connection.argv)
+        val newProcess = ProcessBuilder(connection.argv)
             .directory(workspaceRoot.toFile())
             .redirectError(ProcessBuilder.Redirect.INHERIT)
             .start()
+        this.process = newProcess
 
         val launcher = Launcher.Builder<BuildServer>()
             .setRemoteInterface(BuildServer::class.java)
-            .setInput(process!!.inputStream)
-            .setOutput(process!!.outputStream)
+            .setInput(newProcess.inputStream)
+            .setOutput(newProcess.outputStream)
             .setLocalService(ClientHandler())
             .create()
 

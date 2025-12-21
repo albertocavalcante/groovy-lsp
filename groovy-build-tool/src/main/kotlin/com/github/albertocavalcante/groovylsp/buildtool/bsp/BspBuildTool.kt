@@ -20,6 +20,11 @@ class BspBuildTool : BuildTool {
 
     private val logger = LoggerFactory.getLogger(BspBuildTool::class.java)
 
+    private companion object {
+        private const val ARTIFACTS_FIELD = "artifacts"
+        private const val URI_FIELD = "uri"
+    }
+
     override val name: String = "BSP"
 
     override fun canHandle(workspaceRoot: Path): Boolean {
@@ -80,8 +85,8 @@ class BspBuildTool : BuildTool {
         ?.flatMap { it.modules }
         ?.flatMap { module ->
             val data = module.data as? Map<String, Any> ?: return@flatMap emptyList()
-            val artifacts = data["artifacts"] as? List<Map<String, Any>> ?: return@flatMap emptyList()
-            artifacts.mapNotNull { it["uri"] as? String }
+            val artifacts = data[ARTIFACTS_FIELD] as? List<Map<String, Any>> ?: return@flatMap emptyList()
+            artifacts.mapNotNull { it[URI_FIELD] as? String }
         }
         ?.mapNotNull { uri -> uriToPath(uri) }
         ?.filter { it.exists() && it.toString().endsWith(".jar") }

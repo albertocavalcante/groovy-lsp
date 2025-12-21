@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 dependencies {
@@ -18,6 +19,9 @@ dependencies {
 
     // Build Server Protocol (for Bazel, sbt, Mill support)
     implementation(libs.bsp4j)
+
+    // JSON parsing for BSP connection files
+    implementation(libs.kotlin.serialization.json)
 
     // Maven Embedder (for programmatic dependency resolution)
     implementation(libs.maven.embedder)

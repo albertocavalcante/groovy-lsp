@@ -1,5 +1,8 @@
 package com.github.albertocavalcante.groovylsp.buildtool.bsp
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
@@ -23,6 +26,7 @@ data class BspConnectionDetails(
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(BspConnectionDetails::class.java)
+        private val jsonParser = Json { ignoreUnknownKeys = true }
 
         fun findConnectionFiles(workspaceRoot: Path): List<Path> {
             val bspDir = workspaceRoot.resolve(".bsp")
@@ -54,31 +58,25 @@ data class BspConnectionDetails(
         }
 
         internal fun parseJson(json: String): BspConnectionDetails? {
-            val name = extractString(json, "name") ?: return null
-            val version = extractString(json, "version") ?: return null
-            val bspVersion = extractString(json, "bspVersion") ?: return null
-            val languages = extractArray(json, "languages") ?: emptyList()
-            val argv = extractArray(json, "argv") ?: return null
+            val conn = runCatching {
+                jsonParser.decodeFromString<BspConnectionFile>(json)
+            }.getOrElse { return null }
 
-            if (argv.isEmpty()) {
+            if (conn.argv.isEmpty()) {
                 logger.warn("BSP connection file has empty argv")
                 return null
             }
 
-            return BspConnectionDetails(name, version, bspVersion, languages, argv)
-        }
-
-        private fun extractString(json: String, field: String): String? {
-            val pattern = "\"$field\"\\s*:\\s*\"([^\"]+)\"".toRegex()
-            return pattern.find(json)?.groupValues?.get(1)
-        }
-
-        private fun extractArray(json: String, field: String): List<String>? {
-            val pattern = "\"$field\"\\s*:\\s*\\[([^\\]]*)\\]".toRegex()
-            val match = pattern.find(json) ?: return null
-            val content = match.groupValues[1]
-            if (content.isBlank()) return emptyList()
-            return "\"([^\"]+)\"".toRegex().findAll(content).map { it.groupValues[1] }.toList()
+            return BspConnectionDetails(conn.name, conn.version, conn.bspVersion, conn.languages, conn.argv)
         }
     }
+
+    @Serializable
+    private data class BspConnectionFile(
+        val name: String,
+        val version: String,
+        @SerialName("bspVersion") val bspVersion: String,
+        val languages: List<String> = emptyList(),
+        val argv: List<String>,
+    )
 }
