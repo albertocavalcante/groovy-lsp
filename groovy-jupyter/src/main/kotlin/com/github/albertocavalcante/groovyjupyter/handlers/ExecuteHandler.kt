@@ -37,14 +37,16 @@ class ExecuteHandler(
         // 1. Publish busy status
         statusPublisher.publishBusy(request)
 
-        // 2. Execute the code
-        val result = execute(request)
+        try {
+            // 2. Execute the code
+            val result = execute(request)
 
-        // TODO: Publish execute_input, stream, execute_result/error
-        // TODO: Send execute_reply on shell socket
-
-        // 3. Publish idle status
-        statusPublisher.publishIdle(request)
+            // TODO: Publish execute_input, stream, execute_result/error
+            // TODO: Send execute_reply on shell socket
+        } finally {
+            // 3. Publish idle status (always, even on exceptions)
+            statusPublisher.publishIdle(request)
+        }
 
         logger.info("Completed execute_request (execution_count={})", executionCount)
     }

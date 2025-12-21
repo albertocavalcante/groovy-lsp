@@ -37,8 +37,11 @@ class StreamPublisherTest {
         subSocket.connect(endpoint)
         subSocket.subscribe("".toByteArray())
 
-        // TODO: Replace with synchronization mechanism for more reliable tests.
-        Thread.sleep(50)
+        // Use socket timeout for reliable tests instead of Thread.sleep
+        subSocket.receiveTimeOut = RECEIVE_TIMEOUT_MS
+
+        // Small delay for inproc connection setup
+        Thread.sleep(10)
     }
 
     @AfterEach
@@ -110,12 +113,17 @@ class StreamPublisherTest {
 
     private fun receiveMultipart(): List<ByteArray> {
         val frames = mutableListOf<ByteArray>()
-        var more = true
-        while (more) {
-            val frame = subSocket.recv(ZMQ.DONTWAIT) ?: break
+        // Use blocking receive with timeout (set in setup)
+        val firstFrame = subSocket.recv() ?: return frames
+        frames.add(firstFrame)
+        while (subSocket.hasReceiveMore()) {
+            val frame = subSocket.recv() ?: break
             frames.add(frame)
-            more = subSocket.hasReceiveMore()
         }
         return frames
+    }
+
+    private companion object {
+        const val RECEIVE_TIMEOUT_MS = 1000
     }
 }
