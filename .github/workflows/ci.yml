@@ -183,6 +183,36 @@ jobs:
           echo ""
           exit 1
 
+      # --- Summary ---
+      - name: Runner Check Summary
+        if: always()
+        run: |
+          LABEL="${{ steps.mode.outputs.label }}"
+          echo "Runner label: $LABEL"
+
+          case "$LABEL" in
+            "magalu")
+              if [[ "${{ steps.check-magalu.outputs.has-runners }}" == "true" ]]; then
+                echo "✅ Magalu runner available"
+              else
+                echo "⏳ Magalu runner provisioning triggered"
+              fi
+              ;;
+            "local-macos")
+              if [[ "${{ steps.check-local.outputs.has-runners }}" == "true" ]]; then
+                echo "✅ Local macOS runner available"
+              else
+                echo "❌ Local macOS runner check failed (see above)"
+              fi
+              ;;
+            "cloud")
+              echo "✅ Using GitHub-hosted cloud runners (no check needed)"
+              ;;
+            *)
+              echo "✅ Runner check complete for: $LABEL"
+              ;;
+          esac
+
   build:
     name: Build and Test
     needs: [check-paths, check-runner]
