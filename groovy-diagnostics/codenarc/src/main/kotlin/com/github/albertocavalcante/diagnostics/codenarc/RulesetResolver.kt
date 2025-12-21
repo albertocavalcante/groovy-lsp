@@ -200,6 +200,11 @@ class HierarchicalRulesetResolver(
 
     /**
      * Loads the appropriate default ruleset based on project type.
+     *
+     * Fallback chain:
+     * 1. Try custom DSL ruleset for project type
+     * 2. Try default DSL ruleset
+     * 3. Fall back to CodeNarc's bundled XML rulesets (wrapped in minimal DSL)
      */
     private fun loadProjectTypeDefault(context: WorkspaceContext): ResolvedRuleset {
         val projectType = if (context.root != null) {
@@ -208,7 +213,8 @@ class HierarchicalRulesetResolver(
             ProjectType.PlainGroovy
         }
 
-        val resourcePath = when (projectType) {
+        // Try custom DSL rulesets first
+        val customResourcePath = when (projectType) {
             is ProjectType.JenkinsLibrary -> "codenarc/rulesets/frameworks/jenkins.groovy"
             is ProjectType.GrailsApplication -> "codenarc/rulesets/frameworks/grails.groovy" // Future
             is ProjectType.SpringBootProject -> "codenarc/rulesets/frameworks/spring-boot.groovy" // Future
@@ -222,11 +228,39 @@ class HierarchicalRulesetResolver(
             else -> "codenarc/rulesets/base/default.groovy"
         }
 
-        val content = loadRulesetFromResource(resourcePath)
-            ?: loadRulesetFromResource("codenarc/rulesets/base/default.groovy")
-            ?: error("Failed to load any ruleset from resources - check that ruleset files exist in classpath")
+        // Try custom ruleset
+        loadRulesetFromResource(customResourcePath)?.let {
+            return ResolvedRuleset(it, "resource:$customResourcePath")
+        }
 
-        return ResolvedRuleset(content, "resource:$resourcePath")
+        // Try default ruleset as fallback
+        val defaultResourcePath = "codenarc/rulesets/base/default.groovy"
+        loadRulesetFromResource(defaultResourcePath)?.let {
+            logger.info("Falling back to default ruleset: $defaultResourcePath")
+            return ResolvedRuleset(it, "resource:$defaultResourcePath")
+        }
+
+        // Final fallback: Use CodeNarc's bundled XML rulesets
+        // Generate minimal DSL wrapper that references bundled rulesets
+        val bundledRulesetPath = when (projectType) {
+            is ProjectType.JenkinsLibrary -> "rulesets/jenkins.xml"
+            else -> "rulesets/basic.xml"
+        }
+
+        logger.warn(
+            "Custom rulesets not found in classpath. " +
+                "Falling back to CodeNarc bundled ruleset: $bundledRulesetPath",
+        )
+
+        // Generate minimal DSL wrapper for bundled XML ruleset
+        val bundledWrapper = """
+            ruleset {
+                description 'Fallback to CodeNarc bundled ruleset'
+                ruleset('$bundledRulesetPath')
+            }
+        """.trimIndent()
+
+        return ResolvedRuleset(bundledWrapper, "bundled:$bundledRulesetPath")
     }
 
     /**
