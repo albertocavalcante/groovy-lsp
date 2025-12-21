@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { GradleExecutionService } from './GradleExecutionService';
 import { GroovyTestController } from './GroovyTestController';
+import { TestService } from './TestService';
+import { getClient } from '../../server/client';
 
 export function registerTestingFeatures(
   context: vscode.ExtensionContext,
@@ -10,5 +12,12 @@ export function registerTestingFeatures(
     logger,
     context.extensionPath,
   );
-  new GroovyTestController(context, executionService);
+
+  // Get the LanguageClient for test discovery
+  const client = getClient();
+  const testService = client ? new TestService(client) : undefined;
+
+  // The controller registers itself with context.subscriptions in constructor
+  const _controller = new GroovyTestController(context, executionService, testService);
+  void _controller; // Side-effect instantiation - controller self-registers
 }
