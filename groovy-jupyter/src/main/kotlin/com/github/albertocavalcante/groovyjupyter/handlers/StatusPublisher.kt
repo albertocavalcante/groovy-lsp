@@ -5,6 +5,9 @@ import com.github.albertocavalcante.groovyjupyter.protocol.JupyterMessage
 import com.github.albertocavalcante.groovyjupyter.protocol.MessageType
 import com.github.albertocavalcante.groovyjupyter.security.HmacSigner
 import com.github.albertocavalcante.groovyjupyter.zmq.WireMessage
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.slf4j.LoggerFactory
 import org.zeromq.ZMQ
 
@@ -21,18 +24,18 @@ class StatusPublisher(private val iopubSocket: ZMQ.Socket, private val signer: H
      * Publish that the kernel is busy processing a request.
      */
     fun publishBusy(parent: JupyterMessage) {
-        publishStatus("busy", parent)
+        publishStatus(KernelStatus.BUSY, parent)
     }
 
     /**
      * Publish that the kernel is idle and ready for new requests.
      */
     fun publishIdle(parent: JupyterMessage) {
-        publishStatus("idle", parent)
+        publishStatus(KernelStatus.IDLE, parent)
     }
 
-    private fun publishStatus(executionState: String, parent: JupyterMessage) {
-        logger.debug("Publishing status: {}", executionState)
+    private fun publishStatus(status: KernelStatus, parent: JupyterMessage) {
+        logger.debug("Publishing status: {}", status.value)
 
         val header = Header(
             session = parent.header.session,
@@ -40,7 +43,10 @@ class StatusPublisher(private val iopubSocket: ZMQ.Socket, private val signer: H
             msgType = MessageType.STATUS.value,
         )
 
-        val content = """{"execution_state":"$executionState"}"""
+        // Use proper JSON serialization instead of manual string construction
+        val content = buildJsonObject {
+            put("execution_state", status.value)
+        }.toString()
 
         val wireMessage = WireMessage(
             identities = emptyList(),
@@ -54,7 +60,7 @@ class StatusPublisher(private val iopubSocket: ZMQ.Socket, private val signer: H
         val frames = wireMessage.toSignedFrames(signer)
         sendMultipart(frames)
 
-        logger.trace("Status {} published", executionState)
+        logger.trace("Status {} published", status.value)
     }
 
     private fun sendMultipart(frames: List<ByteArray>) {

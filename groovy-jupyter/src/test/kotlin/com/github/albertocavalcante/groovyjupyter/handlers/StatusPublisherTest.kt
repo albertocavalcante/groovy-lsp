@@ -40,7 +40,9 @@ class StatusPublisherTest {
         subSocket.connect(endpoint)
         subSocket.subscribe("".toByteArray()) // Subscribe to all
 
-        // Allow time for connection
+        // TODO: Replace with synchronization mechanism for more reliable tests.
+        // Thread.sleep can be flaky on slow machines. Consider using a ready signal
+        // or polling with timeout for production-grade test reliability.
         Thread.sleep(50)
     }
 

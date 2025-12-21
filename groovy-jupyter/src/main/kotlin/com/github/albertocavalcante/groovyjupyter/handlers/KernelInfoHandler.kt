@@ -12,7 +12,11 @@ import org.slf4j.LoggerFactory
  * When Jupyter connects, it sends kernel_info_request to discover
  * the kernel's capabilities, language, and protocol version.
  */
-class KernelInfoHandler : MessageHandler {
+class KernelInfoHandler(
+    private val statusPublisherFactory: (JupyterConnection) -> StatusPublisher = { conn ->
+        StatusPublisher(conn.iopubSocket, conn.signer)
+    },
+) : MessageHandler {
     private val logger = LoggerFactory.getLogger(KernelInfoHandler::class.java)
 
     override fun canHandle(msgType: MessageType): Boolean = msgType == MessageType.KERNEL_INFO_REQUEST
@@ -20,7 +24,7 @@ class KernelInfoHandler : MessageHandler {
     override fun handle(request: JupyterMessage, connection: JupyterConnection) {
         logger.info("Handling kernel_info_request")
 
-        val statusPublisher = StatusPublisher(connection.iopubSocket, connection.signer)
+        val statusPublisher = statusPublisherFactory(connection)
 
         // 1. Publish busy status
         statusPublisher.publishBusy(request)
@@ -39,11 +43,11 @@ class KernelInfoHandler : MessageHandler {
      * Build the kernel info content map.
      */
     fun buildKernelInfo(): Map<String, Any> = mapOf(
-        "protocol_version" to "5.3",
-        "implementation" to "groovy-jupyter",
-        "implementation_version" to "0.1.0",
+        "protocol_version" to PROTOCOL_VERSION,
+        "implementation" to IMPLEMENTATION,
+        "implementation_version" to IMPLEMENTATION_VERSION,
         "language_info" to buildLanguageInfo(),
-        "banner" to "Groovy Jupyter Kernel v0.1.0\nPowered by ${GroovySystem.getVersion()}",
+        "banner" to "Groovy Jupyter Kernel v$IMPLEMENTATION_VERSION\nPowered by ${GroovySystem.getVersion()}",
         "help_links" to emptyList<Map<String, String>>(),
         "status" to "ok",
     )
@@ -64,4 +68,10 @@ class KernelInfoHandler : MessageHandler {
         "pygments_lexer" to "groovy",
         "codemirror_mode" to "groovy",
     )
+
+    private companion object {
+        const val PROTOCOL_VERSION = "5.3"
+        const val IMPLEMENTATION = "groovy-jupyter"
+        const val IMPLEMENTATION_VERSION = "0.1.0"
+    }
 }
