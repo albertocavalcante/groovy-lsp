@@ -27,12 +27,13 @@ class TestCodeLensProvider(private val compilationService: GroovyCompilationServ
     fun provideCodeLenses(uri: URI): List<CodeLens> {
         val parseResult = compilationService.getParseResult(uri) ?: return emptyList()
         val ast = parseResult.ast ?: return emptyList()
+        val classLoader = parseResult.compilationUnit.classLoader
 
         val codeLenses = mutableListOf<CodeLens>()
 
         for (classNode in ast.classes) {
             // Use registry to find applicable detector and extract tests
-            val tests = TestFrameworkRegistry.extractTests(classNode, ast)
+            val tests = TestFrameworkRegistry.extractTests(classNode, ast, classLoader)
             if (tests.isEmpty()) continue
 
             // Generate CodeLens for each test method (not the class itself)
