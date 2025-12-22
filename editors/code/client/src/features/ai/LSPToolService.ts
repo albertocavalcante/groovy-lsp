@@ -9,13 +9,6 @@ export class LSPToolService implements ILSPToolService {
         private readonly getClient: () => LanguageClient | undefined
     ) { }
 
-    private getLanguageClient(): LanguageClient {
-        const client = this.getClient();
-        if (!client) {
-            throw new Error('Groovy Language Server is not active. Please ensure the extension is fully activated.');
-        }
-        return client;
-    }
 
     /**
      * Finds symbols in the workspace matching the query.

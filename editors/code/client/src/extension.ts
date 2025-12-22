@@ -47,7 +47,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
         // AI Tools Integration
         const lspToolService = new LSPToolService(vscode, getClient);
-        const toolRegistry = new ToolRegistry(lspToolService, vscode.workspace.getConfiguration('groovy'));
+        const toolRegistry = new ToolRegistry(vscode.workspace.getConfiguration('groovy'));
 
         // Register Adapters
         const lmToolProvider = new LMToolProvider(lspToolService, toolRegistry);
@@ -63,6 +63,11 @@ export async function activate(context: vscode.ExtensionContext) {
         const testOutputChannel = vscode.window.createOutputChannel("Groovy Tests");
         context.subscriptions.push(testOutputChannel);
         registerTestingFeatures(context, testOutputChannel);
+
+        // Register Spock Test Scaffolding
+        // TODO: Move this into registerTestingFeatures once refined
+        const { TestFeature } = require('./features/testing/TestFeature');
+        context.subscriptions.push(new TestFeature());
 
         // Initialize update service for LSP version checking
         // Uses extension version from package.json (which bundles the LSP)

@@ -64,16 +64,31 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     {
         name: 'groovy_find_symbol',
         command: 'groovy.ai.find_symbol',
-        handler: async (service, params) => service.findWorkspaceSymbol(params.query)
+        handler: async (service, params) => {
+            if (typeof params?.query !== 'string') {
+                throw new Error("Parameter 'query' is required for groovy_find_symbol.");
+            }
+            return service.findWorkspaceSymbol(params.query);
+        }
     },
     {
         name: 'groovy_get_references',
         command: 'groovy.ai.get_references',
-        handler: async (service, params) => service.findReferences(params.uri, params.line, params.character)
+        handler: async (service, params) => {
+            if (typeof params?.uri !== 'string' || typeof params?.line !== 'number' || typeof params?.character !== 'number') {
+                throw new Error("Parameters 'uri', 'line', and 'character' are required for groovy_get_references.");
+            }
+            return service.findReferences(params.uri, params.line, params.character);
+        }
     },
     {
         name: 'groovy_get_definition',
         command: 'groovy.ai.get_definition',
-        handler: async (service, params) => service.getDefinition(params.uri, params.line, params.character)
+        handler: async (service, params) => {
+            if (typeof params?.uri !== 'string' || typeof params?.line !== 'number' || typeof params?.character !== 'number') {
+                throw new Error("Parameters 'uri', 'line', and 'character' are required for groovy_get_definition.");
+            }
+            return service.getDefinition(params.uri, params.line, params.character);
+        }
     }
 ];

@@ -7,7 +7,6 @@ import { ILSPToolService, AISymbolInfo, AILocation } from './types';
  */
 export class ToolRegistry {
     constructor(
-        private readonly lspService: ILSPToolService,
         private readonly config: vscode.WorkspaceConfiguration
     ) { }
 

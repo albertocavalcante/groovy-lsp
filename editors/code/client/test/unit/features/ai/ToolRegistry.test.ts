@@ -29,7 +29,7 @@ describe('ToolRegistry', () => {
     });
 
     it('should return false for any tool if master switch is disabled', () => {
-        const registry = new ToolRegistry(lspServiceStub, mockConfig);
+        const registry = new ToolRegistry(mockConfig);
 
         mockConfig.get.withArgs('ai.tools.enabled').returns(false);
         mockConfig.get.withArgs('ai.tools.allowed').returns(['all']);
@@ -38,7 +38,7 @@ describe('ToolRegistry', () => {
     });
 
     it('should return true if master switch is enabled and allowed list contains "all"', () => {
-        const registry = new ToolRegistry(lspServiceStub, mockConfig);
+        const registry = new ToolRegistry(mockConfig);
 
         mockConfig.get.withArgs('ai.tools.enabled').returns(true);
         mockConfig.get.withArgs('ai.tools.allowed').returns(['all']);
@@ -47,7 +47,7 @@ describe('ToolRegistry', () => {
     });
 
     it('should return true if tool is explicitly allowed', () => {
-        const registry = new ToolRegistry(lspServiceStub, mockConfig);
+        const registry = new ToolRegistry(mockConfig);
 
         mockConfig.get.withArgs('ai.tools.enabled').returns(true);
         mockConfig.get.withArgs('ai.tools.allowed').returns(['groovy_find_symbol']);
@@ -56,7 +56,7 @@ describe('ToolRegistry', () => {
     });
 
     it('should return false if tool is not in allowed list', () => {
-        const registry = new ToolRegistry(lspServiceStub, mockConfig);
+        const registry = new ToolRegistry(mockConfig);
 
         mockConfig.get.withArgs('ai.tools.enabled').returns(true);
         mockConfig.get.withArgs('ai.tools.allowed').returns(['groovy_other_tool']);
