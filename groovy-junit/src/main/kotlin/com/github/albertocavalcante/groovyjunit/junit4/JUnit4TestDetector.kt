@@ -40,9 +40,10 @@ class JUnit4TestDetector : TestFrameworkDetector {
         if (isTestCase(classNode)) return true
 
         // 4. Check for @Test on methods
-        return classNode.methods.any { method ->
+        val hasTestMethod = classNode.methods.any { method ->
             method.annotations.any { it.classNode.name == "Test" || it.classNode.name == JUNIT4_TEST_ANNOTATION }
         }
+        return hasTestMethod
     }
 
     override fun extractTests(classNode: ClassNode): List<TestItem> {
