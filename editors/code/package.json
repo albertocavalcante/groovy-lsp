@@ -6,7 +6,7 @@
   "publisher": "albertocavalcante",
   "license": "Apache-2.0",
   "engines": {
-    "vscode": "^1.100.0"
+    "vscode": "^1.103.0"
   },
   "categories": [
     "Programming Languages"
@@ -359,9 +359,112 @@
             "Always show notification after checking for updates"
           ],
           "description": "When to show update notifications"
+        },
+        "groovy.ai.tools.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Master switch to enable AI tools (e.g., symbol search, definition lookup) for LLMs."
+        },
+        "groovy.ai.tools.allowed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "all"
+          ],
+          "description": "List of allowed tools. Use ['all'] to enable all tools, or specify individual tool names (e.g., ['groovy_find_symbol'])."
         }
       }
-    }
+    },
+    "languageModelTools": [
+      {
+        "name": "groovy_find_symbol",
+        "tags": [
+          "workspace",
+          "groovy"
+        ],
+        "toolReferenceName": "groovy_find_symbol",
+        "displayName": "Groovy: Find Symbol",
+        "modelDescription": "Locate classes, methods, or fields in the Groovy workspace by name.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The name of the symbol to search for (e.g., 'OrderService')"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      },
+      {
+        "name": "groovy_get_references",
+        "tags": [
+          "references",
+          "groovy"
+        ],
+        "toolReferenceName": "groovy_get_references",
+        "displayName": "Groovy: Find References",
+        "modelDescription": "Find all usages of a specific symbol at a given location.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "uri": {
+              "type": "string",
+              "description": "The file URI of the symbol"
+            },
+            "line": {
+              "type": "number",
+              "description": "The line number (0-indexed)"
+            },
+            "character": {
+              "type": "number",
+              "description": "The character position (0-indexed)"
+            }
+          },
+          "required": [
+            "uri",
+            "line",
+            "character"
+          ]
+        }
+      },
+      {
+        "name": "groovy_get_definition",
+        "tags": [
+          "definition",
+          "groovy"
+        ],
+        "toolReferenceName": "groovy_get_definition",
+        "displayName": "Groovy: Get Definition",
+        "modelDescription": "Resolve a symbol at a location to its definition.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "uri": {
+              "type": "string",
+              "description": "The file URI of the usage"
+            },
+            "line": {
+              "type": "number",
+              "description": "The line number (0-indexed)"
+            },
+            "character": {
+              "type": "number",
+              "description": "The character position (0-indexed)"
+            }
+          },
+          "required": [
+            "uri",
+            "line",
+            "character"
+          ]
+        }
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run prepare-server && node tools/validate-server.js && npm run package-build",
