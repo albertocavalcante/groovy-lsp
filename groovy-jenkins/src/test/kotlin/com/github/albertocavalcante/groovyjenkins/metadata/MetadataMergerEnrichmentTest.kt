@@ -152,11 +152,15 @@ class MetadataMergerEnrichmentTest {
         // Documentation should fall back to extracted
         assertEquals("A custom step", customStep.documentation)
 
+        // Plugin should fall back to bundled plugin (not null)
+        assertEquals("custom-plugin", customStep.plugin)
+
         // Parameters should still work
         val param1 = customStep.namedParams["param1"]
         assertNotNull(param1)
         assertEquals("String", param1.type)
-        assertNull(param1.description)
+        // Description should fall back to bundled documentation
+        assertEquals("A parameter", param1.description)
         assertEquals(false, param1.required)
     }
 
