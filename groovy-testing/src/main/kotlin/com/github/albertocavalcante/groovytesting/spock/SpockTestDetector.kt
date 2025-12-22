@@ -6,6 +6,8 @@ import com.github.albertocavalcante.groovytesting.api.TestFramework
 import com.github.albertocavalcante.groovytesting.api.TestFrameworkDetector
 import com.github.albertocavalcante.groovytesting.api.TestItem
 import com.github.albertocavalcante.groovytesting.api.TestItemKind
+import groovy.lang.GroovyClassLoader
+import org.codehaus.groovy.ast.ClassHelper
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.ModuleNode
 
@@ -20,8 +22,16 @@ class SpockTestDetector : TestFrameworkDetector {
 
     override val framework: TestFramework = TestFramework.SPOCK
 
-    override fun appliesTo(classNode: ClassNode, module: ModuleNode?): Boolean =
-        SpockDetector.isSpockSpec(classNode, module, specClassNode = null)
+    override fun appliesTo(classNode: ClassNode, module: ModuleNode?, classLoader: ClassLoader?): Boolean {
+        val specClassNode = if (classLoader is GroovyClassLoader) {
+            runCatching { classLoader.loadClass("spock.lang.Specification") }
+                .map { ClassHelper.make(it) }
+                .getOrNull()
+        } else {
+            null
+        }
+        return SpockDetector.isSpockSpec(classNode, module, specClassNode)
+    }
 
     override fun extractTests(classNode: ClassNode): List<TestItem> {
         val result = mutableListOf<TestItem>()

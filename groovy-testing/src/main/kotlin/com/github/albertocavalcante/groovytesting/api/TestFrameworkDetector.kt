@@ -24,9 +24,10 @@ interface TestFrameworkDetector {
      *
      * @param classNode The class to check.
      * @param module Optional ModuleNode for import-aware checks.
+     * @param classLoader Optional ClassLoader for classpath-aware checks.
      * @return true if this detector should handle the class.
      */
-    fun appliesTo(classNode: ClassNode, module: ModuleNode? = null): Boolean
+    fun appliesTo(classNode: ClassNode, module: ModuleNode? = null, classLoader: ClassLoader? = null): Boolean
 
     /**
      * Extracts test items from a class.

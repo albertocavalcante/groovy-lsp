@@ -568,8 +568,6 @@ class GroovyLanguageServer :
         }
     }
 
-    // ...
-
     /**
      * Waits for dependency resolution to complete, useful for CLI/testing.
      */

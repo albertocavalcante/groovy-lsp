@@ -45,11 +45,12 @@ class TestDiscoveryProvider(private val compilationService: GroovyCompilationSer
             // Get parsed result for this file
             val parseResult = compilationService.getParseResult(uri) ?: continue
             val ast = parseResult.ast ?: continue
+            val classLoader = parseResult.compilationUnit.classLoader
 
             // Check each class individually to handle mixed files correctly
             for (classNode in ast.classes) {
                 // Use registry to detect and extract tests
-                val testItems = TestFrameworkRegistry.extractTests(classNode, ast)
+                val testItems = TestFrameworkRegistry.extractTests(classNode, ast, classLoader)
                 if (testItems.isEmpty()) continue
 
                 // Convert TestItems to Test DTOs (only methods, not classes)

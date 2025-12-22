@@ -77,21 +77,29 @@ object TestFrameworkRegistry {
      *
      * @return The applicable detector, or null if none match.
      */
-    fun findDetector(classNode: ClassNode, module: ModuleNode? = null): TestFrameworkDetector? =
-        detectors.find { it.appliesTo(classNode, module) }
+    fun findDetector(
+        classNode: ClassNode,
+        module: ModuleNode? = null,
+        classLoader: ClassLoader? = null,
+    ): TestFrameworkDetector? = detectors.find { it.appliesTo(classNode, module, classLoader) }
 
     /**
      * Extracts tests from a class using the appropriate detector.
      *
      * @return Test items if a detector applies, empty list otherwise.
      */
-    fun extractTests(classNode: ClassNode, module: ModuleNode? = null): List<TestItem> {
-        val detector = findDetector(classNode, module) ?: return emptyList()
+    fun extractTests(
+        classNode: ClassNode,
+        module: ModuleNode? = null,
+        classLoader: ClassLoader? = null,
+    ): List<TestItem> {
+        val detector = findDetector(classNode, module, classLoader) ?: return emptyList()
         return detector.extractTests(classNode)
     }
 
     /**
      * Checks if any registered detector applies to the given class.
      */
-    fun isTestClass(classNode: ClassNode, module: ModuleNode? = null): Boolean = findDetector(classNode, module) != null
+    fun isTestClass(classNode: ClassNode, module: ModuleNode? = null, classLoader: ClassLoader? = null): Boolean =
+        findDetector(classNode, module, classLoader) != null
 }
