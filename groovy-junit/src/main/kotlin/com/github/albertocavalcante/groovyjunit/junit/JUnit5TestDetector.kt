@@ -16,17 +16,19 @@ class JUnit5TestDetector : TestFrameworkDetector {
     override val framework: TestFramework = TestFramework.JUNIT5
 
     companion object {
-        private const val JUNIT_JUPITER_PACKAGE = "org.junit.jupiter.api"
+        private const val JUNIT_JUPITER_PACKAGE = "org.junit.jupiter"
         private val TEST_ANNOTATIONS = setOf(
             "Test",
             "ParameterizedTest",
             "RepeatedTest",
             "TestFactory",
+            "TestTemplate",
+            "Nested",
             "org.junit.jupiter.api.Test",
             "org.junit.jupiter.params.ParameterizedTest",
             "org.junit.jupiter.api.RepeatedTest",
             "org.junit.jupiter.api.TestFactory",
-            "Nested",
+            "org.junit.jupiter.api.TestTemplate",
             "org.junit.jupiter.api.Nested",
         )
     }

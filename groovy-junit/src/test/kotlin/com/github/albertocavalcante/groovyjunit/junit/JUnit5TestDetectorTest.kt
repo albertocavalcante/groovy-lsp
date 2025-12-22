@@ -152,4 +152,21 @@ class JUnit5TestDetectorTest {
         assertTrue(methodItems.any { it.name == "testOne" })
         assertTrue(methodItems.any { it.name == "testRepeated" })
     }
+
+    @Test
+    fun `should detect ParameterizedTest with specific import`() {
+        val source = """
+            import org.junit.jupiter.params.ParameterizedTest
+            import org.junit.jupiter.params.provider.ValueSource
+
+            class ParameterizedTests {
+                @ParameterizedTest
+                @ValueSource(strings = ["foo", "bar"])
+                void test(String value) {}
+            }
+        """.trimIndent()
+        val (classNode, module) = parse(source, "ParameterizedTests")
+
+        assertTrue(detector.appliesTo(classNode, module))
+    }
 }
