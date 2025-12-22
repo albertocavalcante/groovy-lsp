@@ -97,26 +97,30 @@ class JUnit4TestDetectorTest {
                 void testVintage() {}
                 void helperTest() {} // Should be ignored
                 public void testPublic() {}
+                public void testWithParam(String s) {} // Should be ignored
             }
         """.trimIndent()
         val (classNode, _) = parse(source, "MyLegacyTest")
 
         val tests = detector.extractTests(classNode)
-        // Expecting Class + testVintage + testPublic
-        // Note: Groovy methods are public by default
-
-        // Wait, 'isTestCase' check in detector relies on AST resolution of hierarchy or name match in current file
-        // My simple parser might not resolve 'junit.framework.TestCase' super class if not in classpath/source
-        // But the detector logic has: if (current.superClass?.name == JUNIT4_TEST_CASE_CLASS) return true
-        // AST usually populates superClass even if unresolved if explicitly extended.
-
-        // Let's verify count.
-        // Class + 2 methods = 3 items.
-
-        // Helper to check
         val methods = tests.filter { it.kind == TestItemKind.METHOD }
+
+        assertEquals(2, methods.size, "Should find exactly 2 test methods")
         assertTrue(methods.any { it.name == "testVintage" }, "Should find testVintage")
         assertTrue(methods.any { it.name == "testPublic" }, "Should find testPublic")
         assertFalse(methods.any { it.name == "helperTest" }, "Should NOT find helperTest")
+        assertFalse(methods.any { it.name == "testWithParam" }, "Should NOT find testWithParam")
+    }
+
+    @Test
+    fun `appliesTo returns true for @RunWith annotation`() {
+        val source = """
+            import org.junit.runner.RunWith
+            @RunWith(org.junit.runners.Parameterized)
+            class MyParameterizedTest {}
+        """.trimIndent()
+        val (classNode, module) = parse(source, "MyParameterizedTest")
+
+        assertTrue(detector.appliesTo(classNode, module))
     }
 }

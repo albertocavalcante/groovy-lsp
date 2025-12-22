@@ -13,20 +13,33 @@ class JUnit4TestDetector : TestFrameworkDetector {
     companion object {
         private const val JUNIT4_TEST_ANNOTATION = "org.junit.Test"
         private const val JUNIT4_TEST_CASE_CLASS = "junit.framework.TestCase"
+        private const val JUNIT4_RUN_WITH_ANNOTATION = "org.junit.runner.RunWith"
     }
 
     override fun appliesTo(classNode: ClassNode, module: ModuleNode?, classLoader: ClassLoader?): Boolean {
-        // Check for @Test annotation imports
+        // 1. Check for imports
         if (module != null) {
-            val hasImport =
-                module.imports.any { it.className == JUNIT4_TEST_ANNOTATION || it.className == JUNIT4_TEST_CASE_CLASS }
+            val hasImport = module.imports.any {
+                it.className == JUNIT4_TEST_ANNOTATION ||
+                    it.className == JUNIT4_TEST_CASE_CLASS ||
+                    it.className == JUNIT4_RUN_WITH_ANNOTATION
+            }
             if (hasImport) return true
         }
 
-        // Check inheritance (extends TestCase)
+        // 2. Check for annotations on class (e.g. @RunWith)
+        if (classNode.annotations.any {
+                it.classNode.name == "RunWith" ||
+                    it.classNode.name == JUNIT4_RUN_WITH_ANNOTATION
+            }
+        ) {
+            return true
+        }
+
+        // 3. Check inheritance (extends TestCase)
         if (isTestCase(classNode)) return true
 
-        // Check for @Test on methods
+        // 4. Check for @Test on methods
         return classNode.methods.any { method ->
             method.annotations.any { it.classNode.name == "Test" || it.classNode.name == JUNIT4_TEST_ANNOTATION }
         }
@@ -53,7 +66,8 @@ class JUnit4TestDetector : TestFrameworkDetector {
             val isAnnotated =
                 method.annotations.any { it.classNode.name == "Test" || it.classNode.name == JUNIT4_TEST_ANNOTATION }
             val isLegacyTest =
-                isTestCase && method.name.startsWith("test") && method.isPublic && method.returnType.name == "void"
+                isTestCase && method.name.startsWith("test") && method.isPublic &&
+                    method.returnType.name == "void" && method.parameters.isEmpty()
 
             if (isAnnotated || isLegacyTest) {
                 tests.add(
