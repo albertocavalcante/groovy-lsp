@@ -180,13 +180,29 @@ object CompletionProvider {
             // Handle contextual completions
             when (completionContext) {
                 is ContextType.MemberAccess -> {
-                    logger.debug("Adding GDK/Classpath methods for {}", completionContext.qualifierType)
-                    // Strip generics for method lookup (e.g. "ArrayList<String>" -> "ArrayList")
-                    // Note: substringBefore('<') is safe even for nested generics (e.g. Map<String, List<Integer>>)
-                    // because we only need the raw outer type to look up methods on the class itself.
                     val rawType = completionContext.qualifierType.substringBefore('<')
-                    addGdkMethods(rawType, compilationService)
-                    addClasspathMethods(rawType, compilationService)
+                    val qualifierName = completionContext.qualifierName
+
+                    // Check if this is a Jenkins global variable with properties (env, currentBuild)
+                    // Match by name first (e.g., "env" variable), then by type for robustness
+                    val metadata = if (isJenkinsFile) {
+                        compilationService.workspaceManager.getAllJenkinsMetadata()
+                    } else {
+                        null
+                    }
+                    val globalVar = qualifierName?.let { metadata?.getGlobalVariable(it) }
+                        ?: metadata?.getGlobalVariable(rawType)
+
+                    if (globalVar != null && globalVar.properties.isNotEmpty()) {
+                        // Add Jenkins-specific property completions
+                        logger.debug("Adding Jenkins properties for {}", qualifierName ?: rawType)
+                        addJenkinsPropertyCompletions(globalVar)
+                    } else {
+                        // Standard GDK/classpath methods
+                        logger.debug("Adding GDK/Classpath methods for {}", rawType)
+                        addGdkMethods(rawType, compilationService)
+                        addClasspathMethods(rawType, compilationService)
+                    }
                 }
 
                 is ContextType.TypeParameter -> {
@@ -312,6 +328,21 @@ object CompletionProvider {
         }
     }
 
+    /**
+     * Add property completions for Jenkins global variables (env, currentBuild).
+     */
+    private fun CompletionsBuilder.addJenkinsPropertyCompletions(
+        globalVar: com.github.albertocavalcante.groovyjenkins.metadata.MergedGlobalVariable,
+    ) {
+        globalVar.properties.forEach { (name, prop) ->
+            property(
+                name = name,
+                type = prop.type,
+                doc = prop.description,
+            )
+        }
+    }
+
     private fun CompletionsBuilder.addJenkinsMapKeyCompletions(
         nodeAtCursor: org.codehaus.groovy.ast.ASTNode?,
         astModel: com.github.albertocavalcante.groovyparser.ast.GroovyAstModel,
@@ -370,20 +401,22 @@ object CompletionProvider {
         val parent = astModel.getParent(nodeAtCursor)
 
         return when (nodeAtCursor) {
-            // Case 1: Direct PropertyExpression (e.g., "myList.ea|")
+            // Case 1: Direct PropertyExpression (e.g., "myList.ea|" or "env.BUILD|")
             is org.codehaus.groovy.ast.expr.PropertyExpression -> {
                 val objectExpr = nodeAtCursor.objectExpression
                 var qualifierType = objectExpr.type?.name
+                var qualifierName: String? = null
 
-                // If object is a variable, try to get inferred type from context
+                // If object is a variable, capture its name for Jenkins global matching
                 if (objectExpr is org.codehaus.groovy.ast.expr.VariableExpression) {
+                    qualifierName = objectExpr.name
                     val inferredType = resolveVariableType(objectExpr.name, context)
                     if (inferredType != null) {
                         qualifierType = inferredType
                     }
                 }
 
-                qualifierType?.let { ContextType.MemberAccess(it) }
+                qualifierType?.let { ContextType.MemberAccess(it, qualifierName) }
             }
 
             // Case 2: VariableExpression that's part of a PropertyExpression or BinaryExpression
@@ -391,6 +424,7 @@ object CompletionProvider {
             is org.codehaus.groovy.ast.expr.VariableExpression -> {
                 if (parent is org.codehaus.groovy.ast.expr.PropertyExpression) {
                     var qualifierType = nodeAtCursor.type?.name
+                    val qualifierName = nodeAtCursor.name
 
                     // Try to get inferred type from context
                     val inferredType = resolveVariableType(nodeAtCursor.name, context)
@@ -398,7 +432,7 @@ object CompletionProvider {
                         qualifierType = inferredType
                     }
 
-                    qualifierType?.let { ContextType.MemberAccess(it) }
+                    qualifierType?.let { ContextType.MemberAccess(it, qualifierName) }
                 } else if (parent is org.codehaus.groovy.ast.expr.BinaryExpression &&
                     parent.operation.text == "<" &&
                     nodeAtCursor.name.contains(DUMMY_IDENTIFIER)
@@ -411,21 +445,23 @@ object CompletionProvider {
             }
 
             // Case 3: ConstantExpression that's the property in a PropertyExpression
-            // (e.g., cursor lands on the dummy identifier "IntelliJIdeaRulezzz" in "myList.IntelliJIde aRulezzz")
+            // (e.g., cursor lands on the dummy identifier in "myList.IntelliJIdeaRulezzz")
             is org.codehaus.groovy.ast.expr.ConstantExpression -> {
                 if (parent is org.codehaus.groovy.ast.expr.PropertyExpression) {
                     val objectExpr = parent.objectExpression
                     var qualifierType = objectExpr.type?.name
+                    var qualifierName: String? = null
 
-                    // If object is a variable, try to get inferred type from context
+                    // If object is a variable, capture name for Jenkins global matching
                     if (objectExpr is org.codehaus.groovy.ast.expr.VariableExpression) {
+                        qualifierName = objectExpr.name
                         val inferredType = resolveVariableType(objectExpr.name, context)
                         if (inferredType != null) {
                             qualifierType = inferredType
                         }
                     }
 
-                    qualifierType?.let { ContextType.MemberAccess(it) }
+                    qualifierType?.let { ContextType.MemberAccess(it, qualifierName) }
                 } else {
                     null
                 }
@@ -466,7 +502,13 @@ object CompletionProvider {
     }
 
     private sealed interface ContextType {
-        data class MemberAccess(val qualifierType: String) : ContextType
+        /**
+         * Member access context (e.g., "myList." or "env.").
+         * @param qualifierType The type of the qualifier (e.g., "ArrayList" or "Object")
+         * @param qualifierName The name of the qualifier variable (e.g., "myList" or "env").
+         *                      Used to match Jenkins global variables by name.
+         */
+        data class MemberAccess(val qualifierType: String, val qualifierName: String? = null) : ContextType
         data class TypeParameter(val prefix: String) : ContextType
     }
 
