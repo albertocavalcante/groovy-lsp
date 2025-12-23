@@ -7,9 +7,35 @@ GRADLE_ARGS ?=
 # macOS: Check for JAVA_HOME, trust environment (direnv/sdkman)
 ifeq ($(shell uname),Darwin)
     ifndef JAVA_HOME
-        $(warning JAVA_HOME is not set!)
-        $(warning Run 'sdk env' or 'direnv allow' to activate the environment.)
-        $(warning If you haven't set up the tools yet, run: ./tools/macos/setup.sh)
+        # Try to auto-detect SDKMAN Java if not set
+        # 1. Check standard SDKMAN location
+        SDKMAN_CANDIDATES := $(HOME)/.sdkman/candidates/java
+        # 2. Check Homebrew SDKMAN location
+        ifeq ($(wildcard $(SDKMAN_CANDIDATES)),)
+            SDKMAN_PREFIX := $(shell brew --prefix sdkman-cli 2>/dev/null)
+            ifneq ($(SDKMAN_PREFIX),)
+                SDKMAN_CANDIDATES := $(SDKMAN_PREFIX)/libexec/candidates/java
+            endif
+        endif
+
+        # If candidates directory exists, try to find version from .sdkmanrc
+        ifneq ($(wildcard $(SDKMAN_CANDIDATES)),)
+            JAVA_VERSION := $(shell grep "java=" .sdkmanrc 2>/dev/null | cut -d= -f2)
+            ifneq ($(JAVA_VERSION),)
+                DETECTED_JAVA_HOME := $(SDKMAN_CANDIDATES)/$(JAVA_VERSION)
+                ifneq ($(wildcard $(DETECTED_JAVA_HOME)),)
+                    export JAVA_HOME := $(DETECTED_JAVA_HOME)
+                    $(info ✅ Auto-detected JAVA_HOME: $(JAVA_HOME))
+                endif
+            endif
+        endif
+
+        # If still not found, warn
+        ifndef JAVA_HOME
+            $(warning JAVA_HOME is not set!)
+            $(warning Run 'sdk env' or 'direnv allow' to activate the environment.)
+            $(warning If you haven't set up the tools yet, run: ./tools/macos/setup.sh)
+        endif
     endif
 endif
 
