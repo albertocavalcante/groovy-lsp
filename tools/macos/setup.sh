@@ -8,35 +8,39 @@ command_exists() {
     type "$1" &> /dev/null
 }
 
-# Install SDKMAN via Homebrew
-if ! command_exists sdk; then
-    # SDKMAN is not in the default path, check if installed via brew but not sourced
-    if [ -d "$(brew --prefix)/opt/sdkman-cli" ] || [ -d "$HOME/.sdkman" ]; then
-         echo "✅ SDKMAN appears to be installed."
-    else
-         echo "📦 Installing SDKMAN via Homebrew..."
-         # SDKMAN is often in a specific tap
-         brew tap sdkman/tap
-         brew install sdkman-cli
-    fi
-    
-    # Init SDKMAN (Brew installs it, but we still need to source it)
-    export SDKMAN_DIR=$(brew --prefix sdkman-cli)/libexec
-    if [ -s "${SDKMAN_DIR}/bin/sdkman-init.sh" ]; then
-        source "${SDKMAN_DIR}/bin/sdkman-init.sh"
-    else
-        echo "❌ Could not find sdkman-init.sh at ${SDKMAN_DIR}/bin/sdkman-init.sh"
-        exit 1
-    fi
+if command_exists sdk; then
+    echo "✅ SDKMAN already available in PATH"
 else
-    # SDKMAN already installed, try to source it
-    export SDKMAN_DIR=$(brew --prefix sdkman-cli)/libexec
-    if [ -s "${SDKMAN_DIR}/bin/sdkman-init.sh" ]; then
-        source "${SDKMAN_DIR}/bin/sdkman-init.sh"
-    elif [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
-        source "$HOME/.sdkman/bin/sdkman-init.sh"
+    # Try to find SDKMAN in standard locations and source it
+    SDKMAN_INIT_SCRIPT=""
+    if [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
+        SDKMAN_INIT_SCRIPT="$HOME/.sdkman/bin/sdkman-init.sh"
+        export SDKMAN_DIR="$HOME/.sdkman"
+    elif command_exists brew && brew list sdkman-cli >/dev/null 2>&1 && [ -s "$(brew --prefix sdkman-cli)/libexec/bin/sdkman-init.sh" ]; then
+        SDKMAN_INIT_SCRIPT="$(brew --prefix sdkman-cli)/libexec/bin/sdkman-init.sh"
+        export SDKMAN_DIR="$(brew --prefix sdkman-cli)/libexec"
     fi
-    echo "✅ SDKMAN already installed"
+
+    if [ -n "$SDKMAN_INIT_SCRIPT" ]; then
+        echo "✅ Found SDKMAN installation. Sourcing for this script..."
+        source "$SDKMAN_INIT_SCRIPT"
+    else
+        echo "📦 SDKMAN not found. Installing via Homebrew..."
+        if ! command_exists brew; then
+            echo "❌ Homebrew is not installed. Please install it first."
+            exit 1
+        fi
+        brew tap sdkman/tap
+        brew install sdkman-cli
+        
+        export SDKMAN_DIR="$(brew --prefix sdkman-cli)/libexec"
+        if [ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
+            source "$SDKMAN_DIR/bin/sdkman-init.sh"
+        else
+            echo "❌ Failed to source SDKMAN after installation."
+            exit 1
+        fi
+    fi
 fi
 
 # Install Java version from .sdkmanrc
