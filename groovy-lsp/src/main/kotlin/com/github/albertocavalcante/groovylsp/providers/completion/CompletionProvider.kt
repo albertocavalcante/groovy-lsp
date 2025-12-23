@@ -8,6 +8,7 @@ import com.github.albertocavalcante.groovylsp.dsl.completion.GroovyCompletions
 import com.github.albertocavalcante.groovylsp.dsl.completion.completions
 import com.github.albertocavalcante.groovyparser.ast.ClassSymbol
 import com.github.albertocavalcante.groovyparser.ast.FieldSymbol
+import com.github.albertocavalcante.groovyparser.ast.GroovyAstModel
 import com.github.albertocavalcante.groovyparser.ast.ImportSymbol
 import com.github.albertocavalcante.groovyparser.ast.MethodSymbol
 import com.github.albertocavalcante.groovyparser.ast.SymbolCompletionContext
@@ -15,20 +16,22 @@ import com.github.albertocavalcante.groovyparser.ast.SymbolExtractor
 import com.github.albertocavalcante.groovyparser.ast.VariableSymbol
 import com.github.albertocavalcante.groovyparser.tokens.GroovyTokenIndex
 import com.github.albertocavalcante.groovyspock.SpockDetector
+import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.control.CompilationFailedException
 import org.eclipse.lsp4j.CompletionItem
 import org.eclipse.lsp4j.CompletionItemKind
 import org.slf4j.LoggerFactory
+import java.net.URI
 
 /**
  * Context for completion operations.
  */
 data class CompletionContext(
-    val uri: java.net.URI,
+    val uri: URI,
     val line: Int,
     val character: Int,
-    val ast: org.codehaus.groovy.ast.ASTNode,
-    val astModel: com.github.albertocavalcante.groovyparser.ast.GroovyAstModel,
+    val ast: ASTNode,
+    val astModel: GroovyAstModel,
     val isSpockSpec: Boolean,
     val tokenIndex: GroovyTokenIndex?,
     val compilationService: GroovyCompilationService,
@@ -258,7 +261,6 @@ object CompletionProvider {
         return metadata.globalVariables.values.find { it.type == type }
     }
 
-    // @Suppress("LongParameterList") // Refactored to use CompletionContext
     private fun CompletionsBuilder.addSpockBlockLabelsIfApplicable(
         ctx: CompletionContext,
         completionContext: ContextType?,
