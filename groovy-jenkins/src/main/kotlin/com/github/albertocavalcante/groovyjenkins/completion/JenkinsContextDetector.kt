@@ -40,6 +40,9 @@ object JenkinsContextDetector {
         "changed", "fixed", "regression", "aborted", "cleanup",
     )
 
+    // Pre-compiled pattern for post conditions (avoids per-iteration regex compilation)
+    private val POST_CONDITION_PATTERN = Regex("""^(${POST_CONDITIONS.joinToString("|")})\s*\{.*""")
+
     // Step name pattern - matches step name followed by space or end of string
     private val STEP_PATTERN = Regex("""^\s*(\w+)(?:\s|$)""")
 
@@ -150,10 +153,8 @@ object JenkinsContextDetector {
      */
     private fun addPostConditionBlocks(line: String, blockStack: MutableList<String>) {
         val trimmedLine = line.trim()
-        for (condition in POST_CONDITIONS) {
-            if (trimmedLine.matches(Regex("""$condition\s*\{.*"""))) {
-                blockStack.add(condition)
-            }
+        POST_CONDITION_PATTERN.find(trimmedLine)?.groups?.get(1)?.value?.let { condition ->
+            blockStack.add(condition)
         }
     }
 
