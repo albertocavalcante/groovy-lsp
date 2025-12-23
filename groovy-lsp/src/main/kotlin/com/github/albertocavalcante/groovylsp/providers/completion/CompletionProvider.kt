@@ -21,6 +21,21 @@ import org.eclipse.lsp4j.CompletionItemKind
 import org.slf4j.LoggerFactory
 
 /**
+ * Context for completion operations.
+ */
+data class CompletionContext(
+    val uri: java.net.URI,
+    val line: Int,
+    val character: Int,
+    val ast: org.codehaus.groovy.ast.ASTNode,
+    val astModel: com.github.albertocavalcante.groovyparser.ast.GroovyAstModel,
+    val isSpockSpec: Boolean,
+    val tokenIndex: GroovyTokenIndex?,
+    val compilationService: GroovyCompilationService,
+    val content: String,
+)
+
+/**
  * Provides completion items for Groovy language constructs using clean DSL.
  */
 object CompletionProvider {
@@ -72,15 +87,17 @@ object CompletionProvider {
                     if (ast2 != null) {
                         val isSpockSpec = SpockDetector.isSpockSpec(uriObj, result2)
                         return buildCompletionsList(
-                            ast = ast2,
-                            astModel = astModel2,
-                            line = line,
-                            character = character,
-                            compilationService = compilationService,
-                            uri = uriObj,
-                            content = content,
-                            isSpockSpec = isSpockSpec,
-                            tokenIndex = result2.tokenIndex,
+                            CompletionContext(
+                                uri = uriObj,
+                                line = line,
+                                character = character,
+                                ast = ast2,
+                                astModel = astModel2,
+                                isSpockSpec = isSpockSpec,
+                                tokenIndex = result2.tokenIndex,
+                                compilationService = compilationService,
+                                content = content,
+                            ),
                         )
                     }
                 }
@@ -92,15 +109,17 @@ object CompletionProvider {
             } else {
                 val isSpockSpec = SpockDetector.isSpockSpec(uriObj, result1)
                 buildCompletionsList(
-                    ast = ast1,
-                    astModel = astModel1,
-                    line = line,
-                    character = character,
-                    compilationService = compilationService,
-                    uri = uriObj,
-                    content = content,
-                    isSpockSpec = isSpockSpec,
-                    tokenIndex = result1.tokenIndex,
+                    CompletionContext(
+                        uri = uriObj,
+                        line = line,
+                        character = character,
+                        ast = ast1,
+                        astModel = astModel1,
+                        isSpockSpec = isSpockSpec,
+                        tokenIndex = result1.tokenIndex,
+                        compilationService = compilationService,
+                        content = content,
+                    ),
                 )
             }
         } catch (e: CompilationFailedException) {
@@ -141,35 +160,17 @@ object CompletionProvider {
         return lines.joinToString("\n")
     }
 
-    @Suppress("LongParameterList") // TODO: Refactor to use a CompletionContext data class
-    private fun buildCompletionsList(
-        ast: org.codehaus.groovy.ast.ASTNode,
-        astModel: com.github.albertocavalcante.groovyparser.ast.GroovyAstModel,
-        line: Int,
-        character: Int,
-        compilationService: GroovyCompilationService,
-        uri: java.net.URI,
-        content: String,
-        isSpockSpec: Boolean,
-        tokenIndex: GroovyTokenIndex?,
-    ): List<CompletionItem> {
+    private fun buildCompletionsList(ctx: CompletionContext): List<CompletionItem> {
         // Extract completion context
-        val context = SymbolExtractor.extractCompletionSymbols(ast, line, character)
-        val isJenkinsFile = compilationService.workspaceManager.isJenkinsFile(uri)
+        val context = SymbolExtractor.extractCompletionSymbols(ctx.ast, ctx.line, ctx.character)
+        val isJenkinsFile = ctx.compilationService.workspaceManager.isJenkinsFile(ctx.uri)
 
         // Try to detect member access (e.g., "myList.")
-        val nodeAtCursor = astModel.getNodeAt(uri, line, character)
-        val completionContext = detectCompletionContext(nodeAtCursor, astModel, context)
+        val nodeAtCursor = ctx.astModel.getNodeAt(ctx.uri, ctx.line, ctx.character)
+        val completionContext = detectCompletionContext(nodeAtCursor, ctx.astModel, context)
 
         return completions {
-            addSpockBlockLabelsIfApplicable(
-                content = content,
-                line = line,
-                character = character,
-                isSpockSpec = isSpockSpec,
-                completionContext = completionContext,
-                tokenIndex = tokenIndex,
-            )
+            addSpockBlockLabelsIfApplicable(ctx, completionContext)
 
             // Add local symbol completions
             addClasses(context.classes)
@@ -187,7 +188,7 @@ object CompletionProvider {
 
                     // Check if this is a Jenkins global variable with properties (env, currentBuild)
                     if (isJenkinsFile) {
-                        val metadata = compilationService.workspaceManager.getAllJenkinsMetadata()
+                        val metadata = ctx.compilationService.workspaceManager.getAllJenkinsMetadata()
                         if (metadata != null) {
                             val globalVar = findJenkinsGlobalVariable(qualifierName, rawType, metadata)
 
@@ -202,27 +203,27 @@ object CompletionProvider {
 
                     // Standard GDK/classpath methods (fallback)
                     logger.debug("Adding GDK/Classpath methods for {}", rawType)
-                    addGdkMethods(rawType, compilationService)
-                    addClasspathMethods(rawType, compilationService)
+                    addGdkMethods(rawType, ctx.compilationService)
+                    addClasspathMethods(rawType, ctx.compilationService)
                 }
 
                 is ContextType.TypeParameter -> {
                     logger.debug("Adding type parameter classes for prefix '{}'", completionContext.prefix)
-                    addTypeParameterClasses(completionContext.prefix, compilationService)
+                    addTypeParameterClasses(completionContext.prefix, ctx.compilationService)
                     // Also add auto-import completions for unimported types
-                    addAutoImportCompletions(completionContext.prefix, uri, content, compilationService)
+                    addAutoImportCompletions(completionContext.prefix, ctx.uri, ctx.content, ctx.compilationService)
                 }
 
                 null -> {
                     /* No special context */
                     if (isJenkinsFile) {
-                        val metadata = compilationService.workspaceManager.getAllJenkinsMetadata()
+                        val metadata = ctx.compilationService.workspaceManager.getAllJenkinsMetadata()
                         if (metadata != null) {
                             // Best-effort: if inside a method call on root (e.g., sh(...)), suggest map keys.
-                            addJenkinsMapKeyCompletions(nodeAtCursor, astModel, metadata)
+                            addJenkinsMapKeyCompletions(nodeAtCursor, ctx.astModel, metadata)
 
                             // Suggest global variables from vars/ directory and plugins
-                            addJenkinsGlobalVariables(metadata, compilationService)
+                            addJenkinsGlobalVariables(metadata, ctx.compilationService)
                         }
                     }
                 }
@@ -257,22 +258,18 @@ object CompletionProvider {
         return metadata.globalVariables.values.find { it.type == type }
     }
 
-    @Suppress("LongParameterList") // TODO: Refactor to use a CompletionContext data class
+    // @Suppress("LongParameterList") // Refactored to use CompletionContext
     private fun CompletionsBuilder.addSpockBlockLabelsIfApplicable(
-        content: String,
-        line: Int,
-        character: Int,
-        isSpockSpec: Boolean,
+        ctx: CompletionContext,
         completionContext: ContextType?,
-        tokenIndex: GroovyTokenIndex?,
     ) {
-        if (!isSpockSpec) return
+        if (!ctx.isSpockSpec) return
         if (completionContext != null) return
-        if (!isLineIndentOnlyBeforeCursor(content, line, character)) return
+        if (!isLineIndentOnlyBeforeCursor(ctx.content, ctx.line, ctx.character)) return
 
         // Deterministic token-based suppression (replaces heuristic isCursorInLikelyCommentOrString)
-        val offset = offsetAt(content, content.split('\n'), line, character)
-        if (tokenIndex?.isInCommentOrString(offset) == true) return
+        val offset = offsetAt(ctx.content, ctx.content.split('\n'), ctx.line, ctx.character)
+        if (ctx.tokenIndex?.isInCommentOrString(offset) == true) return
 
         val labels = listOf(
             "given:" to "Spock setup block",
