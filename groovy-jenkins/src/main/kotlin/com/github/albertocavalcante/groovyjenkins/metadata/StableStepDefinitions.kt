@@ -18,7 +18,7 @@ package com.github.albertocavalcante.groovyjenkins.metadata
  */
 object StableStepDefinitions {
 
-    // ========== Plugin name constants (SonarCloud: duplicated 19+ times) ==========
+    // Plugin name constants
     private object Plugins {
         const val DURABLE_TASK = "workflow-durable-task-step"
         const val BASIC_STEPS = "workflow-basic-steps"
@@ -34,7 +34,7 @@ object StableStepDefinitions {
         const val CORE = "core"
     }
 
-    // ========== Common parameter descriptions (SonarCloud: duplicated 3-4 times) ==========
+    // Common parameter descriptions
     private object Descriptions {
         const val RETURN_STDOUT = "If true, return the stdout as the step value."
         const val RETURN_STATUS = "If true, return the exit code as the step value."
