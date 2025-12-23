@@ -25,7 +25,7 @@ gh pr view PR_NUMBER --json state,statusCheckRollup --jq '{state: .state, checks
 
 ### 2.1 Get PR Review Comments (Inline Code Comments)
 ```bash
-gh api repos/albertocavalcante/groovy-lsp/pulls/PR_NUMBER/comments --jq '.[] | {author: .user.login, path: .path, line: .line, body: .body}'
+gh api repos/{owner}/{repo}/pulls/PR_NUMBER/comments --jq '.[] | {author: .user.login, path: .path, line: .line, body: .body}'
 ```
 
 ### 2.2 Get PR Level Reviews (Approve/Request Changes)
