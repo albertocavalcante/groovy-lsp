@@ -290,23 +290,33 @@ class ProjectStartupManager(
         null
     }
 
+    @Suppress("ReturnCount")
     fun waitForDependencies(timeoutSeconds: Long = 60): Boolean {
         val start = System.currentTimeMillis()
         val timeoutMs = timeoutSeconds * MILLIS_PER_SECOND
 
         while (System.currentTimeMillis() - start < timeoutMs) {
-            if (shouldStopWaiting()) return isDependencyReady()
-            if (sleepAndCheckInterruption()) return false
+            val manager = dependencyManager
+            if (manager == null) {
+                // Stop if no manager, which is an error state.
+                return false
+            }
+
+            if (manager.isDependenciesReady()) {
+                return true
+            }
+
+            if (manager.getState() == DependencyManager.State.FAILED) {
+                return false
+            }
+
+            if (sleepAndCheckInterruption()) {
+                // Thread was interrupted
+                return false
+            }
         }
         return false
     }
-
-    private fun shouldStopWaiting(): Boolean {
-        val manager = dependencyManager ?: return true // Stop if no manager (error state essentially)
-        return manager.isDependenciesReady() || manager.getState() == DependencyManager.State.FAILED
-    }
-
-    private fun isDependencyReady(): Boolean = dependencyManager?.isDependenciesReady() == true
 
     /**
      * Sleeps for the polling interval.
