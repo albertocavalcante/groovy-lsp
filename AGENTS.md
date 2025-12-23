@@ -3,6 +3,12 @@
 > A cross-platform configuration file for AI coding agents.  
 > Works with: Antigravity, GitHub Copilot, Cursor, Aider, and [many more](https://agents.md).
 
+<!-- 
+EXPERIMENTAL: This multi-file structure was introduced in PR #292.
+Previous single-file version: see commit before PR #292 merge.
+To revert: `git show main~1:AGENTS.md > AGENTS.md` and remove .agent/ .gemini/ directories.
+-->
+
 ## Project
 
 **Groovy Language Server (LSP)** — A Kotlin/JVM implementation.
