@@ -326,16 +326,23 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
             name = this.name,
             scope = StepScope.GLOBAL,
             positionalParams = emptyList(),
-            namedParams = this.parameters.mapValues { (pName, param) ->
-                MergedParameter(
-                    name = pName,
-                    type = param.type,
-                    defaultValue = param.default,
-                    description = param.documentation,
-                    required = param.required,
-                    validValues = null,
-                    examples = emptyList(),
-                )
+            namedParams = run {
+                val dynamicParams = this.parameters.mapValues { (pName, param) ->
+                    MergedParameter(
+                        name = pName,
+                        type = param.type,
+                        defaultValue = param.default,
+                        description = param.documentation,
+                        required = param.required,
+                        validValues = null,
+                        examples = emptyList(),
+                    )
+                }
+                if (backup != null) {
+                    backup.namedParams + dynamicParams
+                } else {
+                    dynamicParams
+                }
             },
             extractedDocumentation = this.documentation,
             returnType = null,
