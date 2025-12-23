@@ -2,6 +2,7 @@
     "TooGenericExceptionCaught", // Plugin resolution uses catch-all for resilience
     "ReturnCount", // Multiple early returns are clearer in search methods
     "NestedBlockDepth", // Plugin resolution has inherent nesting
+    "LoopWithTooManyJumpStatements", // Iterating plugins with multiple guard clauses (continue)
 )
 
 package com.github.albertocavalcante.groovyjenkins
