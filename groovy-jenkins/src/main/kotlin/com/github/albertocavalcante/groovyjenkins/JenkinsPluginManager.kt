@@ -100,41 +100,31 @@ class JenkinsPluginManager(
 
     // --- Helper lookup methods (Lazy / Specific) ---
 
-    private suspend fun findStepInClasspath(stepName: String, classpathJars: List<Path>): JenkinsStepMetadata? {
-        var found: JenkinsStepMetadata? = null
-        for (jar in classpathJars) {
-            val steps = getMetadataFromJar(jar)
-            steps[stepName]?.let { found = it }
+    private suspend fun findStepInClasspath(stepName: String, classpathJars: List<Path>): JenkinsStepMetadata? =
+        classpathJars.firstNotNullOfOrNull { jar ->
+            getMetadataFromJar(jar)[stepName]
         }
-        return found
-    }
 
-    private suspend fun findStepInUserConfig(stepName: String, workspaceRoot: Path): JenkinsStepMetadata? {
-        val plugins = loadUserPlugins(workspaceRoot)
-        var found: JenkinsStepMetadata? = null
-
-        for (plugin in plugins) {
-            val coords = plugin.toMavenCoordinates() ?: continue
-            val jarPath = resolvePluginJar(coords) ?: continue
-            val steps = getMetadataFromJar(jarPath)
-            steps[stepName]?.let { found = it }
+    private suspend fun findStepInUserConfig(stepName: String, workspaceRoot: Path): JenkinsStepMetadata? =
+        loadUserPlugins(workspaceRoot).firstNotNullOfOrNull { plugin ->
+            plugin.toMavenCoordinates()?.let { coords ->
+                resolvePluginJar(coords)?.let { jarPath ->
+                    getMetadataFromJar(jarPath)[stepName]
+                }
+            }
         }
-        return found
-    }
 
     private suspend fun findStepInDownloadedPlugins(stepName: String): JenkinsStepMetadata? {
         val downloadedJars = downloadedPluginMutex.withLock {
             downloadedPluginCache.values.toList()
         }
-
-        var found: JenkinsStepMetadata? = null
-        for (jarPath in downloadedJars) {
+        return downloadedJars.firstNotNullOfOrNull { jarPath ->
             if (Files.exists(jarPath)) {
-                val steps = getMetadataFromJar(jarPath)
-                steps[stepName]?.let { found = it }
+                getMetadataFromJar(jarPath)[stepName]
+            } else {
+                null
             }
         }
-        return found
     }
 
     /**

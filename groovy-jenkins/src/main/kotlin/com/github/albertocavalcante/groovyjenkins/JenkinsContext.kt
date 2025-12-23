@@ -297,8 +297,8 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
         val dynamicMetadata = dynamicMetadataCache[currentClasspathHash]
 
         val finalMetadata = if (dynamicMetadata != null) {
-            val combinedSteps = versionedMerged.steps + dynamicMetadata.steps.mapValues { (_, step) ->
-                step.toMerged()
+            val combinedSteps = versionedMerged.steps + dynamicMetadata.steps.mapValues { (name, step) ->
+                step.toMerged(backup = versionedMerged.steps[name])
             }
             versionedMerged.copy(steps = combinedSteps)
         } else {
@@ -321,30 +321,32 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
         )
     }
 
-    private fun JenkinsStepMetadata.toMerged(): MergedStepMetadata = MergedStepMetadata(
-        name = this.name,
-        scope = StepScope.GLOBAL,
-        positionalParams = emptyList(),
-        namedParams = this.parameters.mapValues { (pName, param) ->
-            MergedParameter(
-                name = pName,
-                type = param.type,
-                defaultValue = param.default,
-                description = param.documentation,
-                required = param.required,
-                validValues = null,
-                examples = emptyList(),
-            )
-        },
-        extractedDocumentation = this.documentation,
-        returnType = null,
-        plugin = this.plugin,
-        enrichedDescription = null,
-        documentationUrl = null,
-        category = null,
-        examples = emptyList(),
-        deprecation = null,
-    )
+    private fun JenkinsStepMetadata.toMerged(backup: MergedStepMetadata? = null): MergedStepMetadata =
+        MergedStepMetadata(
+            name = this.name,
+            scope = StepScope.GLOBAL,
+            positionalParams = emptyList(),
+            namedParams = this.parameters.mapValues { (pName, param) ->
+                MergedParameter(
+                    name = pName,
+                    type = param.type,
+                    defaultValue = param.default,
+                    description = param.documentation,
+                    required = param.required,
+                    validValues = null,
+                    examples = emptyList(),
+                )
+            },
+            extractedDocumentation = this.documentation,
+            returnType = null,
+            plugin = this.plugin,
+            // Preserve enrichment from backup if available
+            enrichedDescription = backup?.enrichedDescription,
+            documentationUrl = backup?.documentationUrl,
+            category = backup?.category,
+            examples = backup?.examples ?: emptyList(),
+            deprecation = backup?.deprecation,
+        )
 
     /**
      * Parse and scan classpath for Jenkins metadata.
