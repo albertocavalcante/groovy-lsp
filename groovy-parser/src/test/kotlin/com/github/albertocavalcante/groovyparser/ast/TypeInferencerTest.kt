@@ -178,8 +178,10 @@ class TypeInferencerTest {
 
         @Test
         fun `should infer Object when non-numeric operand in multiplication`() {
-            // "hello" * 3 produces a String in Groovy, but we can't know that statically
-            // so we conservatively return Object when operands aren't both numeric
+            // When the type inferencer sees a multiplication where one operand is non-numeric,
+            // it conservatively returns Object since static analysis can't determine the result.
+            // Note: "hello" * 3 works in Groovy (repeats string), but 3 * "hello" fails at runtime.
+            // Either way, our static inference correctly falls back to Object for safety.
             val code = "def result = 2 * 'hello'"
             val type = inferTypeFromFirstDeclaration(code)
             assertEquals("java.lang.Object", type)
