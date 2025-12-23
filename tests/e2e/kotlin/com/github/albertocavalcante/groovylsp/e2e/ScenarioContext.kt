@@ -120,11 +120,15 @@ data class ScenarioContext(
 
     fun evaluateCheck(node: JsonElement, check: JsonCheck, quiet: Boolean = false): Boolean {
         val javaObject = node.toJavaObject()
-        val document = JsonPath.using(jsonPathConfig).parse(javaObject)
-        val (pathExists, readValue) = try {
-            true to document.read<Any?>(check.jsonPath)
-        } catch (ex: PathNotFoundException) {
+        val (pathExists, readValue) = if (javaObject == null) {
             false to null
+        } else {
+            val document = JsonPath.using(jsonPathConfig).parse(javaObject)
+            try {
+                true to document.read<Any?>(check.jsonPath)
+            } catch (ex: PathNotFoundException) {
+                false to null
+            }
         }
 
         val expectation = check.expect.interpolate(this)
