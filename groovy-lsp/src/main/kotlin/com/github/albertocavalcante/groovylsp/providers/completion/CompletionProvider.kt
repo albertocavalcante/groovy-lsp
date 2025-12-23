@@ -1,5 +1,7 @@
 package com.github.albertocavalcante.groovylsp.providers.completion
 
+import com.github.albertocavalcante.groovyjenkins.metadata.MergedGlobalVariable
+import com.github.albertocavalcante.groovyjenkins.metadata.MergedJenkinsMetadata
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
 import com.github.albertocavalcante.groovylsp.dsl.completion.CompletionsBuilder
 import com.github.albertocavalcante.groovylsp.dsl.completion.GroovyCompletions
@@ -234,8 +236,8 @@ object CompletionProvider {
     private fun findJenkinsGlobalVariable(
         name: String?,
         type: String,
-        metadata: com.github.albertocavalcante.groovyjenkins.metadata.MergedJenkinsMetadata,
-    ): com.github.albertocavalcante.groovyjenkins.metadata.MergedGlobalVariable? {
+        metadata: MergedJenkinsMetadata,
+    ): MergedGlobalVariable? {
         // 1. Try to find by name (e.g. "env")
         if (name != null) {
             val byName = metadata.getGlobalVariable(name)
@@ -251,7 +253,8 @@ object CompletionProvider {
         }
 
         // 2. Fallback: Find by type (e.g. "org.jenkinsci.plugins.workflow.cps.EnvActionImpl")
-        return metadata.getGlobalVariable(type)
+        // Note: metadata.globalVariables is keyed by variable name, so we scan values for matching type.
+        return metadata.globalVariables.values.find { it.type == type }
     }
 
     @Suppress("LongParameterList") // TODO: Refactor to use a CompletionContext data class
@@ -319,7 +322,7 @@ object CompletionProvider {
     }
 
     private fun CompletionsBuilder.addJenkinsGlobalVariables(
-        metadata: com.github.albertocavalcante.groovyjenkins.metadata.MergedJenkinsMetadata,
+        metadata: MergedJenkinsMetadata,
         compilationService: GroovyCompilationService,
     ) {
         // 1. Add global variables from bundled plugin metadata
@@ -356,9 +359,7 @@ object CompletionProvider {
     /**
      * Add property completions for Jenkins global variables (env, currentBuild).
      */
-    private fun CompletionsBuilder.addJenkinsPropertyCompletions(
-        globalVar: com.github.albertocavalcante.groovyjenkins.metadata.MergedGlobalVariable,
-    ) {
+    private fun CompletionsBuilder.addJenkinsPropertyCompletions(globalVar: MergedGlobalVariable) {
         globalVar.properties.forEach { (name, prop) ->
             property(
                 name = name,
@@ -371,7 +372,7 @@ object CompletionProvider {
     private fun CompletionsBuilder.addJenkinsMapKeyCompletions(
         nodeAtCursor: org.codehaus.groovy.ast.ASTNode?,
         astModel: com.github.albertocavalcante.groovyparser.ast.GroovyAstModel,
-        metadata: com.github.albertocavalcante.groovyjenkins.metadata.MergedJenkinsMetadata,
+        metadata: MergedJenkinsMetadata,
     ) {
         val methodCall = findEnclosingMethodCall(nodeAtCursor, astModel)
         val callName = methodCall?.methodAsString ?: return
@@ -429,19 +430,9 @@ object CompletionProvider {
             // Case 1: Direct PropertyExpression (e.g., "myList.ea|" or "env.BUILD|")
             is org.codehaus.groovy.ast.expr.PropertyExpression -> {
                 val objectExpr = nodeAtCursor.objectExpression
-                var qualifierType = objectExpr.type?.name
-                var qualifierName: String? = null
-
-                // If object is a variable, capture its name for Jenkins global matching
-                if (objectExpr is org.codehaus.groovy.ast.expr.VariableExpression) {
-                    qualifierName = objectExpr.name
-                    val inferredType = resolveVariableType(objectExpr.name, context)
-                    if (inferredType != null) {
-                        qualifierType = inferredType
-                    }
+                resolveQualifier(objectExpr, context)?.let { (type, name) ->
+                    ContextType.MemberAccess(type, name)
                 }
-
-                qualifierType?.let { ContextType.MemberAccess(it, qualifierName) }
             }
 
             // Case 2: VariableExpression that's part of a PropertyExpression or BinaryExpression
@@ -474,19 +465,9 @@ object CompletionProvider {
             is org.codehaus.groovy.ast.expr.ConstantExpression -> {
                 if (parent is org.codehaus.groovy.ast.expr.PropertyExpression) {
                     val objectExpr = parent.objectExpression
-                    var qualifierType = objectExpr.type?.name
-                    var qualifierName: String? = null
-
-                    // If object is a variable, capture name for Jenkins global matching
-                    if (objectExpr is org.codehaus.groovy.ast.expr.VariableExpression) {
-                        qualifierName = objectExpr.name
-                        val inferredType = resolveVariableType(objectExpr.name, context)
-                        if (inferredType != null) {
-                            qualifierType = inferredType
-                        }
+                    resolveQualifier(objectExpr, context)?.let { (type, name) ->
+                        ContextType.MemberAccess(type, name)
                     }
-
-                    qualifierType?.let { ContextType.MemberAccess(it, qualifierName) }
                 } else {
                     null
                 }
@@ -524,6 +505,25 @@ object CompletionProvider {
     private fun resolveVariableType(variableName: String, context: SymbolCompletionContext): String? {
         val inferredVar = context.variables.find { it.name == variableName }
         return inferredVar?.type
+    }
+
+    private fun resolveQualifier(
+        objectExpr: org.codehaus.groovy.ast.expr.Expression,
+        context: SymbolCompletionContext,
+    ): Pair<String, String?>? {
+        var qualifierType = objectExpr.type?.name
+        var qualifierName: String? = null
+
+        // If object is a variable, capture its name for Jenkins global matching
+        if (objectExpr is org.codehaus.groovy.ast.expr.VariableExpression) {
+            qualifierName = objectExpr.name
+            val inferredType = resolveVariableType(objectExpr.name, context)
+            if (inferredType != null) {
+                qualifierType = inferredType
+            }
+        }
+
+        return qualifierType?.let { it to qualifierName }
     }
 
     private sealed interface ContextType {
