@@ -97,17 +97,27 @@ jobs:
           # For workflow_run events, use the triggering workflow's head commit as base
           # This fixes the 'before field is missing' warning
           base: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+          # Use 'every' predicate to properly handle exclusion patterns
+          # With 'some' (default), a file matches if it matches ANY pattern, breaking negations
+          predicate-quantifier: 'every'
           filters: |
             run_main_ci:
+              # Positive patterns: paths that require CI
               - 'src/**'
               - 'gradle/**'
+              - 'groovy-*/**'
+              - 'tests/**'
               - '*.gradle'
               - '*.gradle.kts'
               - 'gradle.properties'
+              - 'settings.gradle.kts'
               - '.github/workflows/ci.yml'
-              - '!infra/**'
-              - '!*.md'
+              # Negative patterns: paths that should NOT trigger CI
+              - '!**/*.md'
+              - '!.agent/**'
+              - '!.gemini/**'
               - '!docs/**'
+              - '!infra/**'
               - '!.github/workflows/runner-*.yml'
 
   check-runner:
