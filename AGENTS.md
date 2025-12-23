@@ -23,7 +23,7 @@
 ./gradlew test --tests "*ClassName*" --info        # Single test with output
 ./gradlew lintFix                                  # Auto-fix lint issues
 
-# Environment (required for Gradle operations)
+# Environment (macOS with Homebrew - adjust for your OS/JDK setup)
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 ```
 

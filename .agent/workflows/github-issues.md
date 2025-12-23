@@ -5,9 +5,15 @@ description: GitHub issue creation patterns and label conventions
 
 # GitHub Issues
 
+## Project Variables
+
+| Variable | Value |
+|----------|-------|
+| `OWNER/REPO` | `albertocavalcante/groovy-lsp` |
+
 ## Quick Issue Creation
 ```bash
-gh issue create -R albertocavalcante/groovy-lsp \
+gh issue create -R OWNER/REPO \
   --title "[lsp/completion] Add method signatures" \
   --body-file github-issues/issue.md \
   --label "enhancement" --label "lsp/completion" --label "P1-must" --label "size/M"
