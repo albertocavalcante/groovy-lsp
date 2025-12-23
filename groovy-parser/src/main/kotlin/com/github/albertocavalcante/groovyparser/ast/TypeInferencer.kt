@@ -164,18 +164,32 @@ object TypeInferencer {
     /**
      * Promote numeric types following Java/Groovy rules.
      * BigDecimal is Groovy's default for floating-point literals.
+     *
+     * Key semantics:
+     * - byte + short → int (all small integer operations promote to int)
+     * - Non-numeric operands → Object (Groovy's operator overloading is complex)
      */
     private fun promoteNumericTypes(leftType: String, rightType: String): String {
         val leftPrecedence = numericPrecedence(leftType)
         val rightPrecedence = numericPrecedence(rightType)
 
-        // If either is non-numeric, return the expression type (likely Object)
-        if (leftPrecedence == 0 && rightPrecedence == 0) {
+        // If either operand is not a known numeric type, we cannot safely promote.
+        // A safe fallback is Object, as Groovy's operator overloading is complex.
+        if (leftPrecedence == 0 || rightPrecedence == 0) {
             return "java.lang.Object"
         }
 
-        // Return the type with higher precedence
-        return if (leftPrecedence >= rightPrecedence) leftType else rightType
+        val resultPrecedence = maxOf(leftPrecedence, rightPrecedence)
+
+        // Promote based on the highest precedence, with special handling for small integer types.
+        return when {
+            resultPrecedence >= 7 -> "java.math.BigDecimal"
+            resultPrecedence == 6 -> "java.math.BigInteger"
+            resultPrecedence == 5 -> "double"
+            resultPrecedence == 4 -> "float"
+            resultPrecedence == 3 -> "long"
+            else -> "int" // byte, short, and int operations result in int
+        }
     }
 
     /**
