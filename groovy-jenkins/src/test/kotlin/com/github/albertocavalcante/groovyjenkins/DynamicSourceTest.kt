@@ -32,7 +32,7 @@ class DynamicSourceTest {
             name = "sh",
             plugin = "workflow-durable-task",
             parameters = mapOf(
-                "script" to StepParameter("script", "String", required = true),
+                // "script" is omitted to verify it's inherited from stable
                 "customDynamicParam" to
                     StepParameter("customDynamicParam", "String", documentation = "Added dynamically"),
             ),

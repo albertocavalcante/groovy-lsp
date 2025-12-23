@@ -10,6 +10,7 @@ import com.github.albertocavalcante.groovygdsl.GdslExecutor
 import com.github.albertocavalcante.groovygdsl.GdslLoadResults
 import com.github.albertocavalcante.groovygdsl.GdslLoader
 import com.github.albertocavalcante.groovyjenkins.metadata.BundledJenkinsMetadata
+import com.github.albertocavalcante.groovyjenkins.metadata.JenkinsStepMetadata
 import com.github.albertocavalcante.groovyjenkins.metadata.MergedJenkinsMetadata
 import com.github.albertocavalcante.groovyjenkins.metadata.MergedParameter
 import com.github.albertocavalcante.groovyjenkins.metadata.MergedStepMetadata
@@ -296,33 +297,8 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
         val dynamicMetadata = dynamicMetadataCache[currentClasspathHash]
 
         val finalMetadata = if (dynamicMetadata != null) {
-            val combinedSteps = versionedMerged.steps + dynamicMetadata.steps.mapValues { (name, step) ->
-                // Convert simple JenkinsStepMetadata to MergedStepMetadata
-                // We use a helper or default values for the enriched fields
-                MergedStepMetadata(
-                    name = name,
-                    scope = StepScope.GLOBAL,
-                    positionalParams = emptyList(),
-                    namedParams = step.parameters.mapValues { (pName, param) ->
-                        MergedParameter(
-                            name = pName,
-                            type = param.type,
-                            defaultValue = param.default,
-                            description = param.documentation,
-                            required = param.required,
-                            validValues = null,
-                            examples = emptyList(),
-                        )
-                    },
-                    extractedDocumentation = step.documentation,
-                    returnType = null,
-                    plugin = step.plugin,
-                    enrichedDescription = null,
-                    documentationUrl = null,
-                    category = null,
-                    examples = emptyList(),
-                    deprecation = null,
-                )
+            val combinedSteps = versionedMerged.steps + dynamicMetadata.steps.mapValues { (_, step) ->
+                step.toMerged()
             }
             versionedMerged.copy(steps = combinedSteps)
         } else {
@@ -344,6 +320,31 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
             },
         )
     }
+
+    private fun JenkinsStepMetadata.toMerged(): MergedStepMetadata = MergedStepMetadata(
+        name = this.name,
+        scope = StepScope.GLOBAL,
+        positionalParams = emptyList(),
+        namedParams = this.parameters.mapValues { (pName, param) ->
+            MergedParameter(
+                name = pName,
+                type = param.type,
+                defaultValue = param.default,
+                description = param.documentation,
+                required = param.required,
+                validValues = null,
+                examples = emptyList(),
+            )
+        },
+        extractedDocumentation = this.documentation,
+        returnType = null,
+        plugin = this.plugin,
+        enrichedDescription = null,
+        documentationUrl = null,
+        category = null,
+        examples = emptyList(),
+        deprecation = null,
+    )
 
     /**
      * Parse and scan classpath for Jenkins metadata.

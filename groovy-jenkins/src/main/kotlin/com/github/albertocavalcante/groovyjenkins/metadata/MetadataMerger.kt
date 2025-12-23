@@ -30,8 +30,22 @@ object MetadataMerger {
     }
 
     private val bundledMetadataSemigroup: Semigroup<BundledJenkinsMetadata> = Semigroup { a, b ->
+        // Deep merge steps:
+        // 1. Keys in both: combine values
+        // 2. Keys only in a: keep a
+        // 3. Keys only in b: keep b
+        val combinedSteps = (a.steps.keys + b.steps.keys).associateWith { key ->
+            val stepA = a.steps[key]
+            val stepB = b.steps[key]
+            if (stepA != null && stepB != null) {
+                stepMetadataSemigroup.run { combine(stepA, stepB) }
+            } else {
+                stepB ?: stepA!!
+            }
+        }
+
         BundledJenkinsMetadata(
-            steps = a.steps + b.steps, // Standard map merge: Right overrides Left
+            steps = combinedSteps,
             globalVariables = a.globalVariables + b.globalVariables,
             postConditions = a.postConditions + b.postConditions,
             declarativeOptions = a.declarativeOptions + b.declarativeOptions,

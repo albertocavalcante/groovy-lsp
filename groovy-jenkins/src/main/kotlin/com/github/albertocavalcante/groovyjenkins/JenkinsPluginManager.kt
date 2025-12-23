@@ -22,11 +22,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Functional interface for a source of Jenkins metadata.
- */
-typealias MetadataSource = suspend () -> BundledJenkinsMetadata
-
-/**
  * Central orchestrator for Jenkins plugin metadata resolution.
  *
  * Implements a functional pipeline strategy where sources are folded:
@@ -52,8 +47,8 @@ class JenkinsPluginManager(
     private val bundledMetadataMutex = Mutex()
     private var bundledMetadataCache: BundledJenkinsMetadata? = null
 
-    // Cache for extracted metadata from JARs
-    private val extractedMetadataCache = mutableMapOf<String, List<JenkinsStepMetadata>>()
+    // Cache for extracted metadata from JARs (Jar Path -> Map<StepName, Step>)
+    private val extractedMetadataCache = mutableMapOf<String, Map<String, JenkinsStepMetadata>>()
     private val cacheMutex = Mutex()
 
     // Cache for user-configured plugins (by workspace)
@@ -73,126 +68,72 @@ class JenkinsPluginManager(
         workspaceRoot: Path? = null,
     ): JenkinsStepMetadata? {
         // Define sources from lowest to highest priority
-        val sources: List<MetadataSource> = listOf(
-            // 1. Bundled (Lowest)
-            { getBundledMetadata() },
+        // Collect candidate steps from each tier (ordered by priority: Lowest -> Highest)
+        val candidates = mutableListOf<JenkinsStepMetadata>()
 
-            // 2. Stable Definitions
-            {
-                BundledJenkinsMetadata(
-                    steps = StableStepDefinitions.all(),
-                    globalVariables = emptyMap(),
-                    postConditions = emptyMap(),
-                    declarativeOptions = emptyMap(),
-                    agentTypes = emptyMap(),
-                )
-            },
+        // 1. Bundled (Lowest)
+        getBundledMetadata().getStep(stepName)?.let { candidates.add(it) }
 
-            // 3. User Config & Downloaded (Medium)
-            {
-                val userSteps = if (workspaceRoot != null) {
-                    collectUserConfiguredSteps(workspaceRoot)
-                } else {
-                    emptyMap()
-                }
+        // 2. Stable Definitions
+        StableStepDefinitions.all()[stepName]?.let { candidates.add(it) }
 
-                // Also check previously downloaded/resolved plugins not explicitly in config
-                // This is a bit of a loose heuristic but matches previous logic
-                val downloadedSteps = collectDownloadedSteps()
-
-                BundledJenkinsMetadata(
-                    steps = downloadedSteps + userSteps, // User config overrides random downloads
-                    globalVariables = emptyMap(),
-                    postConditions = emptyMap(),
-                    declarativeOptions = emptyMap(),
-                    agentTypes = emptyMap(),
-                )
-            },
-
-            // 4. Classpath (Highest)
-            {
-                val classpathSteps = collectClasspathSteps(classpathJars)
-                BundledJenkinsMetadata(
-                    steps = classpathSteps,
-                    globalVariables = emptyMap(),
-                    postConditions = emptyMap(),
-                    declarativeOptions = emptyMap(),
-                    agentTypes = emptyMap(),
-                )
-            },
-        )
-
-        // Fold sources to create the authoritative view
-        // Note: usage of 'fold' here implies we build the COMPLETE metadata view
-        // For distinct step resolution, this might be expensive if done on every request.
-        // However, for correctness, this is the functional way.
-        // Optimization: We could lazy-fetch only the requested step, but MetadataMerger works on full objects.
-        // Given the scale, constructing the Maps is relatively cheap compared to I/O which is cached.
-
-        val mergedMetadata = sources.fold(
-            BundledJenkinsMetadata(emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap()),
-        ) { acc, source ->
-            try {
-                val next = source()
-                // Use our Semigroup-based merger
-                // Using 'merge' which simplifies to Semigroup combine in underlying logic
-                MetadataMerger.merge(acc, next.steps)
-                    .copy(
-                        // Preserve other fields logic from MetadataMerger if needed,
-                        // but MetadataMerger.merge only merges steps into acc.
-                        // Let's use the explicit combine if we want full merge.
-                        // Actually MetadataMerger.merge (as refactored) calls bundledMetadataSemigroup.combine
-                        // So it merges EVERYTHING.
-                    )
-            } catch (e: Exception) {
-                logger.warn("Failed to load metadata source", e)
-                acc
-            }
+        // 3. User Config & Downloaded (Medium)
+        // Check user config first
+        if (workspaceRoot != null) {
+            findStepInUserConfig(stepName, workspaceRoot)?.let { candidates.add(it) }
         }
+        // Then downloaded plugins (fallback heuristic)
+        findStepInDownloadedPlugins(stepName)?.let { candidates.add(it) }
 
-        return mergedMetadata.getStep(stepName)
+        // 4. Classpath (Highest)
+        findStepInClasspath(stepName, classpathJars)?.let { candidates.add(it) }
+
+        if (candidates.isEmpty()) return null
+
+        // Reduce using the Semigroup to merge parameters deeply
+        // acc = lower priority, next = higher priority. 'combine' ensures next overrides acc where appropriate.
+        return candidates.reduce { acc, next ->
+            MetadataMerger.mergeStepParameters(acc, next)
+        }
     }
 
-    // --- Helper collection methods (Refactored to return Maps) ---
+    // --- Helper lookup methods (Lazy / Specific) ---
 
-    private suspend fun collectClasspathSteps(classpathJars: List<Path>): Map<String, JenkinsStepMetadata> {
-        val steps = mutableMapOf<String, JenkinsStepMetadata>()
-        classpathJars.forEach { jar ->
-            extractMetadataFromJar(jar).forEach { step ->
-                steps[step.name] = step
-            }
+    private suspend fun findStepInClasspath(stepName: String, classpathJars: List<Path>): JenkinsStepMetadata? {
+        var found: JenkinsStepMetadata? = null
+        for (jar in classpathJars) {
+            val steps = getMetadataFromJar(jar)
+            steps[stepName]?.let { found = it }
         }
-        return steps
+        return found
     }
 
-    private suspend fun collectUserConfiguredSteps(workspaceRoot: Path): Map<String, JenkinsStepMetadata> {
-        val steps = mutableMapOf<String, JenkinsStepMetadata>()
+    private suspend fun findStepInUserConfig(stepName: String, workspaceRoot: Path): JenkinsStepMetadata? {
         val plugins = loadUserPlugins(workspaceRoot)
+        var found: JenkinsStepMetadata? = null
 
         for (plugin in plugins) {
             val coords = plugin.toMavenCoordinates() ?: continue
             val jarPath = resolvePluginJar(coords) ?: continue
-            extractMetadataFromJar(jarPath).forEach { step ->
-                steps[step.name] = step
-            }
+            val steps = getMetadataFromJar(jarPath)
+            steps[stepName]?.let { found = it }
         }
-        return steps
+        return found
     }
 
-    private suspend fun collectDownloadedSteps(): Map<String, JenkinsStepMetadata> {
-        val steps = mutableMapOf<String, JenkinsStepMetadata>()
+    private suspend fun findStepInDownloadedPlugins(stepName: String): JenkinsStepMetadata? {
         val downloadedJars = downloadedPluginMutex.withLock {
             downloadedPluginCache.values.toList()
         }
 
+        var found: JenkinsStepMetadata? = null
         for (jarPath in downloadedJars) {
             if (Files.exists(jarPath)) {
-                extractMetadataFromJar(jarPath).forEach { step ->
-                    steps[step.name] = step
-                }
+                val steps = getMetadataFromJar(jarPath)
+                steps[stepName]?.let { found = it }
             }
         }
-        return steps
+        return found
     }
 
     /**
@@ -236,25 +177,25 @@ class JenkinsPluginManager(
      * Get all available step names from all tiers.
      */
     suspend fun getAllKnownSteps(classpathJars: List<Path> = emptyList()): Set<String> {
-        // We can reuse resolveStepMetadata logic but optimized for key retrieval?
-        // For now, let's keep it simple and explicit as the caller might just want names.
+        val names = mutableSetOf<String>()
+        names.addAll(getBundledMetadata().steps.keys)
+        names.addAll(StableStepDefinitions.all().keys)
 
-        // 1. Bundled
-        val bundled = getBundledMetadata().steps.keys
-
-        // 2. Classpath
-        val classpath = collectClasspathSteps(classpathJars).keys
-
-        // 3. Stable
-        val stable = StableStepDefinitions.all().keys
-
-        return bundled + classpath + stable
+        classpathJars.forEach { jar ->
+            names.addAll(getMetadataFromJar(jar).keys)
+        }
+        return names
     }
 
     /**
      * Extract metadata from a JAR, with caching.
      */
-    private suspend fun extractMetadataFromJar(jarPath: Path): List<JenkinsStepMetadata> {
+
+    /**
+     * EXTRACT metadata from a JAR (or retrieve from cache), returning a Name->Step Map.
+     * Renamed to getMetadataFromJar to reflect retrieval + caching.
+     */
+    private suspend fun getMetadataFromJar(jarPath: Path): Map<String, JenkinsStepMetadata> {
         val key = jarPath.toString()
 
         val cached = cacheMutex.withLock {
@@ -265,16 +206,17 @@ class JenkinsPluginManager(
         // Check if this looks like a Jenkins plugin
         val fileName = jarPath.fileName.toString()
         if (!isLikelyJenkinsPlugin(fileName)) {
-            return emptyList()
+            return emptyMap()
         }
 
-        val extracted = metadataExtractor.extractFromJar(jarPath, fileName.removeSuffix(".jar"))
+        val extractedList = metadataExtractor.extractFromJar(jarPath, fileName.removeSuffix(".jar"))
+        val extractedMap = extractedList.associateBy { it.name }
 
         cacheMutex.withLock {
-            extractedMetadataCache[key] = extracted
+            extractedMetadataCache[key] = extractedMap
         }
 
-        return extracted
+        return extractedMap
     }
 
     /**
