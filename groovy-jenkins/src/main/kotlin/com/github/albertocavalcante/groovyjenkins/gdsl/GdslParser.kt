@@ -63,7 +63,7 @@ object GdslParser {
 
         // Process line by line to track context
         val lines = gdsl.lines()
-        for ((_, line) in lines.withIndex()) {
+        for (line in lines) {
             // Check for context switches
             if (NODE_CONTEXT_START.containsMatchIn(line)) {
                 inNodeContext = true
