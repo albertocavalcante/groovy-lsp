@@ -159,17 +159,12 @@ class GroovyLanguageServer :
     // ============================================================================
 
     @JsonRequest("groovy/discoverTests")
-    fun discoverTests(params: DiscoverTestsParams): CompletableFuture<List<TestSuite>> {
-        return testRequestDelegate.discoverTests(params)
-    }
+    fun discoverTests(params: DiscoverTestsParams): CompletableFuture<List<TestSuite>> =
+        testRequestDelegate.discoverTests(params)
 
     @JsonRequest("groovy/runTest")
-    fun runTest(params: RunTestParams): CompletableFuture<TestCommand> {
-        return testRequestDelegate.runTest(params)
-    }
+    fun runTest(params: RunTestParams): CompletableFuture<TestCommand> = testRequestDelegate.runTest(params)
 
     // Exposed for testing/CLI
-    fun waitForDependencies(timeoutSeconds: Long = 60): Boolean {
-        return startupManager.waitForDependencies(timeoutSeconds)
-    }
+    fun waitForDependencies(timeoutSeconds: Long = 60): Boolean = startupManager.waitForDependencies(timeoutSeconds)
 }

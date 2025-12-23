@@ -4,9 +4,9 @@ import com.github.albertocavalcante.groovylsp.Version
 import org.eclipse.lsp4j.CodeLensOptions
 import org.eclipse.lsp4j.CompletionOptions
 import org.eclipse.lsp4j.InitializeResult
-import org.eclipse.lsp4j.SemanticTokensLegend
 import org.eclipse.lsp4j.SemanticTokenModifiers
 import org.eclipse.lsp4j.SemanticTokenTypes
+import org.eclipse.lsp4j.SemanticTokensLegend
 import org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions
 import org.eclipse.lsp4j.ServerCapabilities
 import org.eclipse.lsp4j.ServerInfo
@@ -80,8 +80,8 @@ object ServerCapabilitiesFactory {
         return InitializeResult(capabilities, serverInfo)
     }
 
-    private fun createSemanticTokensOptions(): SemanticTokensWithRegistrationOptions {
-        return SemanticTokensWithRegistrationOptions().apply {
+    private fun createSemanticTokensOptions(): SemanticTokensWithRegistrationOptions =
+        SemanticTokensWithRegistrationOptions().apply {
             legend = SemanticTokensLegend().apply {
                 // Token types - MUST match indices in JenkinsSemanticTokenProvider.TokenTypes
                 tokenTypes = listOf(
@@ -128,5 +128,4 @@ object ServerCapabilitiesFactory {
             // Support full document semantic tokens (no delta updates yet)
             full = Either.forLeft(true)
         }
-    }
 }

@@ -2,6 +2,7 @@ package com.github.albertocavalcante.groovylsp.services
 
 import com.github.albertocavalcante.groovylsp.buildtool.BuildTool
 import com.github.albertocavalcante.groovylsp.buildtool.BuildToolManager
+import com.github.albertocavalcante.groovylsp.buildtool.WorkspaceResolution
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
 import com.github.albertocavalcante.groovylsp.config.ServerConfiguration
 import com.github.albertocavalcante.groovylsp.gradle.DependencyManager
@@ -42,6 +43,7 @@ class ProjectStartupManager(
 
     var buildToolManager: BuildToolManager? = null
         private set
+
     var dependencyManager: DependencyManager? = null
         private set
 
@@ -65,23 +67,7 @@ class ProjectStartupManager(
         }
 
         val allWatchKinds = WatchKind.Create + WatchKind.Change + WatchKind.Delete
-
-        val watchers = listOf(
-            FileSystemWatcher(Either.forLeft("**/.codenarc"), allWatchKinds),
-            FileSystemWatcher(Either.forLeft("**/codenarc.xml"), allWatchKinds),
-            FileSystemWatcher(Either.forLeft("**/codenarc.groovy"), allWatchKinds),
-            FileSystemWatcher(Either.forLeft("**/codenarc.properties"), allWatchKinds),
-            FileSystemWatcher(Either.forLeft("**/*.gdsl"), allWatchKinds),
-            FileSystemWatcher(Either.forLeft("**/build.gradle"), allWatchKinds),
-            FileSystemWatcher(Either.forLeft("**/build.gradle.kts"), allWatchKinds),
-            FileSystemWatcher(Either.forLeft("**/settings.gradle"), allWatchKinds),
-            FileSystemWatcher(Either.forLeft("**/settings.gradle.kts"), allWatchKinds),
-            FileSystemWatcher(Either.forLeft("**/pom.xml"), allWatchKinds),
-            FileSystemWatcher(Either.forLeft("**/gradle.properties"), allWatchKinds),
-            FileSystemWatcher(Either.forLeft("**/*.groovy"), allWatchKinds),
-            FileSystemWatcher(Either.forLeft("**/*.java"), allWatchKinds),
-        )
-
+        val watchers = createFileSystemWatchers(allWatchKinds)
         val registrationOptions = DidChangeWatchedFilesRegistrationOptions(watchers)
         val registration = Registration(
             "groovy-lsp-file-watchers",
@@ -97,9 +83,26 @@ class ProjectStartupManager(
             }
     }
 
+    private fun createFileSystemWatchers(allWatchKinds: Int): List<FileSystemWatcher> = listOf(
+        FileSystemWatcher(Either.forLeft("**/.codenarc"), allWatchKinds),
+        FileSystemWatcher(Either.forLeft("**/codenarc.xml"), allWatchKinds),
+        FileSystemWatcher(Either.forLeft("**/codenarc.groovy"), allWatchKinds),
+        FileSystemWatcher(Either.forLeft("**/codenarc.properties"), allWatchKinds),
+        FileSystemWatcher(Either.forLeft("**/*.gdsl"), allWatchKinds),
+        FileSystemWatcher(Either.forLeft("**/build.gradle"), allWatchKinds),
+        FileSystemWatcher(Either.forLeft("**/build.gradle.kts"), allWatchKinds),
+        FileSystemWatcher(Either.forLeft("**/settings.gradle"), allWatchKinds),
+        FileSystemWatcher(Either.forLeft("**/settings.gradle.kts"), allWatchKinds),
+        FileSystemWatcher(Either.forLeft("**/pom.xml"), allWatchKinds),
+        FileSystemWatcher(Either.forLeft("**/gradle.properties"), allWatchKinds),
+        FileSystemWatcher(Either.forLeft("**/*.groovy"), allWatchKinds),
+        FileSystemWatcher(Either.forLeft("**/*.java"), allWatchKinds),
+    )
+
     /**
      * Starts async dependency resolution and subsequent indexing.
      */
+    @Suppress("TooGenericExceptionCaught")
     fun startAsyncDependencyResolution(
         client: LanguageClient?,
         initParams: InitializeParams?,
@@ -111,8 +114,7 @@ class ProjectStartupManager(
             return
         }
 
-        val workspaceRoot = getWorkspaceRoot(initParams)
-        if (workspaceRoot == null) {
+        val workspaceRoot = getWorkspaceRoot(initParams) ?: run {
             logger.info("No workspace root found - running in light mode without dependencies")
             return
         }
@@ -126,12 +128,35 @@ class ProjectStartupManager(
         )
 
         val progressReporter = ProgressReporter(client)
-        compilationService.workspaceManager.initializeWorkspace(workspaceRoot)
+        initializeWorkspaces(workspaceRoot, initOptionsMap)
 
+        val dependencyManager = setupDependencyManager(initOptionsMap)
+
+        dependencyManager.startAsyncResolution(
+            workspaceRoot = workspaceRoot,
+            onProgress = createProgressCallback(progressReporter, client),
+            onComplete = createCompletionCallback(
+                workspaceRoot,
+                textDocumentServiceRefresh,
+                progressReporter,
+                client,
+            ),
+            onError = createErrorCallback(progressReporter, client),
+        )
+
+        progressReporter.startDependencyResolution()
+    }
+
+    private fun initializeWorkspaces(workspaceRoot: Path, initOptionsMap: Map<String, Any>?) {
+        compilationService.workspaceManager.initializeWorkspace(workspaceRoot)
         val config = ServerConfiguration.fromMap(initOptionsMap)
         compilationService.workspaceManager.initializeJenkinsWorkspace(config)
+    }
 
+    private fun setupDependencyManager(initOptionsMap: Map<String, Any>?): DependencyManager {
+        val config = ServerConfiguration.fromMap(initOptionsMap)
         logger.info("Gradle build strategy: ${config.gradleBuildStrategy}")
+
         val newBuildToolManager = BuildToolManager(
             buildTools = availableBuildTools,
             gradleBuildStrategy = config.gradleBuildStrategy,
@@ -139,61 +164,68 @@ class ProjectStartupManager(
         buildToolManager = newBuildToolManager
         val newDependencyManager = DependencyManager(newBuildToolManager, coroutineScope)
         dependencyManager = newDependencyManager
+        return newDependencyManager
+    }
 
-        newDependencyManager.startAsyncResolution(
+    private fun createProgressCallback(
+        progressReporter: ProgressReporter,
+        client: LanguageClient?,
+    ): (Int, String) -> Unit = { percentage, message ->
+        progressReporter.updateProgress(message, percentage)
+        if (message.contains("Downloading Gradle distribution")) {
+            client?.showMessage(
+                MessageParams().apply {
+                    type = MessageType.Info
+                    this.message = message
+                },
+            )
+        }
+    }
+
+    private fun createCompletionCallback(
+        workspaceRoot: Path,
+        textDocumentServiceRefresh: () -> Unit,
+        progressReporter: ProgressReporter,
+        client: LanguageClient?,
+    ): (WorkspaceResolution) -> Unit = { resolution ->
+        logger.info(
+            "Dependencies resolved: ${resolution.dependencies.size} JARs, " +
+                "${resolution.sourceDirectories.size} source directories",
+        )
+
+        compilationService.updateWorkspaceModel(
             workspaceRoot = workspaceRoot,
-            onProgress = { percentage, message ->
-                progressReporter.updateProgress(message, percentage)
-                if (message.contains("Downloading Gradle distribution")) {
-                    client?.showMessage(
-                        MessageParams().apply {
-                            type = MessageType.Info
-                            this.message = message
-                        },
-                    )
-                }
-            },
-            onComplete = { resolution ->
-                logger.info(
-                    "Dependencies resolved: ${resolution.dependencies.size} JARs, " +
-                        "${resolution.sourceDirectories.size} source directories",
-                )
+            dependencies = resolution.dependencies,
+            sourceDirectories = resolution.sourceDirectories,
+        )
+        textDocumentServiceRefresh()
 
-                compilationService.updateWorkspaceModel(
-                    workspaceRoot = workspaceRoot,
-                    dependencies = resolution.dependencies,
-                    sourceDirectories = resolution.sourceDirectories,
-                )
-                textDocumentServiceRefresh()
+        progressReporter.complete("✅ Ready: ${resolution.dependencies.size} dependencies loaded")
 
-                progressReporter.complete("✅ Ready: ${resolution.dependencies.size} dependencies loaded")
-
-                val toolName = dependencyManager?.getCurrentBuildToolName() ?: "Build Tool"
-                client?.showMessage(
-                    MessageParams().apply {
-                        type = MessageType.Info
-                        message = "Dependencies loaded: ${resolution.dependencies.size} JARs from $toolName"
-                    },
-                )
-
-                startWorkspaceIndexing(workspaceRoot, client)
-            },
-            onError = { error ->
-                logger.error("Failed to resolve dependencies", error)
-                progressReporter.completeWithError("Failed to load dependencies: ${error.message}")
-                client?.showMessage(
-                    MessageParams().apply {
-                        type = MessageType.Warning
-                        message = "Could not load build dependencies - LSP will work with project files only"
-                    },
-                )
+        val toolName = dependencyManager?.getCurrentBuildToolName() ?: "Build Tool"
+        client?.showMessage(
+            MessageParams().apply {
+                type = MessageType.Info
+                message = "Dependencies loaded: ${resolution.dependencies.size} JARs from $toolName"
             },
         )
 
-        progressReporter.startDependencyResolution()
+        startWorkspaceIndexing(client)
     }
 
-    private fun startWorkspaceIndexing(workspaceRoot: Path, client: LanguageClient?) {
+    private fun createErrorCallback(progressReporter: ProgressReporter, client: LanguageClient?): (Exception) -> Unit =
+        { error ->
+            logger.error("Failed to resolve dependencies", error)
+            progressReporter.completeWithError("Failed to load dependencies: ${error.message}")
+            client?.showMessage(
+                MessageParams().apply {
+                    type = MessageType.Warning
+                    message = "Could not load build dependencies - LSP will work with project files only"
+                },
+            )
+        }
+
+    private fun startWorkspaceIndexing(client: LanguageClient?) {
         val sourceUris = compilationService.workspaceManager.getWorkspaceSourceUris()
         if (sourceUris.isEmpty()) {
             logger.debug("No workspace sources to index")
@@ -230,6 +262,7 @@ class ProjectStartupManager(
         }
 
         val rootUri = params.rootUri
+
         @Suppress("DEPRECATION")
         val rootPath = params.rootPath
 
@@ -259,22 +292,28 @@ class ProjectStartupManager(
 
     fun waitForDependencies(timeoutSeconds: Long = 60): Boolean {
         val start = System.currentTimeMillis()
-        while (System.currentTimeMillis() - start < timeoutSeconds * MILLIS_PER_SECOND) {
-            val manager = dependencyManager ?: return false
-            if (manager.isDependenciesReady()) {
-                return true
-            }
-            if (manager.getState() == DependencyManager.State.FAILED) {
-                return false
-            }
-            try {
-                Thread.sleep(POLLING_INTERVAL_MS)
-            } catch (e: InterruptedException) {
-                Thread.currentThread().interrupt()
-                return false
-            }
+        val timeoutMs = timeoutSeconds * MILLIS_PER_SECOND
+
+        while (System.currentTimeMillis() - start < timeoutMs) {
+            if (shouldStopWaiting()) return isDependencyReady()
+            sleep()
         }
         return false
+    }
+
+    private fun shouldStopWaiting(): Boolean {
+        val manager = dependencyManager ?: return true // Stop if no manager (error state essentially)
+        return manager.isDependenciesReady() || manager.getState() == DependencyManager.State.FAILED
+    }
+
+    private fun isDependencyReady(): Boolean = dependencyManager?.isDependenciesReady() == true
+
+    private fun sleep() {
+        try {
+            Thread.sleep(POLLING_INTERVAL_MS)
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
     }
 
     fun shutdown() {

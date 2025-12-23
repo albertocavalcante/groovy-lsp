@@ -33,45 +33,7 @@ class TestRequestDelegate(
 
         return CompletableFuture.supplyAsync {
             try {
-                val workspaceRoot = compilationService.workspaceManager.getWorkspaceRoot()
-                    ?: throw ResponseErrorException(
-                        ResponseError(
-                            ResponseErrorCode.InvalidParams,
-                            "No workspace root found for: ${params.uri}",
-                            null,
-                        ),
-                    )
-
-                val buildToolManager = buildToolManagerProvider()
-                    ?: throw ResponseErrorException(
-                        ResponseError(
-                            ResponseErrorCode.InternalError,
-                            "Build tool manager not initialized",
-                            null,
-                        ),
-                    )
-
-                val buildTool = buildToolManager.detectBuildTool(workspaceRoot)
-                    ?: throw ResponseErrorException(
-                        ResponseError(
-                            ResponseErrorCode.InternalError,
-                            "No build tool detected for workspace: $workspaceRoot",
-                            null,
-                        ),
-                    )
-
-                buildTool.getTestCommand(
-                    workspaceRoot = workspaceRoot,
-                    suite = params.suite,
-                    test = params.test,
-                    debug = params.debug,
-                ) ?: throw ResponseErrorException(
-                    ResponseError(
-                        ResponseErrorCode.InternalError,
-                        "Build tool '${buildTool.name}' does not support test execution.",
-                        null,
-                    ),
-                )
+                generateTestCommand(params)
             } catch (e: ResponseErrorException) {
                 logger.error("Error generating test command", e)
                 throw e
@@ -87,4 +49,32 @@ class TestRequestDelegate(
             }
         }
     }
+
+    @Suppress("ThrowsCount")
+    private fun generateTestCommand(params: RunTestParams): TestCommand {
+        val workspaceRoot = compilationService.workspaceManager.getWorkspaceRoot()
+            ?: throw createError(ResponseErrorCode.InvalidParams, "No workspace root found for: ${params.uri}")
+
+        val buildToolManager = buildToolManagerProvider()
+            ?: throw createError(ResponseErrorCode.InternalError, "Build tool manager not initialized")
+
+        val buildTool = buildToolManager.detectBuildTool(workspaceRoot)
+            ?: throw createError(
+                ResponseErrorCode.InternalError,
+                "No build tool detected for workspace: $workspaceRoot",
+            )
+
+        return buildTool.getTestCommand(
+            workspaceRoot = workspaceRoot,
+            suite = params.suite,
+            test = params.test,
+            debug = params.debug,
+        ) ?: throw createError(
+            ResponseErrorCode.InternalError,
+            "Build tool '${buildTool.name}' does not support test execution.",
+        )
+    }
+
+    private fun createError(code: ResponseErrorCode, message: String): ResponseErrorException =
+        ResponseErrorException(ResponseError(code, message, null))
 }
