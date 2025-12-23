@@ -132,7 +132,10 @@ class GroovyTypeResolver(
             ?.let { decl ->
                 // Use TypeInferencer for better type inference
                 val inferredTypeName = TypeInferencer.inferExpressionType(decl.rightExpression)
-                ClassHelper.make(inferredTypeName)
+                // Extract raw type before angle brackets for generic types
+                // e.g., "java.util.ArrayList<java.lang.Integer>" -> "java.util.ArrayList"
+                val rawTypeName = inferredTypeName.substringBefore('<')
+                ClassHelper.make(rawTypeName)
             }
 
     private suspend fun resolveMethodReturnType(
