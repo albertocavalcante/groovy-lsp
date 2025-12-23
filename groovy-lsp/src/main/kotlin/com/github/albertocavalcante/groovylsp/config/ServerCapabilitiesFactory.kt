@@ -1,11 +1,10 @@
 package com.github.albertocavalcante.groovylsp.config
 
 import com.github.albertocavalcante.groovylsp.Version
+import com.github.albertocavalcante.groovylsp.providers.semantictokens.JenkinsSemanticTokenProvider
 import org.eclipse.lsp4j.CodeLensOptions
 import org.eclipse.lsp4j.CompletionOptions
 import org.eclipse.lsp4j.InitializeResult
-import org.eclipse.lsp4j.SemanticTokenModifiers
-import org.eclipse.lsp4j.SemanticTokenTypes
 import org.eclipse.lsp4j.SemanticTokensLegend
 import org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions
 import org.eclipse.lsp4j.ServerCapabilities
@@ -84,45 +83,11 @@ object ServerCapabilitiesFactory {
         SemanticTokensWithRegistrationOptions().apply {
             legend = SemanticTokensLegend().apply {
                 // Token types - MUST match indices in JenkinsSemanticTokenProvider.TokenTypes
-                tokenTypes = listOf(
-                    SemanticTokenTypes.Namespace, // 0
-                    SemanticTokenTypes.Type, // 1
-                    SemanticTokenTypes.Class, // 2
-                    SemanticTokenTypes.Enum, // 3
-                    SemanticTokenTypes.Interface, // 4
-                    SemanticTokenTypes.Struct, // 5
-                    SemanticTokenTypes.TypeParameter, // 6
-                    SemanticTokenTypes.Parameter, // 7
-                    SemanticTokenTypes.Variable, // 8
-                    SemanticTokenTypes.Property, // 9
-                    SemanticTokenTypes.EnumMember, // 10
-                    SemanticTokenTypes.Event, // 11
-                    SemanticTokenTypes.Function, // 12
-                    SemanticTokenTypes.Method, // 13
-                    SemanticTokenTypes.Macro, // 14 <- Used for pipeline blocks
-                    SemanticTokenTypes.Keyword, // 15
-                    SemanticTokenTypes.Modifier, // 16
-                    SemanticTokenTypes.Comment, // 17
-                    SemanticTokenTypes.String, // 18
-                    SemanticTokenTypes.Number, // 19
-                    SemanticTokenTypes.Regexp, // 20
-                    SemanticTokenTypes.Operator, // 21
-                    SemanticTokenTypes.Decorator, // 22 <- Used for wrapper blocks
-                )
+                // Source of truth is now in JenkinsSemanticTokenProvider to ensure indices stay in sync
+                tokenTypes = JenkinsSemanticTokenProvider.LEGEND_TOKEN_TYPES
 
                 // Token modifiers (bitfield)
-                tokenModifiers = listOf(
-                    SemanticTokenModifiers.Declaration,
-                    SemanticTokenModifiers.Definition,
-                    SemanticTokenModifiers.Readonly,
-                    SemanticTokenModifiers.Static,
-                    SemanticTokenModifiers.Deprecated,
-                    SemanticTokenModifiers.Abstract,
-                    SemanticTokenModifiers.Async,
-                    SemanticTokenModifiers.Modification,
-                    SemanticTokenModifiers.Documentation,
-                    SemanticTokenModifiers.DefaultLibrary,
-                )
+                tokenModifiers = JenkinsSemanticTokenProvider.LEGEND_TOKEN_MODIFIERS
             }
 
             // Support full document semantic tokens (no delta updates yet)
