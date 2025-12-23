@@ -108,97 +108,65 @@ class SpockBlockIndex(val methodName: String, val blocks: List<BlockSpan>) {
             return SpockBlockIndex(method.name, blocks)
         }
 
-        /**
-         * Build the list of BlockSpans from statements.
-         */
-        private fun buildBlockList(statements: List<Statement>): List<BlockSpan> {
-            val blocks = mutableListOf<BlockSpan>()
-            var currentBlock: SpockBlock? = null
-            var currentContinues: SpockBlock? = null
-            var blockStartLine = -1
+        private fun buildBlockList(statements: List<Statement>): List<BlockSpan> = BlockListBuilder(statements).build()
 
-            for ((index, statement) in statements.withIndex()) {
-                val spockBlock = extractSpockBlock(statement)
+        private class BlockListBuilder(private val statements: List<Statement>) {
+            private val blocks = mutableListOf<BlockSpan>()
+            private var currentBlock: SpockBlock? = null
+            private var currentContinues: SpockBlock? = null
+            private var blockStartLine = -1
 
-                if (spockBlock != null) {
-                    closePreviousBlock(
-                        blocks,
-                        currentBlock,
-                        blockStartLine,
-                        currentContinues,
-                        computeEndLine(statements, index, statement),
-                    )
+            fun build(): List<BlockSpan> {
+                for ((index, statement) in statements.withIndex()) {
+                    val spockBlock = extractSpockBlock(statement)
 
-                    currentBlock = spockBlock
-                    blockStartLine = statement.lineNumber
-                    currentContinues = computeContinuesFor(spockBlock, blocks)
+                    if (spockBlock != null) {
+                        closePreviousBlock(index, statement)
+
+                        currentBlock = spockBlock
+                        blockStartLine = statement.lineNumber
+                        currentContinues = computeContinuesFor(spockBlock)
+                    }
+                }
+
+                closeLastBlock()
+                return blocks
+            }
+
+            private fun extractSpockBlock(statement: Statement): SpockBlock? {
+                val label = statement.statementLabels?.firstOrNull()
+                return label?.let { SpockBlock.fromLabel(it) }
+            }
+
+            private fun closePreviousBlock(currentIndex: Int, nextStatement: Statement) {
+                if (currentBlock != null && blockStartLine > 0) {
+                    val endLine = getStatementEndLine(currentIndex - 1) ?: (nextStatement.lineNumber - 1)
+                    blocks.add(BlockSpan(currentBlock!!, blockStartLine, endLine, currentContinues))
                 }
             }
 
-            closeLastBlock(blocks, currentBlock, blockStartLine, currentContinues, statements)
-            return blocks
-        }
-
-        /**
-         * Extract the Spock block label from a statement.
-         */
-        private fun extractSpockBlock(statement: Statement): SpockBlock? {
-            val label = statement.statementLabels?.firstOrNull()
-            return label?.let { SpockBlock.fromLabel(it) }
-        }
-
-        /**
-         * Close the previous block if it exists.
-         */
-        private fun closePreviousBlock(
-            blocks: MutableList<BlockSpan>,
-            currentBlock: SpockBlock?,
-            blockStartLine: Int,
-            currentContinues: SpockBlock?,
-            endLine: Int,
-        ) {
-            if (currentBlock != null && blockStartLine > 0) {
-                blocks.add(BlockSpan(currentBlock, blockStartLine, endLine, currentContinues))
+            private fun computeContinuesFor(spockBlock: SpockBlock): SpockBlock? {
+                if (spockBlock != SpockBlock.AND) return null
+                return blocks.lastOrNull()?.let { prev ->
+                    if (prev.block == SpockBlock.AND) prev.continues else prev.block
+                }
             }
-        }
 
-        /**
-         * Compute the end line for the previous block.
-         */
-        private fun computeEndLine(statements: List<Statement>, index: Int, nextStatement: Statement): Int =
-            getStatementEndLine(statements, index - 1) ?: (nextStatement.lineNumber - 1)
-
-        /**
-         * Compute what block an AND block continues.
-         */
-        private fun computeContinuesFor(spockBlock: SpockBlock, blocks: List<BlockSpan>): SpockBlock? {
-            if (spockBlock != SpockBlock.AND) return null
-
-            val prev = blocks.lastOrNull() ?: return null
-            return if (prev.block == SpockBlock.AND) prev.continues else prev.block
-        }
-
-        /**
-         * Close the last block in the method.
-         */
-        private fun closeLastBlock(
-            blocks: MutableList<BlockSpan>,
-            currentBlock: SpockBlock?,
-            blockStartLine: Int,
-            currentContinues: SpockBlock?,
-            statements: List<Statement>,
-        ) {
-            if (currentBlock != null && blockStartLine > 0) {
-                val lastStatement = statements.lastOrNull()
-                val endLine = lastStatement?.lastLineNumber ?: lastStatement?.lineNumber ?: blockStartLine
-                blocks.add(BlockSpan(currentBlock, blockStartLine, endLine, currentContinues))
+            private fun closeLastBlock() {
+                if (currentBlock != null && blockStartLine > 0) {
+                    val lastStatement = statements.lastOrNull()
+                    val endLine = lastStatement?.let { stmt ->
+                        stmt.lastLineNumber.takeIf { it > 0 } ?: stmt.lineNumber.takeIf { it > 0 }
+                    } ?: blockStartLine
+                    blocks.add(BlockSpan(currentBlock!!, blockStartLine, endLine, currentContinues))
+                }
             }
-        }
 
-        private fun getStatementEndLine(statements: List<Statement>, index: Int): Int? {
-            if (index < 0 || index >= statements.size) return null
-            val stmt = statements[index]
-            return stmt.lastLineNumber.takeIf { it > 0 } ?: stmt.lineNumber.takeIf { it > 0 }
+            private fun getStatementEndLine(index: Int): Int? {
+                if (index < 0 || index >= statements.size) return null
+                val stmt = statements[index]
+                return stmt.lastLineNumber.takeIf { it > 0 } ?: stmt.lineNumber.takeIf { it > 0 }
+            }
         }
     }
 }
