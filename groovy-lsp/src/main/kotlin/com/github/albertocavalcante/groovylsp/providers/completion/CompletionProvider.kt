@@ -184,25 +184,24 @@ object CompletionProvider {
                     val qualifierName = completionContext.qualifierName
 
                     // Check if this is a Jenkins global variable with properties (env, currentBuild)
-                    // Match by name first (e.g., "env" variable), then by type for robustness
-                    val metadata = if (isJenkinsFile) {
-                        compilationService.workspaceManager.getAllJenkinsMetadata()
-                    } else {
-                        null
-                    }
-                    val globalVar = qualifierName?.let { metadata?.getGlobalVariable(it) }
-                        ?: metadata?.getGlobalVariable(rawType)
+                    if (isJenkinsFile) {
+                        val metadata = compilationService.workspaceManager.getAllJenkinsMetadata()
+                        if (metadata != null) {
+                            val globalVar = findJenkinsGlobalVariable(qualifierName, rawType, metadata)
 
-                    if (globalVar != null && globalVar.properties.isNotEmpty()) {
-                        // Add Jenkins-specific property completions
-                        logger.debug("Adding Jenkins properties for {}", qualifierName ?: rawType)
-                        addJenkinsPropertyCompletions(globalVar)
-                    } else {
-                        // Standard GDK/classpath methods
-                        logger.debug("Adding GDK/Classpath methods for {}", rawType)
-                        addGdkMethods(rawType, compilationService)
-                        addClasspathMethods(rawType, compilationService)
+                            if (globalVar != null && globalVar.properties.isNotEmpty()) {
+                                // Add Jenkins-specific property completions
+                                logger.debug("Adding Jenkins properties for {}", qualifierName ?: rawType)
+                                addJenkinsPropertyCompletions(globalVar)
+                                return@completions
+                            }
+                        }
                     }
+
+                    // Standard GDK/classpath methods (fallback)
+                    logger.debug("Adding GDK/Classpath methods for {}", rawType)
+                    addGdkMethods(rawType, compilationService)
+                    addClasspathMethods(rawType, compilationService)
                 }
 
                 is ContextType.TypeParameter -> {
@@ -227,6 +226,32 @@ object CompletionProvider {
                 }
             }
         }
+    }
+
+    /**
+     * Resolves a Jenkins global variable by name or type, with shadowing protection.
+     */
+    private fun findJenkinsGlobalVariable(
+        name: String?,
+        type: String,
+        metadata: com.github.albertocavalcante.groovyjenkins.metadata.MergedJenkinsMetadata,
+    ): com.github.albertocavalcante.groovyjenkins.metadata.MergedGlobalVariable? {
+        // 1. Try to find by name (e.g. "env")
+        if (name != null) {
+            val byName = metadata.getGlobalVariable(name)
+            if (byName != null) {
+                // VERIFICATION: Check if the inferred type matches the global variable type
+                // If it doesn't match (and isn't Object/dynamic), it's likely a shadowed variable.
+                // We assume "java.lang.Object" might be an untyped 'def', so we allow it to fall back to the global.
+                if (type != "java.lang.Object" && type != byName.type) {
+                    return null
+                }
+                return byName
+            }
+        }
+
+        // 2. Fallback: Find by type (e.g. "org.jenkinsci.plugins.workflow.cps.EnvActionImpl")
+        return metadata.getGlobalVariable(type)
     }
 
     @Suppress("LongParameterList") // TODO: Refactor to use a CompletionContext data class

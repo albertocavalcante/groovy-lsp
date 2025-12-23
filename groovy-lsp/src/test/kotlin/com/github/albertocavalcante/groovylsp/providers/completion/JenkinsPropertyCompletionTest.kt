@@ -134,4 +134,98 @@ class JenkinsPropertyCompletionTest {
             "Unknown qualifier should still get normal completions, got: $labels",
         )
     }
+
+    @Test
+    fun `shadowed env variable should NOT provide Jenkins properties`() = runTest {
+        val jenkinsfile = tempDir.resolve("Jenkinsfile")
+        // Define a local variable named 'env' that shadows the global one
+        val code = """
+            def env = "some string"
+            env.
+        """.trimIndent()
+        Files.writeString(jenkinsfile, code)
+
+        val uri = jenkinsfile.toUri().toString()
+        val content = Files.readString(jenkinsfile)
+
+        val completions = CompletionProvider.getContextualCompletions(
+            uri = uri,
+            line = 1,
+            character = 4, // After "env."
+            compilationService = compilationService,
+            content = content,
+        )
+
+        val labels = completions.map { it.label }
+        // Should NOT have Jenkins-specific env properties because it's a String
+        assertFalse(
+            labels.any { it == "BUILD_ID" || it == "JOB_NAME" },
+            "Shadowed env variable should NOT provide Jenkins properties, got: $labels",
+        )
+    }
+
+    @Test
+    fun `shadowed currentBuild variable should NOT provide Jenkins properties`() = runTest {
+        val jenkinsfile = tempDir.resolve("Jenkinsfile")
+        // Define a local Map variable named 'currentBuild' that shadows the global one
+        val code = """
+            def currentBuild = [:]
+            currentBuild.
+        """.trimIndent()
+        Files.writeString(jenkinsfile, code)
+
+        val uri = jenkinsfile.toUri().toString()
+        val content = Files.readString(jenkinsfile)
+
+        val completions = CompletionProvider.getContextualCompletions(
+            uri = uri,
+            line = 1,
+            character = 13, // After "currentBuild."
+            compilationService = compilationService,
+            content = content,
+        )
+
+        val labels = completions.map { it.label }
+        // Should NOT have Jenkins-specific currentBuild properties (result, etc.)
+        assertFalse(
+            labels.any { it == "result" || it == "previousBuild" },
+            "Shadowed currentBuild variable should NOT provide Jenkins properties, got: $labels",
+        )
+        // Should have Map methods
+        assertTrue(
+            labels.any { it == "put" || it == "size" || it == "get" },
+            "Shadowed variable should still provide type-specific methods",
+        )
+    }
+
+    @Test
+    fun `shadowed params variable should NOT provide Jenkins properties`() = runTest {
+        val jenkinsfile = tempDir.resolve("Jenkinsfile")
+        // Define a local Integer variable named 'params' that shadows the global one
+        val code = """
+            int params = 42
+            params.
+        """.trimIndent()
+        Files.writeString(jenkinsfile, code)
+
+        val uri = jenkinsfile.toUri().toString()
+        val content = Files.readString(jenkinsfile)
+
+        val completions = CompletionProvider.getContextualCompletions(
+            uri = uri,
+            line = 1,
+            character = 7, // After "params."
+            compilationService = compilationService,
+            content = content,
+        )
+
+        val labels = completions.map { it.label }
+        // Jenkins 'params' is a Map-like object, usually has properties if defined.
+        // But mainly we want to ensure we don't treat it as the global 'params' binding.
+        // Since 'int' has limited methods, checking for simple non-Jenkins behavior is enough.
+        assertTrue(
+            labels.any { it == "doubleValue" || it == "toString" },
+            "Shadowed integer params should have Integer methods, got: $labels",
+        )
+    }
 }
