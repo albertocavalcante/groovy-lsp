@@ -1,11 +1,11 @@
 package com.github.albertocavalcante.groovylsp.dsl.hover
 
 import com.github.albertocavalcante.groovyparser.ast.TypeInferencer
+import com.github.albertocavalcante.groovyparser.ast.isDynamic
 import com.github.albertocavalcante.groovyparser.errors.GroovyParserResult
 import com.github.albertocavalcante.groovyparser.errors.toGroovyParserResult
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.AnnotationNode
-import org.codehaus.groovy.ast.ClassHelper
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.FieldNode
 import org.codehaus.groovy.ast.ImportNode
@@ -509,12 +509,3 @@ fun createHoverFor(node: ASTNode): GroovyParserResult<Hover> = hover {
         is HoverContent.KeyValue -> keyValue(nodeContent.pairs)
     }
 }.toGroovyParserResult()
-
-/**
- * Check if a ClassNode represents a dynamic type (def/Object/DYNAMIC_TYPE).
- */
-@Suppress("DEPRECATION") // DYNAMIC_TYPE is deprecated but still needed
-private fun ClassNode.isDynamic(): Boolean =
-    ClassHelper.isDynamicTyped(this) ||
-        this == ClassHelper.OBJECT_TYPE ||
-        this == ClassHelper.DYNAMIC_TYPE

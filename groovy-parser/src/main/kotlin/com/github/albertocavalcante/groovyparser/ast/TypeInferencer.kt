@@ -1,7 +1,5 @@
 package com.github.albertocavalcante.groovyparser.ast
 
-import org.codehaus.groovy.ast.ClassHelper
-import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.expr.BinaryExpression
 import org.codehaus.groovy.ast.expr.ConstructorCallExpression
 import org.codehaus.groovy.ast.expr.DeclarationExpression
@@ -211,11 +209,4 @@ object TypeInferencer {
         "double" -> "java.lang.Double"
         else -> type
     }
-
-    /**
-     * Extension function to check if a ClassNode is dynamic or Object type.
-     * Provides cleaner null-safe checking.
-     */
-    private fun ClassNode.isDynamicOrObject(): Boolean =
-        ClassHelper.isDynamicTyped(this) || this == ClassHelper.OBJECT_TYPE
 }
