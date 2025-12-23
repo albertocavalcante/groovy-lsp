@@ -200,7 +200,7 @@ object MetadataMerger {
         }
 
         return MergedJenkinsMetadata(
-            jenkinsVersion = "2.426.3",
+            jenkinsVersion = "2.426.3", // TODO: Get from bundled metadata
             steps = mergedSteps,
             globalVariables = mergedGlobalVars,
             sections = enrichment.sections,
