@@ -296,7 +296,7 @@ class ProjectStartupManager(
 
         while (System.currentTimeMillis() - start < timeoutMs) {
             if (shouldStopWaiting()) return isDependencyReady()
-            sleep()
+            if (sleepAndCheckInterruption()) return false
         }
         return false
     }
@@ -308,11 +308,17 @@ class ProjectStartupManager(
 
     private fun isDependencyReady(): Boolean = dependencyManager?.isDependenciesReady() == true
 
-    private fun sleep() {
+    /**
+     * Sleeps for the polling interval.
+     * @return true if the thread was interrupted, false otherwise.
+     */
+    private fun sleepAndCheckInterruption(): Boolean {
         try {
             Thread.sleep(POLLING_INTERVAL_MS)
+            return false
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
+            return true
         }
     }
 
