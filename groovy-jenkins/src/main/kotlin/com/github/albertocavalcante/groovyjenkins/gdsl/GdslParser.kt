@@ -21,14 +21,6 @@ object GdslParser {
         """method\s*\(\s*name:\s*'([^']+)'[^)]*\)""",
     )
 
-    private val METHOD_FULL_PATTERN = Regex(
-        """method\s*\(\s*name:\s*'([^']+)',\s*type:\s*'([^']+)'""" +
-            """(?:,\s*params:\s*\[([^\]]*)\])?""" +
-            """(?:,\s*namedParams:\s*\[([^\]]*)\])?""" +
-            """(?:,\s*doc:\s*'([^']*(?:''[^']*)*)')?""" +
-            """\s*\)""",
-    )
-
     private val PROPERTY_PATTERN = Regex(
         """property\s*\(\s*name:\s*'([^']+)',\s*type:\s*'([^']+)'\s*\)""",
     )
@@ -71,7 +63,7 @@ object GdslParser {
 
         // Process line by line to track context
         val lines = gdsl.lines()
-        for ((index, line) in lines.withIndex()) {
+        for ((_, line) in lines.withIndex()) {
             // Check for context switches
             if (NODE_CONTEXT_START.containsMatchIn(line)) {
                 inNodeContext = true
