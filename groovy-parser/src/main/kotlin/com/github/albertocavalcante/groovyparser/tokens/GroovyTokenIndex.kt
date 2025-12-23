@@ -3,6 +3,10 @@ package com.github.albertocavalcante.groovyparser.tokens
 import arrow.core.Option
 import arrow.core.none
 import arrow.core.some
+import groovyjarjarantlr4.v4.runtime.CharStreams
+import groovyjarjarantlr4.v4.runtime.Token
+import org.apache.groovy.parser.antlr4.GroovyLangLexer
+import org.slf4j.LoggerFactory
 
 /**
  * Token classification at a given offset.
@@ -54,7 +58,7 @@ class GroovyTokenIndex private constructor(private val spans: List<TokenSpan>) {
     fun isInCommentOrString(offset: Int): Boolean = isInComment(offset) || isInString(offset)
 
     companion object {
-        private val logger = org.slf4j.LoggerFactory.getLogger(GroovyTokenIndex::class.java)
+        private val logger = LoggerFactory.getLogger(GroovyTokenIndex::class.java)
 
         private val LINE_COMMENT_NAMES = setOf("SINGLE_LINE_COMMENT", "SH_COMMENT")
         private val STRING_LITERAL_NAMES = setOf("StringLiteral", "SQ_STRING", "DQ_STRING", "TQS", "StringLiteralPart")
@@ -71,10 +75,8 @@ class GroovyTokenIndex private constructor(private val spans: List<TokenSpan>) {
             return GroovyTokenIndex(spans.sortedBy { it.start })
         }
 
-        private fun createLexer(source: String): org.apache.groovy.parser.antlr4.GroovyLangLexer? = try {
-            org.apache.groovy.parser.antlr4.GroovyLangLexer(
-                groovyjarjarantlr4.v4.runtime.CharStreams.fromString(source),
-            )
+        private fun createLexer(source: String): GroovyLangLexer? = try {
+            GroovyLangLexer(CharStreams.fromString(source))
         } catch (e: Throwable) {
             logger.debug("Failed to initialize GroovyLangLexer", e)
             null
@@ -90,13 +92,13 @@ class GroovyTokenIndex private constructor(private val spans: List<TokenSpan>) {
 
         @Suppress("TooGenericExceptionCaught") // Lexer can throw various ANTLR exceptions
         private fun processAllTokens(
-            lexer: org.apache.groovy.parser.antlr4.GroovyLangLexer,
+            lexer: GroovyLangLexer,
             spans: MutableList<TokenSpan>,
         ) {
             try {
                 while (true) {
                     val token = fetchNextToken(lexer, spans) ?: break
-                    if (token.type == groovyjarjarantlr4.v4.runtime.Token.EOF) break
+                    if (token.type == Token.EOF) break
 
                     processToken(token, lexer, spans)
                 }
@@ -105,33 +107,25 @@ class GroovyTokenIndex private constructor(private val spans: List<TokenSpan>) {
             }
         }
 
-        private fun fetchNextToken(
-            lexer: org.apache.groovy.parser.antlr4.GroovyLangLexer,
-            spans: MutableList<TokenSpan>,
-        ): groovyjarjarantlr4.v4.runtime.Token? = try {
+        private fun fetchNextToken(lexer: GroovyLangLexer, spans: MutableList<TokenSpan>): Token? = try {
             lexer.nextToken()
         } catch (e: Throwable) {
             logger.debug("Lexer error at offset {}: {}", spans.lastOrNull()?.end ?: 0, e.message)
             null
         }
 
-        private fun processToken(
-            token: groovyjarjarantlr4.v4.runtime.Token,
-            lexer: org.apache.groovy.parser.antlr4.GroovyLangLexer,
-            spans: MutableList<TokenSpan>,
-        ) {
+        private fun processToken(token: Token, lexer: GroovyLangLexer, spans: MutableList<TokenSpan>) {
             val symbolicName = lexer.vocabulary.getSymbolicName(token.type) ?: ""
             val text = token.text ?: ""
 
             val context = mapTokenToContext(symbolicName, text)
             if (context == TokenContext.Code) return
 
-            // Avoid duplicates if we manually handled shebang at position 0
-            val alreadyHandledAtZero = token.startIndex == 0 &&
-                spans.any { it.start == 0 && it.context is TokenContext.LineComment }
-            if (!alreadyHandledAtZero) {
-                spans.add(TokenSpan(token.startIndex, token.stopIndex + 1, context))
+            // Avoid adding a duplicate span for a shebang if it was already handled manually.
+            if (token.startIndex == 0 && spans.firstOrNull()?.start == 0) {
+                return
             }
+            spans.add(TokenSpan(token.startIndex, token.stopIndex + 1, context))
         }
 
         private fun mapTokenToContext(symbolicName: String, text: String): TokenContext = when {
