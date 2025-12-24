@@ -49,6 +49,22 @@ jobs:
       DISABLE_SCAN_INPUT: ${{ github.event.inputs.disable_scan || 'false' }}
 
     steps:
+      - name: Validate ref input
+        shell: bash
+        run: |
+          REF="${{ github.event.inputs.ref || 'main' }}"
+          # Validate ref matches allowed patterns: branch names, tags, or SHAs
+          if [[ ! "$REF" =~ ^[a-zA-Z0-9._/-]+$ ]] || [[ "$REF" =~ \.\. ]]; then
+            echo "::error::Invalid ref format: $REF"
+            exit 1
+          fi
+          # Additional safety: disallow refs that could be injection vectors
+          if [[ "$REF" == *";"* ]] || [[ "$REF" == *"&"* ]] || [[ "$REF" == *"|"* ]] || [[ "$REF" == *"\`"* ]]; then
+            echo "::error::Potentially malicious ref detected: $REF"
+            exit 1
+          fi
+          echo "Validated ref: $REF"
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
