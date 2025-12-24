@@ -88,8 +88,16 @@ data class RunTestParams(val uri: String, val suite: String, val test: String? =
 /**
  * Command returned by `groovy/runTest` that can be executed to run tests.
  *
- * @property command The command executable (e.g., "gradle", "./gradlew")
+ * **IMPORTANT**: Property names must match server-side [TestCommand] in groovy-build-tool module.
+ *
+ * @property executable The command executable (e.g., "gradle", "./gradlew")
  * @property args Command arguments
- * @property workingDirectory Working directory for command execution
+ * @property cwd Working directory for command execution
+ * @property env Environment variables to set when running the command
  */
-data class TestCommand(val command: String, val args: List<String>, val workingDirectory: String)
+data class TestCommand(
+    val executable: String,
+    val args: List<String>,
+    val cwd: String,
+    val env: Map<String, String> = emptyMap(),
+)

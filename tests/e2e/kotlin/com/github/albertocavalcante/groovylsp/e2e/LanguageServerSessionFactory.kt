@@ -178,6 +178,10 @@ class LanguageServerSessionFactory {
         // We need to connect that proxy to the server so it can send notifications.
         // This happens automatically when startListening() receives the first message,
         // but we need it connected BEFORE that. So we wait a bit for the launchers to stabilize.
+        //
+        // TODO(#314): Replace Thread.sleep with proper synchronization mechanism.
+        //   Options: LSP4J handshake pattern, custom groovy/ready notification, or polling.
+        //   See: https://github.com/albertocavalcante/groovy-lsp/issues/314
         Thread.sleep(100)
 
         // If still not connected, try to trigger it by accessing the remote proxy

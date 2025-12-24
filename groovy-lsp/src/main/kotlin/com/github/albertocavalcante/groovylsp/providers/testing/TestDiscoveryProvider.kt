@@ -41,10 +41,7 @@ class TestDiscoveryProvider(private val compilationService: GroovyCompilationSer
         val groovyFiles = sourceUris.filter { it.path.endsWith(".groovy", ignoreCase = true) }
         logger.info("Found {} source URIs, {} are Groovy files", sourceUris.size, groovyFiles.size)
 
-        for (uri in sourceUris) {
-            // Skip non-Groovy files
-            if (!uri.path.endsWith(".groovy", ignoreCase = true)) continue
-
+        for (uri in groovyFiles) {
             // Get parsed result for this file - use getValidParseResult to handle stale Script nodes
             val parseResult: com.github.albertocavalcante.groovyparser.api.ParseResult =
                 compilationService.getValidParseResult(uri) ?: run {
