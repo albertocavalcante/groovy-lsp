@@ -51,6 +51,15 @@ log_error() { echo -e "${RED}❌ $1${NC}"; }
 log_section() { echo -e "\n${BOLD}$1${NC}"; }
 fail() { log_error "$1"; exit 1; }
 
+# Wrapper for sed -i that works on both macOS (BSD) and Linux (GNU)
+sed_i() {
+    if [[ "$OS" == "Darwin" ]]; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
+
 check_cmd() {
     if ! command -v "$1" &> /dev/null; then
         fail "'$1' is required but not installed."
@@ -296,28 +305,21 @@ if [ "$UPDATE_CONFIG" == "true" ] && [ -f "$JSON_FILE" ]; then
         SUM_ARM64=$(fetch_url "$URL_ARM64" | awk '{print $1}')
         
         if [ -n "$SUM_X64" ] && [ -n "$SUM_ARM64" ]; then
-            TMP_JSON=$(mktemp)
-            TMP_FILES+=("$TMP_JSON")
+            log_info "Updating fields in ${BOLD}$JSON_FILE${NC}..."
             
-            # Use jq to update the fields safely
-            # We construct the jq filter string separately for readability
-            JQ_FILTER='
-                .build.args.KOTLIN_LSP_VERSION = $ver | 
-                .build.args.KOTLIN_LSP_SHA256_X64 = $sum_x64 | 
-                .build.args.KOTLIN_LSP_SHA256_ARM64 = $sum_arm64
-            '
+            # Use sed to update, protecting against JSONC comments which jq would strip.
+            # We match key, quote, colon, space, quote, value, end quote.
             
-            if jq --arg ver "$VERSION" \
-               --arg sum_x64 "$SUM_X64" \
-               --arg sum_arm64 "$SUM_ARM64" \
-               "$JQ_FILTER" \
-               "$JSON_FILE" > "$TMP_JSON"; then
-               
-                mv "$TMP_JSON" "$JSON_FILE"
-                log_success "devcontainer.json updated."
-            else
-                fail "Failed to update devcontainer.json via jq."
-            fi
+            # Update Version
+            sed_i -E "s/(\"KOTLIN_LSP_VERSION\": \")[^\"]*(\")/\1$VERSION\2/" "$JSON_FILE"
+            
+            # Update X64 Checksum
+            sed_i -E "s/(\"KOTLIN_LSP_SHA256_X64\": \")[^\"]*(\")/\1$SUM_X64\2/" "$JSON_FILE"
+            
+            # Update ARM64 Checksum
+            sed_i -E "s/(\"KOTLIN_LSP_SHA256_ARM64\": \")[^\"]*(\")/\1$SUM_ARM64\2/" "$JSON_FILE"
+            
+            log_success "devcontainer.json updated."
         else
             log_error "Failed to fetch Linux checksums. Skipping config update."
         fi
