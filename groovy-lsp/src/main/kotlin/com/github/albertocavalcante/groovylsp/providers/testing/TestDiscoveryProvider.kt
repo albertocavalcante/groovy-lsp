@@ -49,10 +49,12 @@ class TestDiscoveryProvider(private val compilationService: GroovyCompilationSer
             val classLoader = parseResult.compilationUnit.classLoader
 
             // Check each class individually to handle mixed files correctly
-            logger.info(
-                "Classes in AST for $uri: ${ast.classes.map {
-                    "${it.name} (super=${it.superClass.name}) methods=[${it.methods.joinToString { m -> m.name }}]"
-                }}",
+            logger.debug(
+                "Classes in AST for $uri: ${
+                    ast.classes.map {
+                        "${it.name} (super=${it.superClass.name}) methods=[${it.methods.joinToString { m -> m.name }}]"
+                    }
+                }",
             )
             for (classNode in ast.classes) {
                 // Use registry to detect and extract tests
@@ -86,7 +88,6 @@ class TestDiscoveryProvider(private val compilationService: GroovyCompilationSer
             }
         }
 
-        logger.info("Discovered {} test suites", testSuites.size)
         return testSuites
     }
 

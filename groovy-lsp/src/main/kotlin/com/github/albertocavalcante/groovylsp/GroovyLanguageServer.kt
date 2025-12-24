@@ -44,14 +44,16 @@ import java.util.concurrent.TimeoutException
 
 private const val GRADLE_POOL_SHUTDOWN_TIMEOUT_SECONDS = 15L
 
-class GroovyLanguageServer(private val dispatcher: CoroutineDispatcher = Dispatchers.Default) :
-    LanguageServer,
+class GroovyLanguageServer(
+    private val parentClassLoader: ClassLoader = ClassLoader.getPlatformClassLoader(),
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+) : LanguageServer,
     LanguageClientAware {
 
     private val logger = LoggerFactory.getLogger(GroovyLanguageServer::class.java)
     private var client: LanguageClient? = null
     private val coroutineScope = CoroutineScope(dispatcher + SupervisorJob())
-    private val compilationService = GroovyCompilationService()
+    private val compilationService = GroovyCompilationService(parentClassLoader)
 
     // Services
     private val textDocumentService = GroovyTextDocumentService(

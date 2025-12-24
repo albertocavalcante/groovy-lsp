@@ -62,11 +62,9 @@ class GroovyParserFacade(private val parentClassLoader: ClassLoader = ClassLoade
             return false
         }
 
-        // Only retry if compilation failed
-        if (result.isSuccessful) {
-            logger.debug("shouldRetryAtConversion: false - compilation was successful")
-            return false
-        }
+        // NOTE: We do NOT check result.isSuccessful here.
+        // Groovy often successfully compiles a broken class as a Script, so we must check the AST structure
+        // regardless of compilation status.
 
         // Check for Script fallback pattern: single class extending groovy.lang.Script
         val ast = result.ast

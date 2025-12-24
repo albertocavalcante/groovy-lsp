@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 private const val RETRY_DELAY_MS = 50L
 
-class GroovyCompilationService {
+class GroovyCompilationService(private val parentClassLoader: ClassLoader = ClassLoader.getPlatformClassLoader()) {
     companion object {
         /**
          * Batch size for parallel workspace indexing.
@@ -40,7 +40,7 @@ class GroovyCompilationService {
     private val logger = LoggerFactory.getLogger(GroovyCompilationService::class.java)
     private val cache = CompilationCache()
     private val errorHandler = CompilationErrorHandler()
-    private val parser = GroovyParserFacade()
+    private val parser = GroovyParserFacade(parentClassLoader)
     private val symbolStorageCache = LRUCache<URI, SymbolIndex>(maxSize = 100)
 
     // Track ongoing compilation per URI for proper async coordination
