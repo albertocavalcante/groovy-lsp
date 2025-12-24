@@ -5,6 +5,8 @@ import com.github.albertocavalcante.groovylsp.buildtool.BuildToolManager
 import com.github.albertocavalcante.groovylsp.buildtool.TestCommand
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode
@@ -25,10 +27,12 @@ class TestRequestDelegate(
         logger.info("Received groovy/discoverTests request for: ${params.workspaceUri}")
 
         return coroutineScope.future {
-            val provider = TestDiscoveryProvider(compilationService)
-            val result = provider.discoverTests(params.workspaceUri)
-            logger.info("discoverTests returning ${result.size} test suites: ${result.map { it.suite }}")
-            result
+            withContext(Dispatchers.IO) {
+                val provider = TestDiscoveryProvider(compilationService)
+                val result = provider.discoverTests(params.workspaceUri)
+                logger.info("discoverTests returning ${result.size} test suites: ${result.map { it.suite }}")
+                result
+            }
         }
     }
 

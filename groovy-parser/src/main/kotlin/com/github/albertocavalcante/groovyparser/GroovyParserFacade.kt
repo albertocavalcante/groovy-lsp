@@ -23,7 +23,7 @@ import kotlin.io.path.isRegularFile
 /**
  * Lightweight, LSP-free parser facade that produces Groovy ASTs and diagnostics.
  */
-class GroovyParserFacade {
+class GroovyParserFacade(private val parentClassLoader: ClassLoader = ClassLoader.getPlatformClassLoader()) {
 
     private val logger = LoggerFactory.getLogger(GroovyParserFacade::class.java)
 
@@ -99,8 +99,8 @@ class GroovyParserFacade {
 
     private fun parseInternal(request: ParseRequest): ParseResult {
         val config = createCompilerConfiguration()
-        // Use default classloader to include Groovy runtime and application classes
-        val classLoader = GroovyClassLoader()
+        // Use configured parent classloader (default is platform/bootstrap to avoid pollution)
+        val classLoader = GroovyClassLoader(parentClassLoader)
 
         request.classpath.forEach { classLoader.addClasspath(it.toString()) }
         request.sourceRoots.forEach { classLoader.addClasspath(it.toString()) }
