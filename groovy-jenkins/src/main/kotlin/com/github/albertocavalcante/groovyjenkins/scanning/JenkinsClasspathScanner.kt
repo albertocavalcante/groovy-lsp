@@ -6,6 +6,9 @@
 
 package com.github.albertocavalcante.groovyjenkins.scanning
 
+import com.github.albertocavalcante.groovycommon.text.toLowerCamelCase
+import com.github.albertocavalcante.groovycommon.text.toPropertyName
+import com.github.albertocavalcante.groovycommon.text.toStepName
 import com.github.albertocavalcante.groovyjenkins.metadata.BundledJenkinsMetadata
 import com.github.albertocavalcante.groovyjenkins.metadata.GlobalVariableMetadata
 import com.github.albertocavalcante.groovyjenkins.metadata.JenkinsStepMetadata
@@ -122,7 +125,7 @@ class JenkinsClasspathScanner {
 
                 if (name == null) {
                     // Fallback: use class name, decapitalized
-                    name = globalInfo.simpleName.replaceFirstChar { it.lowercase() }
+                    name = globalInfo.simpleName.toLowerCamelCase()
                         .removeSuffix("GlobalVariable")
                         .removeSuffix("Impl")
                 }
@@ -165,7 +168,7 @@ class JenkinsClasspathScanner {
         // 2a. Methods
         stepClass.methodInfo.forEach { method ->
             if (method.hasAnnotation(DATA_BOUND_SETTER) && method.name.startsWith("set")) {
-                val propName = method.name.substring(3).replaceFirstChar { it.lowercase() }
+                val propName = method.name.toPropertyName()
 
                 if (method.parameterInfo.isNotEmpty()) {
                     val param = method.parameterInfo[0]
@@ -207,7 +210,7 @@ class JenkinsClasspathScanner {
         if (stepClassInfo != null) {
             val simpleName = stepClassInfo.simpleName
             if (simpleName.endsWith("Step")) {
-                return simpleName.removeSuffix("Step").replaceFirstChar { it.lowercase() }
+                return simpleName.toStepName()
             }
         }
 
