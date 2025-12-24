@@ -79,6 +79,7 @@ if ! command -v direnv >/dev/null; then
     brew install direnv
 fi
 
+DIRENV_HOOKED=false
 if [ -n "$SHELL_RC" ]; then
     if ! grep -q "direnv hook" "$SHELL_RC"; then
         echo "🔧 Adding direnv hook to $SHELL_RC..."
@@ -90,6 +91,7 @@ if [ -n "$SHELL_RC" ]; then
              echo 'eval "$(direnv hook bash)"' >> "$SHELL_RC"
         fi
         echo "✅ Added direnv hook to $SHELL_RC"
+        DIRENV_HOOKED=true
     else
         echo "✅ direnv already configured in $SHELL_RC"
     fi
@@ -101,8 +103,21 @@ if [ -f ".envrc" ]; then
         echo "🔓 Allowing .envrc..."
         direnv allow
     fi
-fi
+}
 
 echo ""
 echo "🎉 Setup complete!"
+echo ""
+
+if [ "$DIRENV_HOOKED" = true ]; then
+    echo "🚨 IMPORTANT: Direnv hook was just added."
+    echo "   You MUST restart your terminal or run the following to activate it:"
+    if [[ "$SHELL" == */zsh ]]; then
+        echo "   eval \"$(direnv hook zsh)\"
+    elif [[ "$SHELL" == */bash ]]; then
+        echo "   eval \"$(direnv hook bash)\"
+    fi
+    echo ""
+fi
+
 echo "👉 Please restart your terminal or run: source $SHELL_RC"
