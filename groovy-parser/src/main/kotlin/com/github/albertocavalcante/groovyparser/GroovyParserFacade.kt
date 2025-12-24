@@ -99,8 +99,8 @@ class GroovyParserFacade {
 
     private fun parseInternal(request: ParseRequest): ParseResult {
         val config = createCompilerConfiguration()
-        // Use platform classloader to avoid pollution from the running environment
-        val classLoader = GroovyClassLoader(ClassLoader.getPlatformClassLoader())
+        // Use default classloader to include Groovy runtime and application classes
+        val classLoader = GroovyClassLoader()
 
         request.classpath.forEach { classLoader.addClasspath(it.toString()) }
         request.sourceRoots.forEach { classLoader.addClasspath(it.toString()) }
