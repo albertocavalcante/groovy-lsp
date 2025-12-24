@@ -31,11 +31,9 @@ class VarsGlobalVariableProvider(private val workspaceRoot: Path) {
         FlexmarkHtmlConverter.builder().build()
     }
 
-    // Regex to match "def call" method declaration (with optional modifiers and annotations)
-    private val defCallPattern = Regex(
-        """^\s*(?:@\w+\s+|public\s+|private\s+|protected\s+|static\s+""" +
-            """|final\s+|synchronized\s+|abstract\s+)*def\s+call\s*\(""",
-    )
+    // Regex to match "def call" method declaration
+    // Simplified pattern: matches optional modifiers followed by "def call("
+    private val defCallPattern = Regex("""^\s*(?:\S+\s+)*def\s+call\s*\(""")
 
     fun getGlobalVariables(): List<GlobalVariable> {
         val varsDir = workspaceRoot.resolve("vars")

@@ -1,0 +1,62 @@
+# Copybara configuration for Jenkins Extractor
+#
+# This workflow mirrors the tools/jenkins-extractor directory and its dependencies
+# to a standalone repository.
+
+# Variables
+DESTINATION_URL = "https://github.com/albertocavalcante/jenkins-pipeline-metadata-extractor.git"
+DESTINATION_BRANCH = "main"
+
+# Core Workflow
+core.workflow(
+    name = "default",
+    origin = git.origin(
+        url = "https://github.com/albertocavalcante/groovy-lsp.git",
+        ref = "main",
+    ),
+    destination = git.destination(
+        url = DESTINATION_URL,
+        fetch = "main",
+        push = "main",
+    ),
+    # Preserve the original author, but commit as the Bot
+    authoring = authoring.pass_thru("Groovy LSP Bot <bot@groovy-lsp.org>"),
+    mode = "ITERATIVE",
+    
+    # Files to include in the migration
+    origin_files = glob([
+        "tools/jenkins-extractor/**",
+        "groovy-jenkins/**",
+        "groovy-gdsl/**",
+        "groovy-common/**",
+        "groovy-build-tool/**",
+        "gradle/libs.versions.toml",
+        "gradle/wrapper/**",
+        "gradlew",
+        "gradlew.bat",
+        ".gitignore",
+    ]),
+
+    transformations = [
+        # 1. Move the extractor tool to the root
+        core.move("tools/jenkins-extractor", ""),
+
+        # 2. Move dependencies to a deps/ folder
+        core.move("groovy-jenkins", "deps/groovy-jenkins"),
+        core.move("groovy-gdsl", "deps/groovy-gdsl"),
+        core.move("groovy-common", "deps/groovy-common"),
+        core.move("groovy-build-tool", "deps/groovy-build-tool"),
+
+        # 3. Apply the "Mirror" configuration overrides
+        # These files were created in the source specifically to overwrite the original ones
+        core.move("mirror/settings.gradle.kts", "settings.gradle.kts"),
+        core.move("mirror/build.gradle.kts", "build.gradle.kts"),
+        core.move("mirror/README.md", "README.md"),
+
+        # 4. Remove the mirror folder itself (it's no longer needed in the dest)
+        core.remove("mirror"),
+
+        # 5. Fix Dependency References in the moved modules
+        # Change project(":groovy-common") to project(":deps:groovy-common")
+        core.replace(
+            regex = 'project\(\
