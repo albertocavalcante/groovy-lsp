@@ -103,7 +103,7 @@ if [ -f ".envrc" ]; then
         echo "🔓 Allowing .envrc..."
         direnv allow
     fi
-}
+fi
 
 echo ""
 echo "🎉 Setup complete!"
@@ -113,9 +113,9 @@ if [ "$DIRENV_HOOKED" = true ]; then
     echo "🚨 IMPORTANT: Direnv hook was just added."
     echo "   You MUST restart your terminal or run the following to activate it:"
     if [[ "$SHELL" == */zsh ]]; then
-        echo "   eval \"$(direnv hook zsh)\"
+        echo "   eval \"\$(direnv hook zsh)\""
     elif [[ "$SHELL" == */bash ]]; then
-        echo "   eval \"$(direnv hook bash)\"
+        echo "   eval \"\$(direnv hook bash)\""
     fi
     echo ""
 fi

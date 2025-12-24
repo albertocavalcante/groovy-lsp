@@ -136,7 +136,6 @@ class GradleBuildFileWatcher(
             }
             logger.debug("Watch service closed, terminating watch loop.")
             return
-            return
         } catch (e: IOException) {
             logger.error("IO error in build file watch loop", e)
         } catch (e: InterruptedException) {
