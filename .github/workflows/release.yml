@@ -10,14 +10,15 @@ name: Release
         required: false
         type: choice
         options:
-          - 'cloud'
+          - 'github-hosted'
           - 'self-hosted'
-        default: 'self-hosted'
-      version:
-        description: "Release version (e.g., v1.0.0)"
+          - 'local-macos'
+          - 'magalu'
+        default: 'github-hosted'
+      tag:
+        description: 'Tag to release (for re-running failed releases)'
         required: false
         type: string
-        default: manual
       dry_run:
         description: Dry run (don't create release)
         required: false
@@ -34,17 +35,12 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 60
-    runs-on: "${{ matrix.os }}"
+    runs-on: ${{ matrix.os == 'local-macos' && fromJSON('["self-hosted", "local-macos", "groovy-lsp"]') || matrix.os == 'magalu' && fromJSON('["self-hosted", "magalu", "groovy-lsp"]') || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # FIXME: Temporary self-hosted-only release build
-        # Original runner matrix (kept for quick rollback):
-        # os: ${{ fromJSON( (github.event.inputs.runner_label == 'self-hosted' || vars.CI_RUNNER_LABEL == 'self-hosted') && '["self-hosted"]' || '["ubuntu-latest", "macos-latest", "windows-latest"]') }}
-        # java:
-        # - 17
         os:
-          - self-hosted
+          - ${{ (github.event.inputs.runner_label == 'local-macos' || vars.CI_RUNNER_LABEL == 'local-macos') && 'local-macos' || (github.event.inputs.runner_label == 'magalu' || vars.CI_RUNNER_LABEL == 'magalu') && 'magalu' || 'ubuntu-24.04' }}
         java:
           - 17
     steps:
@@ -52,6 +48,7 @@ jobs:
       uses: actions/checkout@v6
       with:
         fetch-depth: 0
+        ref: ${{ github.event.inputs.tag || github.ref }}
     - name: "Set up JDK ${{ matrix.java }}"
       uses: actions/setup-java@v5
       with:
@@ -72,18 +69,13 @@ jobs:
     - name: Set build environment variables
       shell: bash
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          if [ "${{ github.event.inputs.version }}" = "manual" ] || [ -z "${{ github.event.inputs.version }}" ]; then
-            VERSION="manual-$(date +%Y%m%d-%H%M%S)"
-          else
-            VERSION="${{ github.event.inputs.version }}"
-          fi
-        else
-          VERSION="${{ github.ref_name }}"
-        fi
+        # Priority: tag input > push tag > fallback
+        TAG="${{ github.event.inputs.tag }}"
+        TAG="${TAG:-${{ github.ref_name }}}"
+        [[ "$TAG" == refs/heads/* || -z "$TAG" ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
 
-        echo "Release version: ${VERSION}"
-        echo "BUILD_VERSION=${VERSION}" >> $GITHUB_ENV
+        echo "Release version: ${TAG}"
+        echo "BUILD_VERSION=${TAG}" >> $GITHUB_ENV
         echo "BUILD_COMMIT=${{ github.sha }}" >> $GITHUB_ENV
         echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
     - name: Validate Gradle Wrapper
@@ -130,11 +122,8 @@ jobs:
     name: Create Release
     permissions:
       contents: write
-      id-token: write
     needs: build-release
-    # FIXME: Temporary; original runs-on preserved below
-    # runs-on: ubuntu-latest
-    runs-on: self-hosted
+    runs-on: ${{ (github.event.inputs.runner_label == 'local-macos' || vars.CI_RUNNER_LABEL == 'local-macos') && fromJSON('["self-hosted", "local-macos", "groovy-lsp"]') || (github.event.inputs.runner_label == 'magalu' || vars.CI_RUNNER_LABEL == 'magalu') && fromJSON('["self-hosted", "magalu", "groovy-lsp"]') || 'ubuntu-24.04' }}
     if: "${{ !inputs.dry_run }}"
     steps:
     - name: Checkout code
@@ -167,15 +156,11 @@ jobs:
       id: release_notes
       shell: bash
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          if [ "${{ github.event.inputs.version }}" = "manual" ] || [ -z "${{ github.event.inputs.version }}" ]; then
-            VERSION="manual-$(date +%Y%m%d-%H%M%S)"
-          else
-            VERSION="${{ github.event.inputs.version }}"
-          fi
-        else
-          VERSION="${{ github.ref_name }}"
-        fi
+        # Priority: tag input > push tag > fallback
+        TAG="${{ github.event.inputs.tag }}"
+        TAG="${TAG:-${{ github.ref_name }}}"
+        [[ "$TAG" == refs/heads/* || -z "$TAG" ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
+        VERSION="$TAG"
 
         cat > release-notes.md <<EOF
         ## Groovy LSP ${VERSION}
@@ -223,20 +208,22 @@ jobs:
       id: release_info
       shell: bash
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          if [ "${{ github.event.inputs.version }}" = "manual" ] || [ -z "${{ github.event.inputs.version }}" ]; then
-            VERSION="manual-$(date +%Y%m%d-%H%M%S)"
-            IS_PRERELEASE=true
-            IS_DRAFT=true
-          else
-            VERSION="${{ github.event.inputs.version }}"
-            IS_PRERELEASE=${{ contains(github.event.inputs.version, '-rc') || contains(github.event.inputs.version, '-beta') || contains(github.event.inputs.version, '-alpha') || contains(github.event.inputs.version, 'manual') }}
-            IS_DRAFT=true
-          fi
+        # Priority: tag input > push tag > fallback
+        TAG="${{ github.event.inputs.tag }}"
+        TAG="${TAG:-${{ github.ref_name }}}"
+        [[ "$TAG" == refs/heads/* || -z "$TAG" ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
+        VERSION="$TAG"
+
+        # Determine prerelease/draft status
+        if [[ "$VERSION" == manual-* ]]; then
+          IS_PRERELEASE=true
+          IS_DRAFT=true
+        elif [[ "$VERSION" =~ (-rc|-beta|-alpha) ]]; then
+          IS_PRERELEASE=true
+          IS_DRAFT=${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
         else
-          VERSION="${{ github.ref_name }}"
-          IS_PRERELEASE=${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
-          IS_DRAFT=false
+          IS_PRERELEASE=false
+          IS_DRAFT=${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
         fi
 
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
