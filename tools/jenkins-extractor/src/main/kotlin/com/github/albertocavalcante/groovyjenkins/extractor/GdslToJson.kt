@@ -35,6 +35,7 @@ private const val ARG_INDEX_PLUGIN_ID = 3
 private const val ARG_INDEX_PLUGIN_VERSION = 4
 private const val ARG_INDEX_PLUGIN_DISPLAY_NAME = 5
 private const val OBJECT_TYPE = "java.lang.Object"
+private const val SIMPLE_OBJECT_TYPE = "Object"
 
 data class ExtractionInputs(
     val jenkinsVersion: String,
@@ -393,7 +394,7 @@ private fun mergeExtractedParameter(existing: ExtractedParameter?, candidate: Ex
 
     val mergedType = when {
         existing.type == OBJECT_TYPE && candidate.type != OBJECT_TYPE -> candidate.type
-        existing.type == "Object" && candidate.type != "Object" -> candidate.type
+        existing.type == SIMPLE_OBJECT_TYPE && candidate.type != SIMPLE_OBJECT_TYPE -> candidate.type
         else -> existing.type
     }
 
