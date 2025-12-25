@@ -76,6 +76,8 @@ jobs:
         # Priority: tag input > push tag > fallback (if not a version tag)
         TAG="${{ github.event.inputs.tag }}"
         TAG="${TAG:-${{ github.ref_name }}}"
+        # Normalize: add v prefix if missing (allows input of "0.4.5" or "v0.4.5")
+        [[ -n "$TAG" && "$TAG" =~ ^[0-9] ]] && TAG="v${TAG}"
         # If TAG doesn't look like a version tag (v*), generate manual version
         [[ ! "$TAG" =~ ^v[0-9] ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
         
