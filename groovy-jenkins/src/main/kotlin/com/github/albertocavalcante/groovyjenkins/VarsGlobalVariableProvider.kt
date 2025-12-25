@@ -32,8 +32,8 @@ class VarsGlobalVariableProvider(private val workspaceRoot: Path) {
     }
 
     // Regex to match "def call" method declaration
-    // Must start with whitespace only (not comments), optionally followed by modifiers
-    private val defCallPattern = Regex("""^\s*(?!//|/\*|#)(?:\w+\s+)*def\s+call\s*\(""")
+    // Supports annotations (@NonCPS), modifiers (public, static), but not comments
+    private val defCallPattern = Regex("""^\s*(?!//|/\*|#)(?:@?\w+\s+)*def\s+call\s*\(""")
 
     fun getGlobalVariables(): List<GlobalVariable> {
         val varsDir = workspaceRoot.resolve("vars")
