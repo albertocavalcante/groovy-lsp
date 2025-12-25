@@ -10,7 +10,8 @@ import kotlin.io.path.exists
  */
 object BuildExecutableResolver {
 
-    private val isWindows: Boolean by lazy {
+    /** True if running on Windows, false otherwise. */
+    val isWindows: Boolean by lazy {
         System.getProperty("os.name", "").lowercase().contains("windows")
     }
 

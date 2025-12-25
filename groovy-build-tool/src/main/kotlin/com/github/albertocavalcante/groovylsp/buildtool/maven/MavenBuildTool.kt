@@ -112,23 +112,20 @@ class MavenBuildTool : BuildTool {
     }
 
     private fun getMvnCommand(workspaceRoot: Path): String {
-        val mvnw = workspaceRoot.resolve("mvnw")
-        if (mvnw.exists()) {
-            if (!Files.isExecutable(mvnw)) {
+        val wrapperName = if (BuildExecutableResolver.isWindows) "mvnw.cmd" else "mvnw"
+        val wrapper = workspaceRoot.resolve(wrapperName)
+
+        if (wrapper.exists()) {
+            // On Unix, verify executable permission
+            if (!BuildExecutableResolver.isWindows && !Files.isExecutable(wrapper)) {
                 logger.warn(
                     "Maven wrapper exists but is not executable: {}. " +
                         "Run 'chmod +x mvnw' or check git config core.fileMode. Falling back to system mvn.",
-                    mvnw,
+                    wrapper,
                 )
                 return "mvn"
             }
-            return mvnw.toAbsolutePath().toString()
-        }
-
-        // Windows check - only reached if mvnw doesn't exist
-        val mvnwCmd = workspaceRoot.resolve("mvnw.cmd")
-        if (mvnwCmd.exists()) {
-            return mvnwCmd.toAbsolutePath().toString()
+            return wrapper.toAbsolutePath().toString()
         }
 
         return "mvn"
