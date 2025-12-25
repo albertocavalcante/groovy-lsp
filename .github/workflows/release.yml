@@ -36,6 +36,9 @@ jobs:
       contents: read
     timeout-minutes: 60
     runs-on: ${{ matrix.os == 'self-hosted' && 'self-hosted' || matrix.os == 'local-macos' && fromJSON('["self-hosted", "local-macos", "groovy-lsp"]') || matrix.os == 'magalu' && fromJSON('["self-hosted", "magalu", "groovy-lsp"]') || matrix.os }}
+    outputs:
+      build_version: ${{ steps.set-env.outputs.build_version }}
+      build_commit: ${{ steps.set-env.outputs.build_commit }}
     strategy:
       fail-fast: false
       matrix:
@@ -67,6 +70,7 @@ jobs:
           echo "GRADLE_SCAN_FLAG=" >> $GITHUB_ENV
         fi
     - name: Set build environment variables
+      id: set-env
       shell: bash
       run: |
         # Priority: tag input > push tag > fallback (if not a version tag)
@@ -74,11 +78,19 @@ jobs:
         TAG="${TAG:-${{ github.ref_name }}}"
         # If TAG doesn't look like a version tag (v*), generate manual version
         [[ ! "$TAG" =~ ^v[0-9] ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
+        
+        # Get actual commit SHA from checked-out code (not github.sha which is dispatch trigger)
+        COMMIT_SHA=$(git rev-parse HEAD)
 
         echo "Release version: ${TAG}"
+        echo "Commit SHA: ${COMMIT_SHA}"
         echo "BUILD_VERSION=${TAG}" >> $GITHUB_ENV
-        echo "BUILD_COMMIT=${{ github.sha }}" >> $GITHUB_ENV
+        echo "BUILD_COMMIT=${COMMIT_SHA}" >> $GITHUB_ENV
         echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+        
+        # Set outputs for downstream jobs
+        echo "build_version=${TAG}" >> $GITHUB_OUTPUT
+        echo "build_commit=${COMMIT_SHA}" >> $GITHUB_OUTPUT
     - name: Validate Gradle Wrapper
       run: ./gradlew --no-daemon --version
     - name: Verify version detection
@@ -157,12 +169,9 @@ jobs:
       id: release_notes
       shell: bash
       run: |
-        # Priority: tag input > push tag > fallback (if not a version tag)
-        TAG="${{ github.event.inputs.tag }}"
-        TAG="${TAG:-${{ github.ref_name }}}"
-        # If TAG doesn't look like a version tag (v*), generate manual version
-        [[ ! "$TAG" =~ ^v[0-9] ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
-        VERSION="$TAG"
+        # Use VERSION from build-release job to ensure consistency
+        VERSION="${{ needs.build-release.outputs.build_version }}"
+        echo "Using version from build: ${VERSION}"
 
         cat > release-notes.md <<EOF
         ## Groovy LSP ${VERSION}
@@ -210,12 +219,9 @@ jobs:
       id: release_info
       shell: bash
       run: |
-        # Priority: tag input > push tag > fallback (if not a version tag)
-        TAG="${{ github.event.inputs.tag }}"
-        TAG="${TAG:-${{ github.ref_name }}}"
-        # If TAG doesn't look like a version tag (v*), generate manual version
-        [[ ! "$TAG" =~ ^v[0-9] ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
-        VERSION="$TAG"
+        # Use VERSION from build-release job to ensure consistency
+        VERSION="${{ needs.build-release.outputs.build_version }}"
+        echo "Using version from build: ${VERSION}"
 
         # Determine prerelease/draft status
         if [[ "$VERSION" == manual-* ]]; then
