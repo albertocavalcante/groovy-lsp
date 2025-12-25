@@ -1,5 +1,6 @@
 package com.github.albertocavalcante.groovylsp.buildtool
 
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.exists
 
@@ -69,6 +70,7 @@ object BuildExecutableResolver {
 
     /**
      * Generic helper to resolve a build executable.
+     * On Unix, checks executable permission and falls back to system command if not executable.
      */
     private fun resolveExecutable(
         workspaceRoot: Path,
@@ -80,10 +82,13 @@ object BuildExecutableResolver {
         val wrapper = if (useWindows) windowsWrapperName else wrapperName
         val wrapperPath = workspaceRoot.resolve(wrapper)
 
-        return if (wrapperPath.exists()) {
-            if (useWindows) wrapper else "./$wrapper"
-        } else {
-            systemCommand
+        if (!wrapperPath.exists()) return systemCommand
+
+        // On Unix, verify executable permission
+        if (!useWindows && !Files.isExecutable(wrapperPath)) {
+            return systemCommand
         }
+
+        return wrapperPath.toAbsolutePath().toString()
     }
 }
