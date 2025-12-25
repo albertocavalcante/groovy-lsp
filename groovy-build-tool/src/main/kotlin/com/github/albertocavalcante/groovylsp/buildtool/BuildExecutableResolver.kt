@@ -91,8 +91,10 @@ object BuildExecutableResolver {
         if (!useWindows && !Files.isExecutable(wrapperPath)) {
             logger.warn(
                 "Build wrapper exists but is not executable: {}. " +
-                    "Run 'chmod +x {}' or check git config core.fileMode. Falling back to system {}.",
+                    "Fix with 'chmod +x {}' or 'git update-index --chmod=+x {}'. " +
+                    "Falling back to system {}.",
                 wrapperPath,
+                wrapperName,
                 wrapperName,
                 systemCommand,
             )
