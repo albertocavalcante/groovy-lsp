@@ -120,12 +120,12 @@ class MavenBuildTool : BuildTool {
                         "Run 'chmod +x mvnw' or check git config core.fileMode. Falling back to system mvn.",
                     mvnw,
                 )
-            } else {
-                return mvnw.toAbsolutePath().toString()
+                return "mvn"
             }
+            return mvnw.toAbsolutePath().toString()
         }
 
-        // Windows check
+        // Windows check - only reached if mvnw doesn't exist
         val mvnwCmd = workspaceRoot.resolve("mvnw.cmd")
         if (mvnwCmd.exists()) {
             return mvnwCmd.toAbsolutePath().toString()
