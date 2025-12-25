@@ -1,5 +1,6 @@
 package com.github.albertocavalcante.groovylsp.buildtool
 
+import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.exists
@@ -10,6 +11,8 @@ import kotlin.io.path.exists
  * 2. Wrapper presence (gradlew/mvnw vs gradle/mvn)
  */
 object BuildExecutableResolver {
+
+    private val logger = LoggerFactory.getLogger(BuildExecutableResolver::class.java)
 
     /** True if running on Windows, false otherwise. */
     val isWindows: Boolean by lazy {
@@ -86,6 +89,13 @@ object BuildExecutableResolver {
 
         // On Unix, verify executable permission
         if (!useWindows && !Files.isExecutable(wrapperPath)) {
+            logger.warn(
+                "Build wrapper exists but is not executable: {}. " +
+                    "Run 'chmod +x {}' or check git config core.fileMode. Falling back to system {}.",
+                wrapperPath,
+                wrapperName,
+                systemCommand,
+            )
             return systemCommand
         }
 
