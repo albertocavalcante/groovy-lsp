@@ -35,12 +35,12 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 60
-    runs-on: ${{ matrix.os == 'local-macos' && fromJSON('["self-hosted", "local-macos", "groovy-lsp"]') || matrix.os == 'magalu' && fromJSON('["self-hosted", "magalu", "groovy-lsp"]') || matrix.os }}
+    runs-on: ${{ matrix.os == 'self-hosted' && 'self-hosted' || matrix.os == 'local-macos' && fromJSON('["self-hosted", "local-macos", "groovy-lsp"]') || matrix.os == 'magalu' && fromJSON('["self-hosted", "magalu", "groovy-lsp"]') || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os:
-          - ${{ (github.event.inputs.runner_label == 'local-macos' || vars.CI_RUNNER_LABEL == 'local-macos') && 'local-macos' || (github.event.inputs.runner_label == 'magalu' || vars.CI_RUNNER_LABEL == 'magalu') && 'magalu' || 'ubuntu-24.04' }}
+          - ${{ (github.event.inputs.runner_label == 'self-hosted' || vars.CI_RUNNER_LABEL == 'self-hosted') && 'self-hosted' || (github.event.inputs.runner_label == 'local-macos' || vars.CI_RUNNER_LABEL == 'local-macos') && 'local-macos' || (github.event.inputs.runner_label == 'magalu' || vars.CI_RUNNER_LABEL == 'magalu') && 'magalu' || 'ubuntu-24.04' }}
         java:
           - 17
     steps:
@@ -69,10 +69,11 @@ jobs:
     - name: Set build environment variables
       shell: bash
       run: |
-        # Priority: tag input > push tag > fallback
+        # Priority: tag input > push tag > fallback (if not a version tag)
         TAG="${{ github.event.inputs.tag }}"
         TAG="${TAG:-${{ github.ref_name }}}"
-        [[ "$TAG" == refs/heads/* || -z "$TAG" ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
+        # If TAG doesn't look like a version tag (v*), generate manual version
+        [[ ! "$TAG" =~ ^v[0-9] ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
 
         echo "Release version: ${TAG}"
         echo "BUILD_VERSION=${TAG}" >> $GITHUB_ENV
@@ -123,7 +124,7 @@ jobs:
     permissions:
       contents: write
     needs: build-release
-    runs-on: ${{ (github.event.inputs.runner_label == 'local-macos' || vars.CI_RUNNER_LABEL == 'local-macos') && fromJSON('["self-hosted", "local-macos", "groovy-lsp"]') || (github.event.inputs.runner_label == 'magalu' || vars.CI_RUNNER_LABEL == 'magalu') && fromJSON('["self-hosted", "magalu", "groovy-lsp"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (github.event.inputs.runner_label == 'self-hosted' || vars.CI_RUNNER_LABEL == 'self-hosted') && 'self-hosted' || (github.event.inputs.runner_label == 'local-macos' || vars.CI_RUNNER_LABEL == 'local-macos') && fromJSON('["self-hosted", "local-macos", "groovy-lsp"]') || (github.event.inputs.runner_label == 'magalu' || vars.CI_RUNNER_LABEL == 'magalu') && fromJSON('["self-hosted", "magalu", "groovy-lsp"]') || 'ubuntu-24.04' }}
     if: "${{ !inputs.dry_run }}"
     steps:
     - name: Checkout code
@@ -156,10 +157,11 @@ jobs:
       id: release_notes
       shell: bash
       run: |
-        # Priority: tag input > push tag > fallback
+        # Priority: tag input > push tag > fallback (if not a version tag)
         TAG="${{ github.event.inputs.tag }}"
         TAG="${TAG:-${{ github.ref_name }}}"
-        [[ "$TAG" == refs/heads/* || -z "$TAG" ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
+        # If TAG doesn't look like a version tag (v*), generate manual version
+        [[ ! "$TAG" =~ ^v[0-9] ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
         VERSION="$TAG"
 
         cat > release-notes.md <<EOF
@@ -208,10 +210,11 @@ jobs:
       id: release_info
       shell: bash
       run: |
-        # Priority: tag input > push tag > fallback
+        # Priority: tag input > push tag > fallback (if not a version tag)
         TAG="${{ github.event.inputs.tag }}"
         TAG="${TAG:-${{ github.ref_name }}}"
-        [[ "$TAG" == refs/heads/* || -z "$TAG" ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
+        # If TAG doesn't look like a version tag (v*), generate manual version
+        [[ ! "$TAG" =~ ^v[0-9] ]] && TAG="manual-$(date +%Y%m%d-%H%M%S)"
         VERSION="$TAG"
 
         # Determine prerelease/draft status
