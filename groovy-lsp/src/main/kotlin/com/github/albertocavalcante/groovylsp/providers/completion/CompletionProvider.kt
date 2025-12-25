@@ -78,30 +78,30 @@ object CompletionProvider {
 
             // If simple insertion failed and it was a clean insertion, try adding 'def'
             // This helps in class bodies: "class Foo { def BrazilWorldCup2026 }" is valid, but "class Foo { BrazilWorldCup2026 }" is not.
+            // Merged condition: clean insertion + (successful with def OR fewer errors with def) + valid AST
             if (isClean && !result1.isSuccessful) {
                 val content2 = insertDummyIdentifier(content, line, character, withDef = true)
                 val result2 = compilationService.compileTransient(uriObj, content2)
                 val ast2 = result2.ast
                 val astModel2 = result2.astModel
+                val defStrategyBetter = result2.isSuccessful || result2.diagnostics.size < result1.diagnostics.size
 
-                // If 'def' strategy produced a better result (successful or fewer errors), use it
-                if (result2.isSuccessful || result2.diagnostics.size < result1.diagnostics.size) {
-                    if (ast2 != null) {
-                        val isSpockSpec = SpockDetector.isSpockSpec(uriObj, result2)
-                        return buildCompletionsList(
-                            CompletionContext(
-                                uri = uriObj,
-                                line = line,
-                                character = character,
-                                ast = ast2,
-                                astModel = astModel2,
-                                tokenIndex = result2.tokenIndex,
-                                compilationService = compilationService,
-                                content = content,
-                            ),
-                            isSpockSpec = isSpockSpec,
-                        )
-                    }
+                // Use 'def' strategy if it produced a better result and has a valid AST
+                if (defStrategyBetter && ast2 != null) {
+                    val isSpockSpec = SpockDetector.isSpockSpec(uriObj, result2)
+                    return buildCompletionsList(
+                        CompletionContext(
+                            uri = uriObj,
+                            line = line,
+                            character = character,
+                            ast = ast2,
+                            astModel = astModel2,
+                            tokenIndex = result2.tokenIndex,
+                            compilationService = compilationService,
+                            content = content,
+                        ),
+                        isSpockSpec = isSpockSpec,
+                    )
                 }
             }
 

@@ -29,7 +29,7 @@ class BuildExecutableResolverTest {
     @Test
     fun `resolveGradle returns wrapper path when gradlew_bat exists on Windows`() {
         // Setup: create gradlew.bat wrapper (no executable check on Windows)
-        val wrapper = tempDir.resolve("gradlew.bat").createFile()
+        val wrapper = tempDir.resolve("      gradlew.bat").createFile()
 
         val result = BuildExecutableResolver.resolveGradle(tempDir, forceWindows = true)
 
