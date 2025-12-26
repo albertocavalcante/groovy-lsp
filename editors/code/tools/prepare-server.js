@@ -3,7 +3,7 @@
  * Priority order:
  * 1. Use explicitly provided local JAR (--local/GROOVY_LSP_LOCAL_JAR)
  * 2. Use explicitly provided URL (--url/GROOVY_LSP_URL)
- * 3. Use existing server/groovy-lsp.jar if present (unless FORCE_DOWNLOAD=true)
+ * 3. Use existing server/gls.jar if present (unless FORCE_DOWNLOAD=true)
  * 4. Copy from local groovy-lsp build if available and PREFER_LOCAL=true
  * 5. Download from GitHub releases (pinned, latest, nightly, or explicit tag)
  */
@@ -28,9 +28,9 @@ const {
 } = require("./github-token.js");
 
 const SERVER_DIR = path.join(__dirname, "..", "server");
-const CANONICAL_JAR_NAME = "groovy-lsp.jar";
+const CANONICAL_JAR_NAME = "gls.jar";
 const JAR_PATH = path.join(SERVER_DIR, CANONICAL_JAR_NAME);
-const VERSION_FILE = path.join(SERVER_DIR, ".groovy-lsp-version");
+const VERSION_FILE = path.join(SERVER_DIR, ".gls-version");
 
 // Pinned Groovy LSP release
 const PINNED_RELEASE_TAG = "v0.2.0";
