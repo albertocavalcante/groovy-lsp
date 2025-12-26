@@ -242,6 +242,8 @@ object JsonExpectationEvaluator {
             ExpectationType.NOT_EMPTY -> pathExists && !isEmpty(actualNode)
             ExpectationType.GTE -> pathExists && isGreaterThanOrEqual(actualNode, expectation.value)
             ExpectationType.LTE -> pathExists && isLessThanOrEqual(actualNode, expectation.value)
+            ExpectationType.ANY_CONTAINS -> pathExists && anyContainsSubstring(actualNode, expectation.value)
+            ExpectationType.NONE_CONTAINS -> !pathExists || !anyContainsSubstring(actualNode, expectation.value)
         }
 
     private fun equals(actual: JsonElement?, expected: JsonElement?): Boolean = actual == expected
@@ -300,5 +302,24 @@ object JsonExpectationEvaluator {
         val actualNum = (actual as? JsonPrimitive)?.content?.toDoubleOrNull() ?: return false
         val expectedNum = (expected as? JsonPrimitive)?.content?.toDoubleOrNull() ?: return false
         return actualNum <= expectedNum
+    }
+
+    /**
+     * Checks if any element in an array contains the expected substring.
+     * For string primitives, does substring matching.
+     * For arrays, checks if any string element contains the substring.
+     */
+    private fun anyContainsSubstring(actual: JsonElement?, expected: JsonElement?): Boolean {
+        if (actual == null || expected == null) return false
+        val substring = (expected as? JsonPrimitive)?.content ?: return false
+
+        return when (actual) {
+            is JsonPrimitive -> actual.isString && actual.content.contains(substring)
+            is JsonArray -> actual.any { element ->
+                element is JsonPrimitive && element.isString && element.content.contains(substring)
+            }
+
+            else -> false
+        }
     }
 }

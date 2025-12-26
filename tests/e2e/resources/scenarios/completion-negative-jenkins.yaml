@@ -45,8 +45,8 @@ steps:
       checks:
         - jsonPath: $.items[*].detail
           expect:
-            type: NOT_CONTAINS
-            value: "Jenkins step (workflow-basic-steps)"
+            type: NONE_CONTAINS
+            value: "Jenkins step"
 
   # Test 2: Regular .groovy file should NOT have Jenkins 'sh' step
   - changeDocument:
@@ -83,8 +83,8 @@ steps:
       checks:
         - jsonPath: $.items[*].detail
           expect:
-            type: NOT_CONTAINS
-            value: "Jenkins step (workflow-basic-steps)"
+            type: NONE_CONTAINS
+            value: "Jenkins step"
 
   # Test 3: Verify currentBuild global variable is NOT available
   - changeDocument:

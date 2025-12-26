@@ -284,4 +284,6 @@ enum class ExpectationType {
     NOT_EMPTY,
     GTE, // Greater than or equal
     LTE, // Less than or equal
+    ANY_CONTAINS, // For arrays: any element contains the substring
+    NONE_CONTAINS, // For arrays: no element contains the substring
 }
