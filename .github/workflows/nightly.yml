@@ -69,6 +69,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ env.VALIDATED_REF || 'main' }}
+          persist-credentials: false
 
       - name: Setup Java
         uses: actions/setup-java@v5
