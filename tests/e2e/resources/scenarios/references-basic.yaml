@@ -51,8 +51,9 @@ steps:
       checks:
         - jsonPath: $
           expect:
-            type: NOT_EMPTY
-            message: "Should find references to Calculator class"
+            type: SIZE
+            value: 5
+            message: "Should find 5 references to Calculator class (decl + 2 usages with constructor/type duality)"
 
   # Test 2: Find references to a method
   - request:
@@ -73,8 +74,9 @@ steps:
       checks:
         - jsonPath: $
           expect:
-            type: NOT_EMPTY
-            message: "Should find references to add method"
+            type: SIZE
+            value: 3
+            message: "Should find 3 references to add method (def + 2 usages)"
 
   - shutdown: {}
   - exit: {}

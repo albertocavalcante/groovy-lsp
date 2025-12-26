@@ -41,10 +41,11 @@ steps:
   - assert:
       source: renameResult
       checks:
-        - jsonPath: $
+        - jsonPath: $.documentChanges[0].edits
           expect:
-            type: NOT_EMPTY
-            message: "Should return workspace edits for rename"
+            type: SIZE
+            value: 3
+            message: "Should return 3 text edits for renamed variable (decl + 2 usages)"
 
   - shutdown: {}
   - exit: {}
