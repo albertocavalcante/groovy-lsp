@@ -29,9 +29,10 @@ data class GroovyVersion(
             val tokens = trimmed.split(DELIMITER_REGEX)
             if (tokens.isEmpty()) return null
 
-            val major = tokens.getOrNull(0)?.toIntOrNull() ?: return null
-            val minor = tokens.getOrNull(1)?.toIntOrNull() ?: 0
-            val patch = tokens.getOrNull(2)?.toIntOrNull() ?: 0
+            val numericTokens = tokens.takeWhile { it.toIntOrNull() != null }
+            val major = numericTokens.getOrNull(0)?.toIntOrNull() ?: return null
+            val minor = numericTokens.getOrNull(1)?.toIntOrNull() ?: 0
+            val patch = numericTokens.getOrNull(2)?.toIntOrNull() ?: 0
             val parts = tokens.map(::parsePart)
 
             return GroovyVersion(trimmed, major, minor, patch, parts)

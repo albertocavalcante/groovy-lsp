@@ -27,6 +27,15 @@ class GroovyVersionTest {
     }
 
     @Test
+    fun `qualifier without minor keeps zeroed minor and patch`() {
+        val version = GroovyVersion.parse("4-rc-1")
+        assertNotNull(version)
+        assertEquals(4, version.major)
+        assertEquals(0, version.minor)
+        assertEquals(0, version.patch)
+    }
+
+    @Test
     fun `parse invalid version returns null`() {
         assertNull(GroovyVersion.parse("not-a-version"))
     }

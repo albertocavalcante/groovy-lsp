@@ -42,7 +42,8 @@ class GroovyVersionResolver(private val runtimeVersionProvider: () -> String = {
 
     private fun resolveFromDependencies(dependencies: List<Path>): GroovyVersion? {
         val versions = dependencies.mapNotNull { path ->
-            extractGroovyVersion(path.fileName.toString())
+            val fileName = path.fileName?.toString() ?: return@mapNotNull null
+            extractGroovyVersion(fileName)
         }
         return versions.maxOrNull()
     }
