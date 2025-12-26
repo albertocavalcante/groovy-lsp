@@ -62,7 +62,10 @@ core.workflow(
         ),
         
         # Add descriptive footer instead of header for cleaner log
+        # Expose standard Git trailers and GitHub keywords to preserve them in the destination
         metadata.expose_label("Co-authored-by"),
         metadata.expose_label("Signed-off-by"),
+        metadata.expose_label("Closes"),
+        metadata.expose_label("Fixes"),
     ],
 )
