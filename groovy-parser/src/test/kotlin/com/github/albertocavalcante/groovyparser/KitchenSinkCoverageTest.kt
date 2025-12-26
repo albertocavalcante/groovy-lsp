@@ -51,29 +51,33 @@ class KitchenSinkCoverageTest {
         val mainClass =
             assertNotNull(classNodes.find { it.name == "com.example.KitchenSink" }, "Should find KitchenSink class")
 
-        val innerClass =
-            assertNotNull(classNodes.find { it.name == "com.example.KitchenSink\$Inner" }, "Should find Inner class")
+        assertNotNull(
+            classNodes.find { it.name == "com.example.KitchenSink\$Inner" },
+            "Should find Inner class",
+        )
 
         // Assert we found specific complex nodes
-        val tryCatch =
-            assertNotNull(allNodes.filterIsInstance<TryCatchStatement>().firstOrNull(), "Should find TryCatchStatement")
+        assertNotNull(
+            allNodes.filterIsInstance<TryCatchStatement>().firstOrNull(),
+            "Should find TryCatchStatement",
+        )
 
-        val gstring =
-            assertNotNull(allNodes.filterIsInstance<GStringExpression>().firstOrNull(), "Should find GStringExpression")
+        assertNotNull(
+            allNodes.filterIsInstance<GStringExpression>().firstOrNull(),
+            "Should find GStringExpression",
+        )
 
         // Check for the SwitchStatement (Testing coverage/bug)
-        val switchStmt =
-            assertNotNull(
-                allNodes.filterIsInstance<SwitchStatement>().firstOrNull(),
-                "Should find SwitchStatement (Testing coverage/bug)",
-            )
+        assertNotNull(
+            allNodes.filterIsInstance<SwitchStatement>().firstOrNull(),
+            "Should find SwitchStatement (Testing coverage/bug)",
+        )
 
         // Check for CaseStatement (also likely missing)
-        val caseStmt =
-            assertNotNull(
-                allNodes.filterIsInstance<org.codehaus.groovy.ast.stmt.CaseStatement>().firstOrNull(),
-                "Should find CaseStatement",
-            )
+        assertNotNull(
+            allNodes.filterIsInstance<org.codehaus.groovy.ast.stmt.CaseStatement>().firstOrNull(),
+            "Should find CaseStatement",
+        )
 
         // 2. Extract Symbols (Testing SymbolExtractor)
         val classSymbols = SymbolExtractor.extractClassSymbols(result.ast!!)

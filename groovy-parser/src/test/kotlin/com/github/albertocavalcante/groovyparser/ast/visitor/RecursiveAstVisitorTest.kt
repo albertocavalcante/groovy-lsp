@@ -95,6 +95,7 @@ class RecursiveAstVisitorTest {
         assertEquals(1, tryStmts.size, "Should have tracked exactly one TryCatchStatement")
 
         val tryStmt = tryStmts[0]
+        assertNotNull(astModel.getParent(tryStmt), "TryCatchStatement should have a parent")
 
         // Verify catch statements are tracked (most important for this visitor)
         val catchStmts = allNodes.filterIsInstance<org.codehaus.groovy.ast.stmt.CatchStatement>()
