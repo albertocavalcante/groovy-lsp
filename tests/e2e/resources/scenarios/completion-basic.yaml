@@ -1,5 +1,5 @@
 name: completion-basic
-description: Request completion for println in a simple Groovy class.
+description: Request completion for println in a simple Groovy class with strict assertions.
 workspace:
   fixture: completion-basic
 steps:
@@ -27,6 +27,16 @@ steps:
       extract:
         - variable: completion.items
           jsonPath: $.items
+
+  # Strict: completions must not be empty
+  - assert:
+      source: completion
+      checks:
+        - jsonPath: $.items
+          expect:
+            type: NOT_EMPTY
+
+  # Strict: println must be in the results
   - assert:
       source: completion
       checks:
@@ -34,6 +44,8 @@ steps:
           expect:
             type: CONTAINS
             value: println
+
+  # Strict: verify println signature detail is present (exact match)
   - assert:
       source: completion.items
       checks:
@@ -41,5 +53,6 @@ steps:
           expect:
             type: CONTAINS
             value: "void println(Object)"
+
   - shutdown: {}
   - exit: {}
