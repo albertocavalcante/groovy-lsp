@@ -2,6 +2,7 @@ package com.github.albertocavalcante.groovyjenkins
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -18,7 +19,7 @@ class JenkinsConfigurationTest {
         assertEquals(listOf("Jenkinsfile"), jenkinsConfig.filePatterns)
         assertTrue(jenkinsConfig.sharedLibraries.isEmpty())
         assertTrue(jenkinsConfig.gdslPaths.isEmpty())
-        assertTrue(!jenkinsConfig.gdslExecutionEnabled)
+        assertFalse(jenkinsConfig.gdslExecutionEnabled)
     }
 
     @Test

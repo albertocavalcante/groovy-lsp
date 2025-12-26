@@ -249,6 +249,10 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
     fun loadGdslMetadata(): GdslLoadResults {
         val results = gdslLoader.loadAllGdslFiles(configuration.gdslPaths)
 
+        results.failed.forEach { result ->
+            logger.warn("Failed to load Jenkins GDSL: ${result.path} - ${result.error}")
+        }
+
         if (!configuration.gdslExecutionEnabled) {
             if (results.successful.isNotEmpty()) {
                 logger.warn(
@@ -256,10 +260,6 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
                         "Enable with jenkins.gdslExecution.enabled=true to allow script execution.",
                     results.successful.size,
                 )
-            }
-
-            results.failed.forEach { result ->
-                logger.warn("Failed to load Jenkins GDSL: ${result.path} - ${result.error}")
             }
 
             return results
@@ -275,10 +275,6 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
                     logger.error("Failed to execute GDSL: ${result.path}", e)
                 }
             }
-        }
-
-        results.failed.forEach { result ->
-            logger.warn("Failed to load Jenkins GDSL: ${result.path} - ${result.error}")
         }
 
         return results
