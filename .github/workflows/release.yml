@@ -154,6 +154,10 @@ jobs:
     permissions:
       contents: write
     needs: build-release
+    outputs:
+      tag_name: ${{ steps.release_info.outputs.version }}
+      is_prerelease: ${{ steps.release_info.outputs.is_prerelease }}
+      is_draft: ${{ steps.release_info.outputs.is_draft }}
     runs-on: ${{ (github.event.inputs.runner_label == 'self-hosted' || vars.CI_RUNNER_LABEL == 'self-hosted') && 'self-hosted' || (github.event.inputs.runner_label == 'local-macos' || vars.CI_RUNNER_LABEL == 'local-macos') && fromJSON('["self-hosted", "local-macos", "groovy-lsp"]') || (github.event.inputs.runner_label == 'magalu' || vars.CI_RUNNER_LABEL == 'magalu') && fromJSON('["self-hosted", "magalu", "groovy-lsp"]') || 'ubuntu-24.04' }}
     if: "${{ !inputs.dry_run }}"
     steps:
