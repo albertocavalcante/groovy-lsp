@@ -1,0 +1,62 @@
+name: type-definition-basic
+description: >
+  Test textDocument/typeDefinition.
+  Verifies navigation to the type definition of a symbol.
+workspace:
+  fixture: empty-workspace
+steps:
+  - initialize: {}
+  - initialized: {}
+  - waitNotification:
+      method: groovy/status
+      checks:
+        - jsonPath: $.status
+          expect:
+            type: EQUALS
+            value: Ready
+      timeoutMs: 60000
+
+  - openDocument:
+      path: src/TypeDefTest.groovy
+      languageId: groovy
+      version: 1
+      text: |
+        class MyType {
+        }
+        
+        class TypeDefTest {
+            MyType p
+        }
+  
+  - waitNotification:
+      method: textDocument/publishDiagnostics
+      timeoutMs: 10000
+
+  # Trigger typeDefinition on 'p' (line 5, char 11) - "MyType p"
+  - request:
+      method: textDocument/typeDefinition
+      params:
+        textDocument:
+          uri: "{{workspace.uri}}src/TypeDefTest.groovy"
+        position:
+          line: 5
+          character: 11
+      saveAs: typeDefResult
+
+  # Verify navigation to MyType class definition (Line 0)
+  # Standard GoToDefinition returns a list of Location or LocationLink
+  
+  # TODO(BUG): #421 - Current behavior returns empty list.
+  # Expected: SIZE 1 (pointing to Line 0)
+  # Actual: SIZE 0
+  - assert:
+      source: typeDefResult
+      checks:
+        - jsonPath: $
+          expect:
+            type: SIZE
+            value: 0
+            message: "BUG: Currently returns 0 items (expected 1)"
+
+  - shutdown: {}
+  - exit: {}
