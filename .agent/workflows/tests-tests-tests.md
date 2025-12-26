@@ -78,9 +78,15 @@ Use this path if the server throws `UnsupportedOperationException`, `Internal Er
 2.  **Deferral**: Execute the `/defer` workflow to create a GitHub issue tracking the missing feature.
 3.  **Linkage**: Add a header to the YAML file referencing the issue:
     ```yaml
-    # TODO(DEFERRED): #[IssueID] - Test disabled. Feature not implemented.
-    # See: https://github.com/albertocavalcante/groovy-devtools/issues/[IssueID]
+    # TODO(DEFERRED): #<issue-id> - Test disabled. Feature not implemented.
+    # See: https://github.com/albertocavalcante/groovy-devtools/issues/<issue-id>
     ```
+
+### 3. Harness Expansion
+If the current test framework (Kotlin) lacks the necessary step types or assertion operators (`ExpectationType`) to express a strict test:
+1.  **Do Not Compromise**: Do not write a weaker test.
+2.  **Extend**: Modify `tests/e2e/kotlin/com/github/albertocavalcante/groovylsp/e2e` (Scenario.kt, StepExecutors.kt, etc.) to add the missing capability.
+3.  **Refactor**: Ensure the new capability is generic and reusable.
 4.  **Result**: The file is committed as a specification for future implementation.
 
 ## Phase 5: Submission
