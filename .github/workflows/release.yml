@@ -333,6 +333,7 @@ jobs:
           java-version: 17
 
       - name: Install dependencies
+        working-directory: editors/code
         run: npm ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -355,5 +356,5 @@ jobs:
       - name: Upload VSIX to release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
-          files: editors/code/*.vsix
+          files: dist/*.vsix
           tag_name: ${{ needs.create-release.outputs.tag_name }}
