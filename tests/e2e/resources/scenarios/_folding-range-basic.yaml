@@ -53,18 +53,20 @@ steps:
             message: "Should return 2 folding ranges (Class + Method)"
         
         # Verify Class range
-        - jsonPath: $[?(@.startLine == 0 && @.endLine == 4)]
+        # Note: endLine 3 excludes the closing brace (line 4)
+        - jsonPath: $[?(@.startLine == 0 && @.endLine == 3)]
           expect:
             type: SIZE
             value: 1
-            message: "Should find class folding range 0-4"
+            message: "Should find class folding range 0-3"
 
         # Verify Method range
-        - jsonPath: $[?(@.startLine == 1 && @.endLine == 3)]
+        # Note: endLine 2 excludes the closing brace (line 3)
+        - jsonPath: $[?(@.startLine == 1 && @.endLine == 2)]
           expect:
             type: SIZE
             value: 1
-            message: "Should find method folding range 1-3"
+            message: "Should find method folding range 1-2"
 
   - shutdown: {}
   - exit: {}
