@@ -35,21 +35,12 @@ steps:
             }
         }
   - waitNotification:
-      method: window/showMessage
+      method: groovy/status
       checks:
-        - jsonPath: $.message
+        - jsonPath: $.status
           expect:
-            type: CONTAINS
-            value: "Downloading Gradle distribution"
-      timeoutMs: 180000
-      optional: true
-  - waitNotification:
-      method: window/showMessage
-      checks:
-        - jsonPath: $.message
-          expect:
-            type: CONTAINS
-            value: "Dependencies loaded"
+            type: EQUALS
+            value: Ready
       timeoutMs: 180000
   - waitNotification:
       method: textDocument/publishDiagnostics
