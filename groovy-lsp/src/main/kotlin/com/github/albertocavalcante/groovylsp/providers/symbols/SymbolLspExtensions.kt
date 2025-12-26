@@ -15,7 +15,7 @@ import org.eclipse.lsp4j.SymbolKind
  */
 fun Symbol.toSymbolInformation(): SymbolInformation? {
     val range = toLspRange() ?: return null
-    val info = SymbolInformation(name, toSymbolKind(), Location(uri.toString(), range))
+    val info = SymbolInformation(displayName(), toSymbolKind(), Location(uri.toString(), range))
     info.containerName = containerName()
     return info
 }
@@ -25,9 +25,18 @@ fun Symbol.toSymbolInformation(): SymbolInformation? {
  */
 fun Symbol.toDocumentSymbol(): DocumentSymbol? {
     val range = toLspRange() ?: return null
-    val symbol = DocumentSymbol(name, toSymbolKind(), range, range)
+    val symbol = DocumentSymbol(displayName(), toSymbolKind(), range, range)
     symbol.detail = detail()
     return symbol
+}
+
+private fun Symbol.displayName(): String = when (this) {
+    is Symbol.Method -> if (node.isConstructor) {
+        owner?.nameWithoutPackage ?: owner?.name ?: name
+    } else {
+        name
+    }
+    else -> name
 }
 
 private fun Symbol.toSymbolKind(): SymbolKind = when (this) {
