@@ -1,7 +1,7 @@
 package com.github.albertocavalcante.groovylsp.services
 
 import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationService
-import com.github.albertocavalcante.groovylsp.version.GroovyVersion
+import com.github.albertocavalcante.groovylsp.test.parseGroovyVersion
 import com.github.albertocavalcante.groovylsp.version.GroovyVersionInfo
 import com.github.albertocavalcante.groovylsp.version.GroovyVersionRange
 import com.github.albertocavalcante.groovylsp.version.GroovyVersionSource
@@ -22,7 +22,7 @@ class ProjectStartupManagerWorkerSelectionTest {
         val compilationService = mockk<GroovyCompilationService>(relaxed = true)
         val worker = descriptor(
             id = "in-process",
-            range = GroovyVersionRange(parseVersion("2.0.0"), parseVersion("4.0.0")),
+            range = GroovyVersionRange(parseGroovyVersion("2.0.0"), parseGroovyVersion("4.0.0")),
         )
         val manager = ProjectStartupManager(
             compilationService = compilationService,
@@ -41,7 +41,7 @@ class ProjectStartupManagerWorkerSelectionTest {
         val compilationService = mockk<GroovyCompilationService>(relaxed = true)
         val worker = descriptor(
             id = "legacy",
-            range = GroovyVersionRange(parseVersion("2.0.0"), parseVersion("2.4.0")),
+            range = GroovyVersionRange(parseGroovyVersion("2.0.0"), parseGroovyVersion("2.4.0")),
         )
         val manager = ProjectStartupManager(
             compilationService = compilationService,
@@ -55,10 +55,7 @@ class ProjectStartupManagerWorkerSelectionTest {
         verify(exactly = 1) { compilationService.updateSelectedWorker(null) }
     }
 
-    private fun groovyInfo(raw: String) = GroovyVersionInfo(parseVersion(raw), GroovyVersionSource.RUNTIME)
-
-    private fun parseVersion(raw: String): GroovyVersion =
-        requireNotNull(GroovyVersion.parse(raw)) { "Failed to parse version: $raw" }
+    private fun groovyInfo(raw: String) = GroovyVersionInfo(parseGroovyVersion(raw), GroovyVersionSource.RUNTIME)
 
     private fun descriptor(id: String, range: GroovyVersionRange): WorkerDescriptor = WorkerDescriptor(
         id = id,
