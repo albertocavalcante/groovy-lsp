@@ -1,5 +1,5 @@
 #!/bin/bash
-# tools/github/actions/pin-actions.sh
+# tools/github/actions/pin.sh
 #
 # Fetches the latest release tag and corresponding SHA for GitHub Actions used in this project.
 # Helps maintain secure, pinned action versions in workflows.
