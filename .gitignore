@@ -59,5 +59,5 @@ Thumbs.db
 *~
 
 # GitHub Actions Runner Cache
-.github/.cache/.kirop/
+.github/.cache/
 .kiro/
