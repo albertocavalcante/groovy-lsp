@@ -31,6 +31,7 @@ defaults:
 
 jobs:
   nightly:
+    timeout-minutes: 30
     permissions:
       contents: write
     runs-on: ubuntu-latest

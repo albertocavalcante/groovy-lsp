@@ -133,6 +133,7 @@ jobs:
     permissions:
       contents: write
     needs: build-release
+    timeout-minutes: 15
     outputs:
       tag_name: ${{ steps.release_info.outputs.version }}
       version_no_v: ${{ steps.release_info.outputs.version_no_v }}
@@ -297,6 +298,9 @@ jobs:
   publish-homebrew:
     needs: create-release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     if: ${{ !inputs.dry_run }}
     steps:
       - name: Update Homebrew Formula
@@ -315,6 +319,7 @@ jobs:
     needs: create-release
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
 

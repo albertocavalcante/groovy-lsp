@@ -1,15 +1,12 @@
-name: "Copilot Setup Steps"
-
+name: Copilot Setup Steps
 # This workflow defines the environment setup for GitHub Copilot Coding Agent.
 # When @github-copilot is mentioned in issues/PRs to auto-fix or implement features,
 # this workflow configures how the agent sets up the extension development environment.
-
 on:
   workflow_dispatch:
   push:
     paths:
       - .github/workflows/copilot-setup-steps.yml
-
 jobs:
   # The job MUST be named `copilot-setup-steps` for the coding agent to pick it up.
   copilot-setup-steps:
@@ -20,36 +17,30 @@ jobs:
       contents: read
     env:
       GH_HOST: github.com
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
         with:
           persist-credentials: false
-
       - name: Set up Node.js
         uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: editors/code/package-lock.json
-
       - name: Install Java 17
         uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v5
         with:
           distribution: temurin
           java-version: "17"
-
       - name: Install extension dependencies
         run: npm ci
         working-directory: editors/code
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Prepare Groovy Language Server
         run: npm run prepare-server:download
         working-directory: editors/code
-
       - name: Ensure GitHub CLI is available
         run: |
           if ! command -v gh >/dev/null 2>&1; then
@@ -57,7 +48,6 @@ jobs:
             sudo apt-get install -y gh
           fi
           gh --version
-
       - name: Authenticate GitHub CLI
         env:
           GH_TOKEN: ${{ secrets.COPILOT_GH_TOKEN }}
@@ -68,3 +58,617 @@ jobs:
           fi
           gh auth setup-git
           gh auth status
+---
+name: Nightly Build
+on:
+  schedule:
+    - cron: 0 3 * * * # Daily at 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Ref to build from
+        required: false
+        default: main
+      runner_label:
+        description: Runner label to use
+        required: false
+        type: choice
+        options:
+          - github-hosted
+          - self-hosted
+          - local-macos
+          - magalu
+        default: github-hosted
+      skip_tests:
+        description: Skip test suite
+        required: false
+        type: boolean
+        default: false
+      publish_prerelease:
+        description: Publish a GitHub prerelease with nightly artifacts
+        required: false
+        type: boolean
+        default: false
+      disable_scan:
+        description: Disable Gradle build scan
+        required: false
+        type: boolean
+        default: false
+concurrency:
+  group: nightly-${{ github.event.inputs.ref || github.ref }}
+  cancel-in-progress: false
+jobs:
+  nightly:
+    name: Nightly
+    permissions:
+      contents: write
+    runs-on: ${{ (github.event.inputs.runner_label == 'self-hosted' || vars.CI_RUNNER_LABEL == 'self-hosted') && 'self-hosted' || (github.event.inputs.runner_label == 'local-macos' || vars.CI_RUNNER_LABEL == 'local-macos') && fromJSON('["self-hosted", "local-macos", "groovy-lsp"]') || (github.event.inputs.runner_label == 'magalu' || vars.CI_RUNNER_LABEL == 'magalu') && fromJSON('["self-hosted", "magalu", "groovy-lsp"]') || 'macos-15' }}
+    timeout-minutes: 60
+    env:
+      SKIP_TESTS_INPUT: ${{ github.event.inputs.skip_tests || 'false' }}
+      PUBLISH_PRERELEASE_INPUT: ${{ github.event.inputs.publish_prerelease || 'false' }}
+      DISABLE_SCAN_INPUT: ${{ github.event.inputs.disable_scan || 'false' }}
+    steps:
+      - name: Validate ref input
+        shell: bash
+        env:
+          REF_INPUT: ${{ github.event.inputs.ref || 'main' }}
+        run: |
+          # Validate ref matches allowed patterns: branch names, tags, or SHAs
+          if [[ ! "$REF_INPUT" =~ ^[a-zA-Z0-9._/-]+$ ]] || [[ "$REF_INPUT" =~ \.\. ]]; then
+            echo "::error::Invalid ref format: $REF_INPUT"
+            exit 1
+          fi
+          echo "Validated ref: $REF_INPUT"
+          echo "VALIDATED_REF=$REF_INPUT" >> "$GITHUB_ENV"
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ env.VALIDATED_REF || 'main' }}
+          persist-credentials: false
+      - name: Setup Java
+        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v5.0.0
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+      - name: Configure Gradle flags
+        shell: bash
+        run: |
+          if [[ "${{ env.DISABLE_SCAN_INPUT }}" == "true" ]]; then
+            echo "GRADLE_SCAN_FLAG=-Dorg.gradle.scan=false" >> "$GITHUB_ENV"
+          else
+            echo "GRADLE_SCAN_FLAG=" >> "$GITHUB_ENV"
+          fi
+      - name: Validate Gradle Wrapper
+        run: ./gradlew --no-daemon --version
+      - name: Compute nightly version
+        id: nightly_version
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_VERSION=$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("build.gradle.kts").read_text()
+          match = re.search(r'val\s+baseVersion\s*=\s*"([^"]+)"', text)
+          if not match:
+              raise SystemExit("baseVersion not found in build.gradle.kts")
+          print(match.group(1))
+          PY
+          )
+          NIGHTLY_VERSION="${BASE_VERSION}-nightly.$(date -u +%Y%m%d%H%M)"
+          {
+            echo "base_version=$BASE_VERSION"
+            echo "nightly_version=$NIGHTLY_VERSION"
+            echo "nightly_tag=nightly-${NIGHTLY_VERSION}-${GITHUB_RUN_ID}"
+          } >> "$GITHUB_OUTPUT"
+      - name: Run lint checks
+        run: |
+          args=(--no-daemon lint --stacktrace)
+          if [[ -n "${GRADLE_SCAN_FLAG}" ]]; then
+            args+=("${GRADLE_SCAN_FLAG}")
+          fi
+          ./gradlew "${args[@]}"
+      - name: Run tests
+        if: env.SKIP_TESTS_INPUT != 'true'
+        run: |
+          args=(--no-daemon test :tests:e2eTest --stacktrace)
+          if [[ -n "${GRADLE_SCAN_FLAG}" ]]; then
+            args+=("${GRADLE_SCAN_FLAG}")
+          fi
+          ./gradlew "${args[@]}"
+      - name: Build Shadow JAR
+        run: |
+          args=(--no-daemon shadowJar --stacktrace)
+          if [[ -n "${GRADLE_SCAN_FLAG}" ]]; then
+            args+=("${GRADLE_SCAN_FLAG}")
+          fi
+          ./gradlew "${args[@]}"
+      - name: Verify JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR_PATH=$(find groovy-lsp/build/libs -maxdepth 1 -name 'groovy-lsp-*-all.jar' -print -quit)
+          echo "Found JAR: $JAR_PATH"
+          java -jar "$JAR_PATH" --help
+      - name: Prepare nightly artifacts
+        id: prepare_artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          JAR_PATH=$(find groovy-lsp/build/libs -maxdepth 1 -name 'groovy-lsp-*-all.jar' -print -quit)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          NIGHTLY_NAME="groovy-lsp-${{ steps.nightly_version.outputs.nightly_version }}-${SHORT_SHA}.jar"
+          cp "$JAR_PATH" "dist/${NIGHTLY_NAME}"
+          (cd dist && sha256sum "${NIGHTLY_NAME}" > checksums.txt)
+          echo "artifact_name=${NIGHTLY_NAME}" >> "$GITHUB_OUTPUT"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: groovy-lsp-nightly-${{ steps.nightly_version.outputs.nightly_version }}
+          path: dist/*
+          retention-days: 7
+      - name: Publish prerelease
+        if: env.PUBLISH_PRERELEASE_INPUT == 'true'
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
+        with:
+          tag_name: ${{ steps.nightly_version.outputs.nightly_tag }}
+          name: Nightly ${{ steps.nightly_version.outputs.nightly_version }}
+          prerelease: true
+          generate_release_notes: false
+          files: |
+            dist/${{ steps.prepare_artifacts.outputs.artifact_name }}
+            dist/checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+---
+name: 'Infra: Auto-Cleanup Magalu Runner'
+# This workflow automatically cleans up Magalu Cloud runners when idle.
+# Runs every 2 hours and checks for recent PR activity before destroying.
+#
+# Logic:
+#   1. Check if any magalu runners exist
+#   2. Check if there's been PR activity in the last 2 hours
+#   3. If runners exist AND no recent activity → destroy
+#   4. Skip if no runners or if there's recent activity
+on:
+  schedule:
+    # Every 2 hours at minute 0 UTC
+    - cron: 0 */2 * * * # Every 2 hours at minute 0 UTC
+  workflow_dispatch:
+    inputs:
+      force_cleanup:
+        description: Force cleanup regardless of activity
+        required: false
+        type: boolean
+        default: false
+env:
+  TF_CLOUD_ORGANIZATION: alberto
+  TF_WORKSPACE: groovy-lsp-runner
+jobs:
+  check-activity:
+    name: Check Runner and Activity Status
+    runs-on: ubuntu-latest
+    outputs:
+      has_runners: ${{ steps.check-runners.outputs.has-runners }}
+      has_recent_activity: ${{ steps.check-activity.outputs.has_activity }}
+      should_cleanup: ${{ steps.decide.outputs.should_cleanup }}
+    steps:
+      - name: Checkout (for local action)
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          sparse-checkout: .github/actions
+          persist-credentials: false
+      - name: Check for Magalu runners
+        id: check-runners
+        uses: ./.github/actions/runner-status
+        with:
+          mode: check
+          label: magalu
+          github-token: ${{ secrets.GH_PAT_RUNNER }}
+      - name: Check for recent PR activity
+        id: check-activity
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check for PR activity in the last 2 hours
+          TWO_HOURS_AGO=$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-2H +%Y-%m-%dT%H:%M:%SZ)
+
+          echo "Checking for PR activity since $TWO_HOURS_AGO..."
+
+          # Check for recently updated PRs
+          RECENT_PRS=$(gh api "repos/${{ github.repository }}/pulls?state=open&sort=updated&direction=desc&per_page=10" \
+            --jq "[.[] | select(.updated_at > \"$TWO_HOURS_AGO\")] | length")
+
+          # Check for running workflows (excluding this one)
+          RUNNING_WORKFLOWS=$(gh api "repos/${{ github.repository }}/actions/runs?status=in_progress" \
+            --jq "[.workflow_runs[] | select(.name != \"Infra: Auto-Cleanup Magalu Runner\")] | length")
+
+          echo "Recent PRs: $RECENT_PRS"
+          echo "Running workflows: $RUNNING_WORKFLOWS"
+
+          if [ "$RECENT_PRS" -gt 0 ] || [ "$RUNNING_WORKFLOWS" -gt 0 ]; then
+            echo "has_activity=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Recent activity detected - skipping cleanup"
+          else
+            echo "has_activity=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ No recent activity detected"
+          fi
+      - name: Decide on cleanup
+        id: decide
+        run: "HAS_RUNNERS=\"${{ steps.check-runners.outputs.has-runners }}\"\nHAS_ACTIVITY=\"${{ steps.check-activity.outputs.has_activity }}\"\nFORCE=\"${{ github.event.inputs.force_cleanup }}\"\n\necho \"Has runners: $HAS_RUNNERS\"\necho \"Has activity: $HAS_ACTIVITY\"\necho \"Force cleanup: $FORCE\"\n\nif [ \"$HAS_RUNNERS\" != \"true\" ]; then\n  echo \"should_cleanup=false\" >> \"$GITHUB_OUTPUT\"\n  echo \"\U0001F4E6 No runners to clean up\"\nelif [ \"$FORCE\" == \"true\" ]; then\n  echo \"should_cleanup=true\" >> \"$GITHUB_OUTPUT\"\n  echo \"\U0001F528 Force cleanup requested\"\nelif [ \"$HAS_ACTIVITY\" == \"true\" ]; then\n  echo \"should_cleanup=false\" >> \"$GITHUB_OUTPUT\"\n  echo \"⏳ Skipping cleanup due to recent activity\"\nelse\n  echo \"should_cleanup=true\" >> \"$GITHUB_OUTPUT\"\n  echo \"\U0001F9F9 Proceeding with cleanup\"\nfi\n"
+  plan-destroy:
+    name: Terraform Plan Destroy
+    needs: check-activity
+    if: needs.check-activity.outputs.should_cleanup == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      TF_VAR_github_token: ${{ secrets.GH_PAT_RUNNER }}
+      TF_VAR_mgc_api_key: ${{ secrets.MGC_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.11.4
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+      - name: Terraform Init
+        working-directory: infra/runner
+        run: terraform init
+      - name: Terraform Plan Destroy
+        working-directory: infra/runner
+        run: terraform plan -destroy -out=destroy.tfplan
+      - name: Upload Destroy Plan
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: cleanup-destroy-tfplan
+          path: infra/runner/destroy.tfplan
+          retention-days: 1
+  apply-destroy:
+    name: Terraform Destroy
+    needs: plan-destroy
+    runs-on: ubuntu-latest
+    # Auto-approve for scheduled runs (cleanup environment has no protection rules)
+    environment: cleanup
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      TF_VAR_github_token: ${{ secrets.GH_PAT_RUNNER }}
+      TF_VAR_mgc_api_key: ${{ secrets.MGC_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.11.4
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+      - name: Download Destroy Plan
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: cleanup-destroy-tfplan
+          path: infra/runner
+      - name: Terraform Init
+        working-directory: infra/runner
+        run: terraform init
+      - name: Terraform Destroy
+        working-directory: infra/runner
+        run: terraform apply -input=false destroy.tfplan
+      - name: Verify Runners Removed
+        uses: ./.github/actions/runner-status
+        with:
+          mode: verify-absent
+          label: magalu
+          github-token: ${{ secrets.GH_PAT_RUNNER }}
+---
+name: 'Infra: Destroy Magalu Runner'
+# This workflow tears down ephemeral self-hosted runners on Magalu Cloud.
+# Use this to clean up runners after testing, or schedule it for nightly cleanup.
+#
+# Safety:
+#   - Plan step shows what will be destroyed
+#   - Apply requires manual approval via 'production' environment
+on:
+  workflow_dispatch:
+  schedule:
+    # Run nightly at 3 AM UTC to clean up any leftover runners
+    - cron: 0 3 * * * # Daily at 03:00 UTC
+env:
+  TF_CLOUD_ORGANIZATION: alberto
+  TF_WORKSPACE: groovy-lsp-runner
+jobs:
+  check-runners:
+    name: Check Existing Runners
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      has_runners: ${{ steps.check.outputs.has-runners }}
+    steps:
+      - name: Checkout (for local action)
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          sparse-checkout: .github/actions
+          persist-credentials: false
+      - name: Check for Magalu runners
+        id: check
+        uses: ./.github/actions/runner-status
+        with:
+          mode: check
+          label: magalu
+          github-token: ${{ secrets.GH_PAT_RUNNER }}
+      - name: Prune Offline Runners
+        uses: ./.github/actions/runner-status
+        with:
+          mode: prune-offline
+          label: magalu
+          github-token: ${{ secrets.GH_PAT_RUNNER }}
+  plan-destroy:
+    name: Terraform Plan Destroy
+    needs: check-runners
+    if: needs.check-runners.outputs.has_runners == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      TF_VAR_github_token: ${{ secrets.GH_PAT_RUNNER }}
+      TF_VAR_mgc_api_key: ${{ secrets.MGC_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.11.4
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+      - name: Terraform Init
+        working-directory: infra/runner
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: terraform init
+      - name: Terraform Plan Destroy
+        working-directory: infra/runner
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: terraform plan -destroy -out=destroy.tfplan
+      - name: Upload Destroy Plan
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: destroy-tfplan
+          path: infra/runner/destroy.tfplan
+          retention-days: 1
+  apply-destroy:
+    name: Terraform Destroy
+    needs: plan-destroy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    # For scheduled runs, auto-approve; for manual, require approval
+    environment: ${{ github.event_name == 'schedule' && 'cleanup' || 'production' }}
+    env:
+      TF_VAR_github_token: ${{ secrets.GH_PAT_RUNNER }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.11.4
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+      - name: Download Destroy Plan
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: destroy-tfplan
+          path: infra/runner
+      - name: Terraform Init
+        working-directory: infra/runner
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: terraform init
+      - name: Terraform Destroy
+        working-directory: infra/runner
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TF_VAR_mgc_api_key: ${{ secrets.MGC_API_KEY }}
+        run: terraform apply -input=false destroy.tfplan
+      - name: Verify Runners Removed
+        uses: ./.github/actions/runner-status
+        with:
+          mode: verify-absent
+          label: magalu
+          github-token: ${{ secrets.GH_PAT_RUNNER }}
+---
+name: 'Infra: Provision Magalu Runner'
+# This workflow provisions ephemeral self-hosted runners on Magalu Cloud.
+# Once provisioned, runners are available for CI workflows using [self-hosted, magalu] labels.
+#
+# Architecture:
+#   - Runners are provisioned on-demand (manual trigger or schedule)
+#   - Runners auto-register with GitHub using the PAT
+#   - CI workflows can then target these runners
+#   - Use runner-destroy.yml to tear down when done
+on:
+  workflow_dispatch:
+    inputs:
+      runner_count:
+        description: Number of runners to provision
+        required: false
+        default: "1"
+        type: string
+      machine_type:
+        description: Magalu Cloud VM type (BV1-4-10, BV2-8-10, BV4-16-10, BV8-32-10)
+        required: false
+        default: BV4-16-10
+        type: choice
+        options:
+          - BV1-4-10
+          - BV2-8-10
+          - BV4-16-10
+          - BV8-32-10
+      runner_image:
+        description: Runner OS image
+        required: false
+        default: ubuntu-22
+        type: choice
+        options:
+          - ubuntu-22
+          - ubuntu-24
+          - debian-12
+          - debian-13
+          - rocky-9
+          - oracle-8
+          - oracle-9
+env:
+  TF_CLOUD_ORGANIZATION: alberto
+  TF_WORKSPACE: groovy-lsp-runner
+  TF_VAR_runner_count: ${{ github.event.inputs.runner_count || '1' }}
+  TF_VAR_machine_type: ${{ github.event.inputs.machine_type || 'BV4-16-10' }}
+  TF_VAR_runner_image: ${{ github.event.inputs.runner_image || 'ubuntu-22' }}
+jobs:
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      plan_exists: ${{ steps.plan.outcome == 'success' }}
+    env:
+      TF_VAR_github_token: ${{ secrets.GH_PAT_RUNNER }}
+      TF_VAR_mgc_api_key: ${{ secrets.MGC_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.11.4
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+      # TODO: Consider migrating to dflook/terraform-github-actions for better TFC integration
+      # Reference: https://github.com/albertocavalcante/hackathons/blob/main/.github/workflows/terraform-plan.yml
+      - name: Create TFC Workspace if not exists
+        env:
+          TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $TF_API_TOKEN" \
+            "https://app.terraform.io/api/v2/organizations/$TF_CLOUD_ORGANIZATION/workspaces/$TF_WORKSPACE")
+
+          if [ "$STATUS" = "404" ]; then
+            echo "Creating workspace $TF_WORKSPACE..."
+            curl -s -X POST \
+              -H "Authorization: Bearer $TF_API_TOKEN" \
+              -H "Content-Type: application/vnd.api+json" \
+              "https://app.terraform.io/api/v2/organizations/$TF_CLOUD_ORGANIZATION/workspaces" \
+              -d '{
+                "data": {
+                  "type": "workspaces",
+                  "attributes": {
+                    "name": "'"$TF_WORKSPACE"'",
+                    "execution-mode": "local",
+                    "auto-apply": false
+                  }
+                }
+              }'
+            echo "✅ Workspace created"
+          else
+            echo "✅ Workspace $TF_WORKSPACE already exists"
+          fi
+      - name: Terraform Init
+        working-directory: infra/runner
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: terraform init
+      - name: Terraform Plan
+        id: plan
+        working-directory: infra/runner
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: terraform plan -out=tfplan
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: provision-tfplan
+          path: infra/runner/tfplan
+          retention-days: 1
+  apply:
+    name: Terraform Apply
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    environment: production # Requires manual approval
+    env:
+      TF_VAR_github_token: ${{ secrets.GH_PAT_RUNNER }}
+      TF_VAR_mgc_api_key: ${{ secrets.MGC_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.11.4
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: provision-tfplan
+          path: infra/runner
+      - name: Terraform Init
+        working-directory: infra/runner
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: terraform init
+      - name: Terraform Apply
+        working-directory: infra/runner
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: terraform apply -input=false tfplan
+  wait-for-runner:
+    name: Wait for Runner Registration
+    needs: apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      runner-name: ${{ steps.wait.outputs.runner-name }}
+    steps:
+      - name: Checkout (for local action)
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          sparse-checkout: .github/actions
+          persist-credentials: false
+      - name: Wait for Magalu runner to be online
+        id: wait
+        uses: ./.github/actions/runner-status
+        with:
+          mode: wait-online
+          label: magalu
+          github-token: ${{ secrets.GH_PAT_RUNNER }}
+          max-wait-minutes: "10"
+          poll-interval-seconds: "10"

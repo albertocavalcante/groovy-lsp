@@ -19,6 +19,9 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -78,6 +81,9 @@ jobs:
   test-matrix:
     name: Test (${{ matrix.os }})
     needs: validate
+    timeout-minutes: 20
+    permissions:
+      contents: read
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
@@ -122,6 +128,9 @@ jobs:
     name: Package VSIX
     needs: validate
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
