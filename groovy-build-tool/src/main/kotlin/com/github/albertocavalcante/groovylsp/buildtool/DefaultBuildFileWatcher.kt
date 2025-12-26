@@ -17,6 +17,7 @@ import java.nio.file.WatchEvent
 import java.nio.file.WatchKey
 import java.nio.file.WatchService
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.exists
 import kotlin.io.path.name
 
@@ -125,10 +126,7 @@ internal class DefaultBuildFileWatcher(
     }
 
     private suspend fun pollWatchKey(watchService: WatchService): PollResult = try {
-        val watchKey = watchService.poll(
-            java.util.concurrent.TimeUnit.SECONDS.toMillis(1),
-            java.util.concurrent.TimeUnit.MILLISECONDS,
-        )
+        val watchKey = watchService.poll(1, TimeUnit.SECONDS)
         if (watchKey == null) {
             PollResult.Timeout
         } else {
