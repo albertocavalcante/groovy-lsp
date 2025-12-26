@@ -209,7 +209,7 @@ jobs:
 
         This release includes:
         - **gls** (Groovy Language Server) - JAR download
-        - **gvy** (VS Code extension) - published to marketplace
+        - **gvy** (IDE extension) - VS Code, Open VSX
 
         ### Installation
 
