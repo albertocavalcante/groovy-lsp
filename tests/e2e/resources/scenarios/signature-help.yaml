@@ -13,7 +13,7 @@ steps:
           expect:
             type: EQUALS
             value: Ready
-      timeoutMs: 180000
+      timeoutMs: 60000
   - openDocument:
       path: src/Main.groovy
       languageId: groovy
