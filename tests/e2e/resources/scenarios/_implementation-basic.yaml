@@ -58,14 +58,14 @@ steps:
   # Find implementation of Method
   # Trigger on 'area' in 'interface Shape { def area() }' (line 1, char 16)
   - request:
-        method: textDocument/implementation
-        params:
-            textDocument:
-            uri: "{{workspace.uri}}src/ImplTest.groovy"
-            position:
-            line: 1
-            character: 16
-        saveAs: methodImplResult
+      method: textDocument/implementation
+      params:
+        textDocument:
+          uri: "{{workspace.uri}}src/ImplTest.groovy"
+        position:
+          line: 1
+          character: 16
+      saveAs: methodImplResult
 
   # Verify interface implementation found (Square class)
   - assert:
