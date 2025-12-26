@@ -36,7 +36,7 @@ if [ -n "$staged_sh_files" ]; then
         # Check files one by one to give clear output
         for file in $staged_sh_files; do
             if [ -f "$file" ]; then
-                if ! shellcheck "$file"; then
+                if ! shellcheck --rcfile tools/lint/shellcheckrc "$file"; then
                     log_error "ShellCheck failed for $file"
                     exit 1
                 fi
@@ -56,7 +56,7 @@ if [ -n "$staged_yml_files" ]; then
         log_info "Running ghalint on staged workflows..."
         # ghalint checks all workflows by default, but we want to ensure we don't block if only unrelated files change
         # However, ghalint usually runs on the whole dir. Let's just run it if any workflow is changed.
-        if ! ghalint; then
+        if ! ghalint -c tools/lint/ghalint.yaml run; then
             log_error "ghalint failed. Please fix workflow issues."
             exit 1
         fi
