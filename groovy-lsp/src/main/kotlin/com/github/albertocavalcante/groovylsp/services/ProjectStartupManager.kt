@@ -7,7 +7,15 @@ import com.github.albertocavalcante.groovylsp.compilation.GroovyCompilationServi
 import com.github.albertocavalcante.groovylsp.config.ServerConfiguration
 import com.github.albertocavalcante.groovylsp.gradle.DependencyManager
 import com.github.albertocavalcante.groovylsp.progress.ProgressReporter
+import com.github.albertocavalcante.groovylsp.version.GroovyVersion
+import com.github.albertocavalcante.groovylsp.version.GroovyVersionInfo
+import com.github.albertocavalcante.groovylsp.version.GroovyVersionRange
 import com.github.albertocavalcante.groovylsp.version.GroovyVersionResolver
+import com.github.albertocavalcante.groovylsp.worker.WorkerCapabilities
+import com.github.albertocavalcante.groovylsp.worker.WorkerConnector
+import com.github.albertocavalcante.groovylsp.worker.WorkerDescriptor
+import com.github.albertocavalcante.groovylsp.worker.WorkerFeature
+import com.github.albertocavalcante.groovylsp.worker.WorkerRouter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,6 +38,23 @@ import java.nio.file.Paths
 private const val PERCENTAGE_MULTIPLIER = 100
 private const val POLLING_INTERVAL_MS = 100L
 private const val MILLIS_PER_SECOND = 1000L
+private const val DEFAULT_WORKER_ID = "in-process-default"
+private const val DEFAULT_GROOVY_MIN_VERSION = "1.0.0"
+
+private fun defaultWorkerDescriptors(): List<WorkerDescriptor> {
+    val minVersion = parseGroovyVersion(DEFAULT_GROOVY_MIN_VERSION)
+    return listOf(
+        WorkerDescriptor(
+            id = DEFAULT_WORKER_ID,
+            supportedRange = GroovyVersionRange(minInclusive = minVersion),
+            capabilities = WorkerCapabilities(features = setOf(WorkerFeature.AST, WorkerFeature.SYMBOLS)),
+            connector = WorkerConnector.InProcess,
+        ),
+    )
+}
+
+private fun parseGroovyVersion(raw: String): GroovyVersion =
+    requireNotNull(GroovyVersion.parse(raw)) { "Failed to parse Groovy version: $raw" }
 
 /**
  * Manages project startup lifecycle: dependency resolution, file watching, and indexing.
@@ -39,6 +64,7 @@ class ProjectStartupManager(
     private val compilationService: GroovyCompilationService,
     private val availableBuildTools: List<BuildTool>,
     private val coroutineScope: CoroutineScope,
+    private val workerRouter: WorkerRouter = WorkerRouter(defaultWorkerDescriptors()),
 ) {
     private val logger = LoggerFactory.getLogger(ProjectStartupManager::class.java)
     private val groovyVersionResolver = GroovyVersionResolver()
@@ -264,6 +290,12 @@ class ProjectStartupManager(
     private fun updateGroovyVersion(config: ServerConfiguration, dependencies: List<Path>) {
         val info = groovyVersionResolver.resolve(dependencies, config.groovyLanguageVersion)
         compilationService.updateGroovyVersion(info)
+        selectWorker(info)
+    }
+
+    internal fun selectWorker(info: GroovyVersionInfo, requiredFeatures: Set<WorkerFeature> = emptySet()) {
+        val selected = workerRouter.select(info, requiredFeatures)
+        compilationService.updateSelectedWorker(selected)
     }
 
     private fun startWorkspaceIndexing(client: LanguageClient?) {
