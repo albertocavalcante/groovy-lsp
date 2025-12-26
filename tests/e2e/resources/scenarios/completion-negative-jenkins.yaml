@@ -30,6 +30,15 @@ steps:
           character: 11
       saveAs: echoCompletion
 
+  # First verify completions work (NOT_EMPTY to catch broken completion system)
+  - assert:
+      source: echoCompletion
+      checks:
+        - jsonPath: $.items
+          expect:
+            type: NOT_EMPTY
+            message: Completions should return results for 'ech' prefix
+
   # Negative assertion: Jenkins 'echo' step should NOT be in completions
   - assert:
       source: echoCompletion
@@ -58,6 +67,15 @@ steps:
           line: 2
           character: 10
       saveAs: shCompletion
+
+  # First verify completions work
+  - assert:
+      source: shCompletion
+      checks:
+        - jsonPath: $.items
+          expect:
+            type: NOT_EMPTY
+            message: Completions should return results for 'sh' prefix
 
   # Negative assertion: Jenkins 'sh' step should NOT be in completions
   - assert:
@@ -88,6 +106,8 @@ steps:
           character: 18
       saveAs: currentBuildCompletion
 
+  # Note: currentBuild prefix may not match many normal completions, 
+  # so we check NOT_CONTAINS without NOT_EMPTY requirement
   # Negative assertion: Jenkins 'currentBuild' global should NOT be in completions
   - assert:
       source: currentBuildCompletion
