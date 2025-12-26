@@ -19,14 +19,15 @@ class WorkerSelector(descriptors: List<WorkerDescriptor>) {
 
     init {
         val ids = descriptors.map { it.id }
-        require(ids.distinct().size == ids.size) { "Worker ids must be unique" }
+        val duplicates = ids.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+        require(duplicates.isEmpty()) { "Worker ids must be unique; duplicates: ${duplicates.sorted()}" }
         workers = descriptors.toList()
     }
 
     fun select(requestedVersion: GroovyVersion, requiredFeatures: Set<WorkerFeature> = emptySet()): WorkerDescriptor? {
         val candidates = workers.filter { descriptor ->
             descriptor.supportedRange.contains(requestedVersion) &&
-                requiredFeatures.all { feature -> feature in descriptor.capabilities.features }
+                descriptor.capabilities.features.containsAll(requiredFeatures)
         }
 
         return candidates.maxWithOrNull(
