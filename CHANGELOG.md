@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.8](https://github.com/albertocavalcante/groovy-devtools/compare/v0.4.7...v0.4.8) (2025-12-26)
+
+
+### Features
+
+* gate GDSL execution behind config flag ([#390](https://github.com/albertocavalcante/groovy-devtools/issues/390)) ([1dc3d46](https://github.com/albertocavalcante/groovy-devtools/commit/1dc3d46a545d6f96cddb8021bc71f8d8ed7aee3e))
+* migrate to lefthook ([#398](https://github.com/albertocavalcante/groovy-devtools/issues/398)) ([b04c600](https://github.com/albertocavalcante/groovy-devtools/commit/b04c600d784c1f9236be596b5ecf550206b793e5))
+
+
+### Bug Fixes
+
+* add version number to release-please PR titles ([#399](https://github.com/albertocavalcante/groovy-devtools/issues/399)) ([0aa853e](https://github.com/albertocavalcante/groovy-devtools/commit/0aa853e433483e404b782f73f247b4a1c1853c8c))
+* **deps:** update dependency org.openrewrite:rewrite-groovy to v8.70.1 ([#394](https://github.com/albertocavalcante/groovy-devtools/issues/394)) ([deedfab](https://github.com/albertocavalcante/groovy-devtools/commit/deedfab1ad489139b52a83b4a1caefb260624132))
+* narrow editors server ignore ([#391](https://github.com/albertocavalcante/groovy-devtools/issues/391)) ([ff01ada](https://github.com/albertocavalcante/groovy-devtools/commit/ff01adaa8be3d318215ed0a1125df5d766a7f311))
+* prevent zip slip in source jar extraction ([#381](https://github.com/albertocavalcante/groovy-devtools/issues/381)) ([760020d](https://github.com/albertocavalcante/groovy-devtools/commit/760020dfd493d42ebe3a70093f6fbecaba4c6413))
+
 ## [0.4.7](https://github.com/albertocavalcante/groovy-devtools/compare/v0.4.6...v0.4.7) (2025-12-26)
 
 
