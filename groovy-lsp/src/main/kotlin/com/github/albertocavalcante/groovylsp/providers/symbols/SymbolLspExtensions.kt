@@ -9,6 +9,9 @@ import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.SymbolInformation
 import org.eclipse.lsp4j.SymbolKind
+import org.slf4j.LoggerFactory
+
+private val logger = LoggerFactory.getLogger("SymbolLspExtensions")
 
 /**
  * Converts a [Symbol] into a [SymbolInformation] for use in LSP responses.
@@ -32,7 +35,14 @@ fun Symbol.toDocumentSymbol(): DocumentSymbol? {
 
 private fun Symbol.displayName(): String = when (this) {
     is Symbol.Method -> if (node.isConstructor) {
-        owner?.nameWithoutPackage ?: owner?.name ?: name
+        owner?.nameWithoutPackage
+            ?: owner?.name
+            ?: node.declaringClass?.nameWithoutPackage
+            ?: node.declaringClass?.name
+            ?: run {
+                logger.warn("Constructor symbol missing declaring class; using fallback name.")
+                "constructor"
+            }
     } else {
         name
     }
