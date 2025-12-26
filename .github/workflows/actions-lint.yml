@@ -28,7 +28,13 @@ jobs:
           go install github.com/suzuki-shunsuke/ghalint/cmd/ghalint@v1.5.4
 
       - name: Run actionlint
+        id: actionlint
         run: actionlint -color
+        continue-on-error: true
 
       - name: Run ghalint
         run: ghalint -c .github/ghalint.yaml run
+
+      - name: Fail if actionlint failed
+        if: ${{ steps.actionlint.outcome == 'failure' }}
+        run: exit 1
