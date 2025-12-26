@@ -30,14 +30,23 @@ class WorkerSelector(descriptors: List<WorkerDescriptor>) {
                 descriptor.capabilities.features.containsAll(requiredFeatures)
         }
 
-        return candidates.maxWithOrNull(
-            compareBy<WorkerDescriptor> {
-                it.supportedRange.minInclusive
-            }.thenByDescending {
-                it.supportedRange.maxInclusive
-            }.thenBy {
-                it.id
-            },
-        )
+        return candidates.maxWithOrNull(COMPARATOR)
     }
+}
+
+private val COMPARATOR = Comparator<WorkerDescriptor> { left, right ->
+    val minCompare = left.supportedRange.minInclusive.compareTo(right.supportedRange.minInclusive)
+    if (minCompare != 0) return@Comparator minCompare
+
+    val leftMax = left.supportedRange.maxInclusive
+    val rightMax = right.supportedRange.maxInclusive
+    val leftBounded = leftMax != null
+    val rightBounded = rightMax != null
+    if (leftBounded != rightBounded) return@Comparator leftBounded.compareTo(rightBounded)
+
+    if (leftBounded && rightBounded && leftMax != rightMax) {
+        return@Comparator rightMax.compareTo(leftMax)
+    }
+
+    left.id.compareTo(right.id)
 }

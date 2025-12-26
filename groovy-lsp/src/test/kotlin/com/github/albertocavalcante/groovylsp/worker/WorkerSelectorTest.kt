@@ -72,6 +72,34 @@ class WorkerSelectorTest {
     }
 
     @Test
+    fun `prefers bounded range over unbounded when min matches`() {
+        val selector = WorkerSelector(
+            listOf(
+                workerDescriptor(
+                    id = "worker-unbounded",
+                    range = GroovyVersionRange(GroovyVersion.parse("3.0.0")!!),
+                    features = emptySet(),
+                ),
+                workerDescriptor(
+                    id = "worker-bounded",
+                    range = GroovyVersionRange(
+                        GroovyVersion.parse("3.0.0")!!,
+                        GroovyVersion.parse("4.0.0")!!,
+                    ),
+                    features = emptySet(),
+                ),
+            ),
+        )
+
+        val selected = selector.select(
+            requestedVersion = GroovyVersion.parse("3.0.9")!!,
+            requiredFeatures = emptySet(),
+        )
+
+        assertEquals("worker-bounded", selected?.id)
+    }
+
+    @Test
     fun `returns null when no worker matches range`() {
         val selector = WorkerSelector(
             listOf(
