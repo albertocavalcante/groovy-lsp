@@ -2,6 +2,10 @@ package com.github.albertocavalcante.groovylsp.version
 
 /**
  * Parsed Groovy version with a comparison strategy suitable for worker selection.
+ *
+ * NOTE: We avoid SemVer libraries (e.g., kotlin-semver) because Groovy versions
+ * include non-SemVer qualifiers like "-indy", "-SNAPSHOT", and "-rc", plus
+ * custom ordering needs (SNAPSHOT > release) that don't match SemVer rules.
  */
 data class GroovyVersion(
     val raw: String,
