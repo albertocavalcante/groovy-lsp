@@ -60,7 +60,11 @@ class SourceJarExtractor(private val extractionDir: Path = getDefaultExtractionD
                 zip.entries().asSequence()
                     .filter { !it.isDirectory && it.name.endsWith(".java") }
                     .forEach { entry ->
-                        val outputPath = outputDir.resolve(entry.name)
+                        val outputPath = outputDir.resolve(entry.name).normalize()
+                        if (!outputPath.startsWith(outputDir)) {
+                            logger.warn("Zip Slip attempt detected in source JAR: {}", entry.name)
+                            return@forEach
+                        }
 
                         // Create parent directories
                         Files.createDirectories(outputPath.parent)
