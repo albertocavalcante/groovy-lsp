@@ -24,9 +24,6 @@ on:
 env:
   TF_CLOUD_ORGANIZATION: 'alberto'
   TF_WORKSPACE: 'groovy-lsp-runner'
-  TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-  TF_VAR_github_token: ${{ secrets.GH_PAT_RUNNER }}
-  TF_VAR_mgc_api_key: ${{ secrets.MGC_API_KEY }}
 
 jobs:
   check-activity:
@@ -110,6 +107,10 @@ jobs:
     needs: check-activity
     if: needs.check-activity.outputs.should_cleanup == 'true'
     runs-on: ubuntu-latest
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      TF_VAR_github_token: ${{ secrets.GH_PAT_RUNNER }}
+      TF_VAR_mgc_api_key: ${{ secrets.MGC_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -143,6 +144,10 @@ jobs:
     runs-on: ubuntu-latest
     # Auto-approve for scheduled runs (cleanup environment has no protection rules)
     environment: cleanup
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      TF_VAR_github_token: ${{ secrets.GH_PAT_RUNNER }}
+      TF_VAR_mgc_api_key: ${{ secrets.MGC_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1

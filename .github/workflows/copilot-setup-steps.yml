@@ -20,7 +20,6 @@ jobs:
       contents: read
     env:
       GH_HOST: github.com
-      GH_TOKEN: ${{ secrets.COPILOT_GH_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -60,6 +59,8 @@ jobs:
           gh --version
 
       - name: Authenticate GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_GH_TOKEN }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
             echo "GH_TOKEN is not set; provide a fine-grained PAT in the copilot environment." >&2
