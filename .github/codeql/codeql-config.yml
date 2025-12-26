@@ -4,6 +4,12 @@ queries:
   - uses: security-extended
 
 paths-ignore:
+  - "**/src/test/**"
+  - "**/__tests__/**"
+  - "**/*.test.js"
+  - "**/*.test.ts"
+  - "**/*.spec.js"
+  - "**/*.spec.ts"
   - "**/.gradle/**"
   - "**/build/**"
   - "**/dist/**"
