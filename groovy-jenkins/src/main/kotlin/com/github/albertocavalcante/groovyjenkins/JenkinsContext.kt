@@ -249,6 +249,22 @@ class JenkinsContext(private val configuration: JenkinsConfiguration, private va
     fun loadGdslMetadata(): GdslLoadResults {
         val results = gdslLoader.loadAllGdslFiles(configuration.gdslPaths)
 
+        if (!configuration.gdslExecutionEnabled) {
+            if (results.successful.isNotEmpty()) {
+                logger.warn(
+                    "GDSL execution disabled; loaded {} files but skipping execution. " +
+                        "Enable with jenkins.gdslExecution.enabled=true to allow script execution.",
+                    results.successful.size,
+                )
+            }
+
+            results.failed.forEach { result ->
+                logger.warn("Failed to load Jenkins GDSL: ${result.path} - ${result.error}")
+            }
+
+            return results
+        }
+
         // Log results and execute successful loads
         results.successful.forEach { result ->
             logger.info("Loaded Jenkins GDSL: ${result.path}")

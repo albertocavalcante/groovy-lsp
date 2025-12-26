@@ -18,6 +18,7 @@ class JenkinsConfigurationTest {
         assertEquals(listOf("Jenkinsfile"), jenkinsConfig.filePatterns)
         assertTrue(jenkinsConfig.sharedLibraries.isEmpty())
         assertTrue(jenkinsConfig.gdslPaths.isEmpty())
+        assertTrue(!jenkinsConfig.gdslExecutionEnabled)
     }
 
     @Test
@@ -80,6 +81,17 @@ class JenkinsConfigurationTest {
             listOf("/path/to/pipeline.gdsl", "/path/to/custom-steps.gdsl"),
             jenkinsConfig.gdslPaths,
         )
+    }
+
+    @Test
+    fun `should parse Jenkins GDSL execution flag`() {
+        val configMap = mapOf(
+            "jenkins.gdslExecution.enabled" to true,
+        )
+
+        val jenkinsConfig = JenkinsConfiguration.fromMap(configMap)
+
+        assertTrue(jenkinsConfig.gdslExecutionEnabled)
     }
 
     @Test
