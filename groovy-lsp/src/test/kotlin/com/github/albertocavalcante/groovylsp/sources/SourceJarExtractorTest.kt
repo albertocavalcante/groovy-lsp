@@ -66,7 +66,7 @@ class SourceJarExtractorTest {
     @Test
     fun `extractAndIndex - rejects zip slip entries`() {
         val sourceJar = createTestSourceJar(
-            "../evil.java" to "class Evil {}",
+            "../../evil.java" to "class Evil {}",
             "safe/Ok.java" to "package safe; class Ok {}",
         )
 
