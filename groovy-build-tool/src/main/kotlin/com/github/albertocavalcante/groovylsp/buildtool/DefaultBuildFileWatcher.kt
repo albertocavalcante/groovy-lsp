@@ -35,6 +35,7 @@ internal class DefaultBuildFileWatcher(
     private val logger = LoggerFactory.getLogger(DefaultBuildFileWatcher::class.java)
     private var watchService: WatchService? = null
     private var watchJob: Job? = null
+    private var debounceJob: Job? = null
     private val watchKeys = ConcurrentHashMap<WatchKey, Path>()
 
     private sealed class PollResult {
@@ -76,6 +77,9 @@ internal class DefaultBuildFileWatcher(
     @Suppress("TooGenericExceptionCaught")
     override fun stopWatching() {
         try {
+            debounceJob?.cancel()
+            debounceJob = null
+
             watchJob?.cancel()
             watchJob = null
 
@@ -115,8 +119,6 @@ internal class DefaultBuildFileWatcher(
             logger.debug("Watch service closed, terminating watch loop.")
         } catch (e: IOException) {
             logger.error("IO error in {} build file watch loop", logLabel, e)
-        } catch (e: InterruptedException) {
-            logger.debug("Watch loop interrupted")
         } catch (e: Exception) {
             logger.error("Unexpected error in {} build file watch loop", logLabel, e)
         }
@@ -196,16 +198,18 @@ internal class DefaultBuildFileWatcher(
                 if (fullPath.exists()) {
                     logger.info("{} build file changed: {}", logLabel, filenameStr)
 
-                    if (debounceDelayMs > 0) {
-                        delay(debounceDelayMs)
-                    }
-
-                    try {
-                        onBuildFileChanged(projectDir)
-                    } catch (e: CancellationException) {
-                        logger.debug("{} build file change handling cancelled for {}", logLabel, filenameStr)
-                    } catch (e: Exception) {
-                        logger.error("{} build file change handling failed for {}", logLabel, filenameStr, e)
+                    debounceJob?.cancel()
+                    debounceJob = coroutineScope.launch(Dispatchers.IO) {
+                        if (debounceDelayMs > 0) {
+                            delay(debounceDelayMs)
+                        }
+                        try {
+                            onBuildFileChanged(projectDir)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            logger.error("{} build file change handling failed for {}", logLabel, filenameStr, e)
+                        }
                     }
                 }
             }
