@@ -53,10 +53,12 @@ These rules apply to ALL tasks. Violation is unacceptable.
 - **Verify branch** — Run `git branch --show-current` before any commit
 
 ### Git Worktrees (preferred for clean PRs)
-- **Create from main** — `git fetch origin main` then `git worktree add -b <branch> <path> origin/main`
+- **Create from main** — `git fetch origin main` then `git worktree add -b <branch> ../<repo>-<branch> origin/main`
+- **Pick a sibling path** — Use a path at the same level as the repo, e.g. `../groovy-lsp-codeql`
 - **Keep changes isolated** — Do work only inside the worktree path for that PR
 - **Push from the worktree** — `git push -u origin <branch>`
-- **Clean up after merge** — `git worktree remove <path>` and `git worktree prune`
+- **Clean up after merge** — `git worktree remove <path>` then `git worktree prune`
+- **Optional housekeeping** — `git worktree list` to verify what’s active and remove stale entries
 
 ### Code Quality
 - **TDD required** — Red → Green → Refactor
