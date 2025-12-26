@@ -4,6 +4,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class OpenRewriteFormatterTest {
 
@@ -337,49 +339,30 @@ class OpenRewriteFormatterTest {
     @Nested
     inner class `Slashy String Handling` {
 
-        @Test
-        fun `should preserve simple slashy string pattern`() {
-            val input = """
+        @ParameterizedTest
+        @ValueSource(
+            strings = [
+                """
                 def regex = /\d+\.\d+/
                 println(regex)
-            """.trimIndent()
-
-            val expected = """
-                def regex = /\d+\.\d+/
+                """,
+                """
+                def pattern = /[a-zA-Z0-9_\-\.]+@[a-zA-Z0-9_\-\.]+\.[a-zA-Z]{2,5}/
+                def result = email ==~ pattern
+                """,
+                """
+                def path = /\/usr\/local\/bin/
+                println(path)
+                """,
+                """
+                def regex = /\$\{[a-z]+\}/
                 println(regex)
-            """.trimIndent()
-
-            assertFormatsTo(input, expected)
-        }
-
-        @Test
-        fun `should preserve slashy string with special characters`() {
-            val input = """
-                def pattern = /[a-zA-Z0-9_\-\.]+@[a-zA-Z0-9_\-\.]+\.[a-zA-Z]{2,5}/
-                def result = email ==~ pattern
-            """.trimIndent()
-
-            val expected = """
-                def pattern = /[a-zA-Z0-9_\-\.]+@[a-zA-Z0-9_\-\.]+\.[a-zA-Z]{2,5}/
-                def result = email ==~ pattern
-            """.trimIndent()
-
-            assertFormatsTo(input, expected)
-        }
-
-        @Test
-        fun `should handle slashy string with forward slashes using escape`() {
-            val input = """
-                def path = /\/usr\/local\/bin/
-                println(path)
-            """.trimIndent()
-
-            val expected = """
-                def path = /\/usr\/local\/bin/
-                println(path)
-            """.trimIndent()
-
-            assertFormatsTo(input, expected)
+                """,
+            ],
+        )
+        fun `should preserve slashy strings that do not require formatting`(input: String) {
+            val code = input.trimIndent()
+            assertFormatsTo(code, code)
         }
 
         @Test
@@ -411,21 +394,6 @@ class OpenRewriteFormatterTest {
                     - # separator
                     \d{4} # number
                 /
-            """.trimIndent()
-
-            assertFormatsTo(input, expected)
-        }
-
-        @Test
-        fun `should handle dollar sign in slashy string without interpolation`() {
-            val input = """
-                def regex = /\$\{[a-z]+\}/
-                println(regex)
-            """.trimIndent()
-
-            val expected = """
-                def regex = /\$\{[a-z]+\}/
-                println(regex)
             """.trimIndent()
 
             assertFormatsTo(input, expected)
