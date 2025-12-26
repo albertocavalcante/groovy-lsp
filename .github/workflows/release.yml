@@ -51,14 +51,15 @@ jobs:
     - name: Validate tag input
       if: github.event.inputs.tag != ''
       shell: bash
+      env:
+        TAG_INPUT: ${{ github.event.inputs.tag }}
       run: |
-        TAG="${{ github.event.inputs.tag }}"
         # Validate tag matches expected version format (v1.2.3 or v1.2.3-rc.1 or vscode-groovy-v1.2.3)
-        if [[ ! "$TAG" =~ ^(v|vscode-groovy-v)?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-          echo "::error::Invalid tag format: $TAG. Expected formats: v1.2.3, v1.2.3-rc.1, or vscode-groovy-v1.2.3"
+        if [[ ! "$TAG_INPUT" =~ ^(v|vscode-groovy-v)?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "::error::Invalid tag format: $TAG_INPUT. Expected formats: v1.2.3, v1.2.3-rc.1, or vscode-groovy-v1.2.3"
           exit 1
         fi
-        echo "Tag validation passed: $TAG"
+        echo "Tag validation passed: $TAG_INPUT"
     - name: Checkout code
       uses: actions/checkout@v6
       with:
@@ -160,14 +161,15 @@ jobs:
     - name: Validate tag input
       if: github.event.inputs.tag != ''
       shell: bash
+      env:
+        TAG_INPUT: ${{ github.event.inputs.tag }}
       run: |
-        TAG="${{ github.event.inputs.tag }}"
         # Validate tag matches expected version format (v1.2.3 or v1.2.3-rc.1 or vscode-groovy-v1.2.3)
-        if [[ ! "$TAG" =~ ^(v|vscode-groovy-v)?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-          echo "::error::Invalid tag format: $TAG. Expected formats: v1.2.3, v1.2.3-rc.1, or vscode-groovy-v1.2.3"
+        if [[ ! "$TAG_INPUT" =~ ^(v|vscode-groovy-v)?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "::error::Invalid tag format: $TAG_INPUT. Expected formats: v1.2.3, v1.2.3-rc.1, or vscode-groovy-v1.2.3"
           exit 1
         fi
-        echo "Tag validation passed: $TAG"
+        echo "Tag validation passed: $TAG_INPUT"
     - name: Checkout code
       uses: actions/checkout@v6
       with:
