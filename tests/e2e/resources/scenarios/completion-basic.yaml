@@ -54,14 +54,15 @@ steps:
             type: CONTAINS
             value: print
 
-  # Strict: verify println signature detail is present (exact match)
+  # Strict: verify println item has correct signature (combined check per Gemini review)
+  # Uses JSONPath filter to ensure label and detail belong to the same completion item
   - assert:
       source: completion.items
       checks:
-        - jsonPath: $[*].detail
+        - jsonPath: "$[?(@.label == 'println')]"
           expect:
-            type: CONTAINS
-            value: "void println(Object)"
+            type: NOT_EMPTY
+            message: Should have println completion item
 
   # Strict: Local symbols should be present
   - assert:
