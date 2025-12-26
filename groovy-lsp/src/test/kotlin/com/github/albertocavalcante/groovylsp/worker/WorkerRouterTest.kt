@@ -12,27 +12,26 @@ class WorkerRouterTest {
 
     @Test
     fun `selects worker matching resolved groovy version and required features`() {
-        val registry = WorkerRegistry(
+        val router = WorkerRouter(
             listOf(
                 descriptor(
                     id = "worker-ast",
                     range = GroovyVersionRange(
-                        GroovyVersion.parse("2.5.0")!!,
-                        GroovyVersion.parse("4.0.0")!!,
+                        parseVersion("2.5.0"),
+                        parseVersion("4.0.0"),
                     ),
                     features = setOf(WorkerFeature.AST),
                 ),
                 descriptor(
                     id = "worker-symbols",
                     range = GroovyVersionRange(
-                        GroovyVersion.parse("3.0.0")!!,
-                        GroovyVersion.parse("4.0.0")!!,
+                        parseVersion("3.0.0"),
+                        parseVersion("4.0.0"),
                     ),
                     features = setOf(WorkerFeature.AST, WorkerFeature.SYMBOLS),
                 ),
             ),
         )
-        val router = WorkerRouter(registry)
 
         val selected = router.select(
             groovyVersionInfo("3.0.9"),
@@ -44,19 +43,18 @@ class WorkerRouterTest {
 
     @Test
     fun `returns null when no worker matches`() {
-        val registry = WorkerRegistry(
+        val router = WorkerRouter(
             listOf(
                 descriptor(
                     id = "worker-legacy",
                     range = GroovyVersionRange(
-                        GroovyVersion.parse("2.0.0")!!,
-                        GroovyVersion.parse("2.5.0")!!,
+                        parseVersion("2.0.0"),
+                        parseVersion("2.5.0"),
                     ),
                     features = emptySet(),
                 ),
             ),
         )
-        val router = WorkerRouter(registry)
 
         val selected = router.select(
             groovyVersionInfo("3.0.0"),
@@ -67,9 +65,12 @@ class WorkerRouterTest {
     }
 
     private fun groovyVersionInfo(version: String) = GroovyVersionInfo(
-        version = GroovyVersion.parse(version)!!,
+        version = parseVersion(version),
         source = GroovyVersionSource.DEPENDENCY,
     )
+
+    private fun parseVersion(version: String): GroovyVersion =
+        requireNotNull(GroovyVersion.parse(version)) { "Invalid Groovy version: $version" }
 
     private fun descriptor(id: String, range: GroovyVersionRange, features: Set<WorkerFeature>) = WorkerDescriptor(
         id = id,
