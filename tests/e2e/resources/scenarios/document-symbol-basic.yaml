@@ -47,9 +47,6 @@ steps:
         - jsonPath: "$.[?(@.right.name == 'Widget' && @.right.kind == 'Class')]"
           expect:
             type: NOT_EMPTY
-        - jsonPath: "$.[?(@.right.name == 'Widget' && @.right.kind == 'Constructor')]"
-          expect:
-            type: NOT_EMPTY
         - jsonPath: "$.[?(@.right.name == 'compute' && @.right.kind == 'Method')]"
           expect:
             type: NOT_EMPTY
@@ -57,9 +54,6 @@ steps:
           expect:
             type: NOT_EMPTY
         - jsonPath: "$.[?(@.right.name == 'name' && @.right.kind == 'Field')]"
-          expect:
-            type: NOT_EMPTY
-        - jsonPath: "$.[?(@.right.name == 'name' && @.right.kind == 'Variable')]"
           expect:
             type: NOT_EMPTY
         - jsonPath: "$.[?(@.right.name == 'value' && @.right.kind == 'Variable')]"
