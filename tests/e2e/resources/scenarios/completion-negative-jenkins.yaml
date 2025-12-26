@@ -84,7 +84,7 @@ steps:
         - jsonPath: $.items[*].detail
           expect:
             type: NOT_CONTAINS
-            value: "Jenkins step"
+            value: "Jenkins step (workflow-basic-steps)"
 
   # Test 3: Verify currentBuild global variable is NOT available
   - changeDocument:
