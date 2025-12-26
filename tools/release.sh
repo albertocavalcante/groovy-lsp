@@ -24,8 +24,9 @@ print_usage() {
     echo "Usage: $(basename "$0") [COMMAND] [OPTIONS]"
     echo ""
     echo "Commands:"
-    echo "  build       Build release artifacts (JAR & VSIX)"
-    echo "  validate    Validate release requirements (tags, smoke tests)"
+    echo "  build       Build release artifacts (JAR & VSIX) - Runs tests"
+    echo "  validate    Validate release requirements (tags)"
+    echo "  smoke-test  Run smoke test on built JAR in dist/"
     echo "  checksums   Generate checksums for dist/ content"
     echo ""
     echo "Options:"
@@ -77,6 +78,14 @@ cmd_build() {
     rm -rf "${DIST_DIR}"
     mkdir -p "${DIST_DIR}"
 
+    # 0. Run Tests
+    log_info "Running unit tests..."
+    if [[ "${DRY_RUN}" = true ]]; then
+        log_info "(Dry run) Skipping tests"
+    else
+        ./gradlew --no-daemon test
+    fi
+
     # 1. Build Shadow JAR
     log_info "Building Groovy Language Server JAR..."
     if [[ "${DRY_RUN}" = true ]]; then
@@ -89,13 +98,14 @@ cmd_build() {
 
     # 2. Identify and Copy JAR
     # Find the built JAR (handling version variances)
-    JAR_FILE=$(find "${BUILD_DIR}" -name "gls-*-all.jar" | head -n 1)
+    JAR_FILE=$(find "${BUILD_DIR}" -name "gls-*-all.jar" | head -n 1 || true)
     if [[ ! -f "${JAR_FILE}" ]]; then
         log_error "No JAR file found in ${BUILD_DIR}"
         exit 1
     fi
 
-    local VERSION_NO_V="${VERSION#v}"
+    local VERSION_NO_PRFIX="${VERSION#vscode-groovy-v}"
+    local VERSION_NO_V="${VERSION_NO_PRFIX#v}"
     
     # Platform detection for local builds (CI usually handles this via matrix)
     OS_TYPE=$(uname -s)
@@ -104,6 +114,7 @@ cmd_build() {
         Linux*)     PLATFORM="linux-amd64";;
         Darwin*)    PLATFORM="darwin-amd64";;
         CYGWIN*|MINGW*|MSYS*) PLATFORM="windows-amd64";;
+        *)          PLATFORM="generic";;
     esac
 
     local TARGET_JAR="${DIST_DIR}/gls-${VERSION_NO_V}-${PLATFORM}.jar"
@@ -157,7 +168,7 @@ cmd_build() {
     
     # Move VSIX to dist
     local VSIX_FILE
-    VSIX_FILE=$(find . -maxdepth 1 -name "*.vsix" | head -n 1)
+    VSIX_FILE=$(find . -maxdepth 1 -name "*.vsix" | head -n 1 || true)
     if [[ -f "${VSIX_FILE}" ]]; then
         log_success "Found VSIX: ${VSIX_FILE}"
         cp "${VSIX_FILE}" "../../${DIST_DIR}/"
@@ -173,22 +184,28 @@ cmd_build() {
 
 cmd_validate() {
     if [[ -n "${VERSION}" ]]; then
-        # Check tag format (v1.2.3)
-        if [[ ! "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-            log_error "Invalid version format: ${VERSION}. Expected vX.Y.Z"
+        # Check tag format (v1.2.3 or vscode-groovy-v1.2.3)
+        if [[ ! "${VERSION}" =~ ^(v|vscode-groovy-v)[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            log_error "Invalid version format: ${VERSION}. Expected vX.Y.Z or vscode-groovy-vX.Y.Z"
             exit 1
         fi
         log_success "Version format valid: ${VERSION}"
     fi
+}
 
-    # Smoke test JAR if it exists
-    JAR_FILE=$(find "${BUILD_DIR}" -name "gls-*-all.jar" | head -n 1)
+cmd_smoke_test() {
+    log_info "Running JAR smoke tests..."
+    # Find built JAR in dist
+    local JAR_FILE
+    JAR_FILE=$(find "${DIST_DIR}" -name "gls-*.jar" | head -n 1 || true)
+    
     if [[ -f "${JAR_FILE}" ]]; then
         log_info "Smoke testing JAR: ${JAR_FILE}"
         java -jar "${JAR_FILE}" --help > /dev/null
         log_success "JAR smoke test passed"
     else
-        log_warn "No JAR found for smoke test (run build first?)"
+        log_error "No JAR found in ${DIST_DIR} for smoke test. Run build first."
+        exit 1
     fi
 }
 
@@ -216,6 +233,9 @@ case "${COMMAND}" in
         ;;
     validate)
         cmd_validate
+        ;;
+    smoke-test)
+        cmd_smoke_test
         ;;
     checksums)
         cmd_checksums

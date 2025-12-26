@@ -115,6 +115,8 @@ jobs:
         
     - name: Generate Checksums
       run: ./tools/release.sh checksums
+    - name: Run Smoke Tests
+      run: ./tools/release.sh smoke-test
     - name: Upload release artifacts
       uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
       with:
@@ -341,9 +343,13 @@ jobs:
       - name: Download release artifacts
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          name: release-artifacts-ubuntu-24.04 
-          # Note: We assume ubuntu-24.04 (linux) build produced the VSIX or we use a matrix-agnostic name if we change that later.
-          # For now, simplistic approach: use the linux artifact which usually runs first/fastest.
+          # We need any valid VSIX. Since artifacts are uploaded per-OS, 
+          # we look for the one that likely contains it. 
+          # To be robust, we fetch all and merge, or just use a stable name if we had one.
+          # The build job uses: name: "release-artifacts-${{ matrix.os }}"
+          # If we don't know which OS ran, download-artifact v4+ can download ALL if we omit name.
+          pattern: release-artifacts-*
+          merge-multiple: true
           path: dist
           
       - name: Publish to VS Code Marketplace
