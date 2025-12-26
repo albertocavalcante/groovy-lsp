@@ -3,7 +3,6 @@ name: Release
   push:
     tags:
     - v*
-    - vscode-groovy-*
   workflow_dispatch:
     inputs:
       runner_label:
@@ -309,10 +308,11 @@ jobs:
           fi
         done
 
-  # VS Code Extension publish (triggers on vscode-groovy-* tags)
+  # VS Code Extension publish (unified release - triggers on v* tags)
   publish-extension:
     name: Publish VS Code Extension
-    if: startsWith(github.ref, 'refs/tags/vscode-groovy-')
+    needs: create-release
+    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
