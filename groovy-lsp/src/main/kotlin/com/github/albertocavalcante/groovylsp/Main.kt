@@ -341,6 +341,7 @@ fun printHelp(out: PrintStream = System.out) {
           gls lsp socket 9000              # Run in socket mode on port 9000
           gls format MyFile.groovy         # Format a file
           gls check MyFile.groovy          # Check for errors
+          gls execute groovy.version       # Execute a custom command
           gls version                      # Show version
         """.trimIndent(),
     )
