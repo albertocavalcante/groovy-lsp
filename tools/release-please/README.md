@@ -33,7 +33,7 @@ By setting this to `false` (and managing versions in lockstep via the manifest),
 The `pull-request-title-pattern` option customizes the title of release PRs.
 
 ```json
-"pull-request-title-pattern": "chore: release ${version}"
+"pull-request-title-pattern": "chore: release v${version}"
 ```
 
 #### Available Variables
