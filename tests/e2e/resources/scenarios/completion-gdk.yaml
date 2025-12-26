@@ -35,7 +35,7 @@ steps:
           expect:
             type: NOT_EMPTY
 
-  # Strict: GDK methods must be present
+  # Strict: Core GDK methods must be present
   - assert:
       source: completion_gdk
       checks:
@@ -51,6 +51,27 @@ steps:
           expect:
             type: CONTAINS
             value: find
+        - jsonPath: $.items[*].label
+          expect:
+            type: CONTAINS
+            value: findAll
+
+  # Strict: More GDK List methods
+  - assert:
+      source: completion_gdk
+      checks:
+        - jsonPath: $.items[*].label
+          expect:
+            type: CONTAINS
+            value: first
+        - jsonPath: $.items[*].label
+          expect:
+            type: CONTAINS
+            value: last
+        - jsonPath: $.items[*].label
+          expect:
+            type: CONTAINS
+            value: sort
 
   # Test Type Parameter completion
   - openDocument:

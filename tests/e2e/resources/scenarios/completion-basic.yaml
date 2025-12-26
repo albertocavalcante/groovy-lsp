@@ -45,6 +45,15 @@ steps:
             type: CONTAINS
             value: println
 
+  # Strict: print should also be available (prefix matches)
+  - assert:
+      source: completion.items
+      checks:
+        - jsonPath: $[*].label
+          expect:
+            type: CONTAINS
+            value: print
+
   # Strict: verify println signature detail is present (exact match)
   - assert:
       source: completion.items
@@ -53,6 +62,19 @@ steps:
           expect:
             type: CONTAINS
             value: "void println(Object)"
+
+  # Strict: Local symbols should be present
+  - assert:
+      source: completion.items
+      checks:
+        - jsonPath: $[*].label
+          expect:
+            type: CONTAINS
+            value: Main
+        - jsonPath: $[*].label
+          expect:
+            type: CONTAINS
+            value: run
 
   - shutdown: {}
   - exit: {}

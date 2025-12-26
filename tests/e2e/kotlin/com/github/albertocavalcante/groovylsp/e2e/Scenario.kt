@@ -275,6 +275,7 @@ enum class ExpectationType {
     EQUALS,
     NOT_EQUALS,
     CONTAINS,
+    NOT_CONTAINS,
     CONTAINS_ANY,
     CONTAINS_ALL,
     MATCHES_REGEX,

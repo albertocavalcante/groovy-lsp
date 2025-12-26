@@ -1,0 +1,101 @@
+name: completion-negative-jenkins
+description: >
+  Negative test: Regular Groovy files should NOT have Jenkins pipeline step completions.
+  This verifies that sh, echo, bat, powershell, checkout, currentBuild are NOT offered
+  unless the file is identified as a Jenkins pipeline (Jenkinsfile pattern).
+workspace:
+  fixture: completion-basic
+steps:
+  - initialize: {}
+  - initialized: {}
+
+  # Test 1: Regular .groovy file should NOT have Jenkins 'echo' step
+  - openDocument:
+      path: src/RegularClass.groovy
+      languageId: groovy
+      version: 1
+      text: |
+        class RegularClass {
+            def run() {
+                ech
+            }
+        }
+  - request:
+      method: textDocument/completion
+      params:
+        textDocument:
+          uri: "{{workspace.uri}}src/RegularClass.groovy"
+        position:
+          line: 2
+          character: 11
+      saveAs: echoCompletion
+
+  # Negative assertion: Jenkins 'echo' step should NOT be in completions
+  - assert:
+      source: echoCompletion
+      checks:
+        - jsonPath: $.items[*].detail
+          expect:
+            type: NOT_CONTAINS
+            value: "Jenkins step (workflow-basic-steps)"
+
+  # Test 2: Regular .groovy file should NOT have Jenkins 'sh' step
+  - changeDocument:
+      path: src/RegularClass.groovy
+      version: 2
+      text: |
+        class RegularClass {
+            def run() {
+                sh
+            }
+        }
+  - request:
+      method: textDocument/completion
+      params:
+        textDocument:
+          uri: "{{workspace.uri}}src/RegularClass.groovy"
+        position:
+          line: 2
+          character: 10
+      saveAs: shCompletion
+
+  # Negative assertion: Jenkins 'sh' step should NOT be in completions
+  - assert:
+      source: shCompletion
+      checks:
+        - jsonPath: $.items[*].detail
+          expect:
+            type: NOT_CONTAINS
+            value: "Jenkins step"
+
+  # Test 3: Verify currentBuild global variable is NOT available
+  - changeDocument:
+      path: src/RegularClass.groovy
+      version: 3
+      text: |
+        class RegularClass {
+            def run() {
+                currentBui
+            }
+        }
+  - request:
+      method: textDocument/completion
+      params:
+        textDocument:
+          uri: "{{workspace.uri}}src/RegularClass.groovy"
+        position:
+          line: 2
+          character: 18
+      saveAs: currentBuildCompletion
+
+  # Negative assertion: Jenkins 'currentBuild' global should NOT be in completions
+  - assert:
+      source: currentBuildCompletion
+      checks:
+        - jsonPath: $.items[*].label
+          expect:
+            type: NOT_CONTAINS
+            value: currentBuild
+
+  - shutdown: {}
+  - exit: {}

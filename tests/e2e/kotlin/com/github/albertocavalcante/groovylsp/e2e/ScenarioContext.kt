@@ -233,6 +233,7 @@ object JsonExpectationEvaluator {
             ExpectationType.EQUALS -> pathExists && equals(actualNode, expectation.value)
             ExpectationType.NOT_EQUALS -> !pathExists || !equals(actualNode, expectation.value)
             ExpectationType.CONTAINS -> pathExists && contains(actualNode, expectation.value)
+            ExpectationType.NOT_CONTAINS -> !pathExists || !contains(actualNode, expectation.value)
             ExpectationType.CONTAINS_ANY -> pathExists && containsAny(actualNode, expectation.values)
             ExpectationType.CONTAINS_ALL -> pathExists && containsAll(actualNode, expectation.values)
             ExpectationType.MATCHES_REGEX -> pathExists && matchesRegex(actualNode, expectation.value)
@@ -283,9 +284,9 @@ object JsonExpectationEvaluator {
     }
 
     private fun isEmpty(actual: JsonElement?): Boolean = actual == null || actual is JsonNull ||
-        (actual is JsonPrimitive && actual.isString && actual.content.isEmpty()) ||
-        (actual is JsonArray && actual.isEmpty()) ||
-        (actual is JsonObject && actual.isEmpty())
+            (actual is JsonPrimitive && actual.isString && actual.content.isEmpty()) ||
+            (actual is JsonArray && actual.isEmpty()) ||
+            (actual is JsonObject && actual.isEmpty())
 
     private fun isGreaterThanOrEqual(actual: JsonElement?, expected: JsonElement?): Boolean {
         if (actual == null || expected == null) return false
