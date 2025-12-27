@@ -28,7 +28,7 @@ class JvmClasspathIndex : ClasspathIndex {
                 val simpleName = classInfo.simpleName
                 val fullName = classInfo.name
 
-                // Skip anonymous classes and synthetic classes
+                // Skip anonymous classes & synthetic classes
                 if (simpleName.contains('$') || classInfo.isSynthetic) {
                     return@forEach
                 }
