@@ -10,7 +10,17 @@ object WorkerRouterFactory {
     private val logger = LoggerFactory.getLogger(WorkerRouterFactory::class.java)
 
     fun fromConfig(config: ServerConfiguration): WorkerRouter {
-        val descriptors = config.workerDescriptors.mapNotNull { toDescriptor(it) }
+        val seenIds = mutableSetOf<String>()
+        val descriptors = config.workerDescriptors
+            .mapNotNull { toDescriptor(it) }
+            .filter { descriptor ->
+                if (seenIds.add(descriptor.id)) {
+                    true
+                } else {
+                    logger.warn("Duplicate worker id '{}' configured; ignoring entry", descriptor.id)
+                    false
+                }
+            }
         if (descriptors.isEmpty()) {
             return WorkerRouter(defaultWorkerDescriptors())
         }
@@ -23,6 +33,15 @@ object WorkerRouterFactory {
             parseVersion(config.id, "maxVersion", config.maxVersion) ?: return null
         } else {
             null
+        }
+        if (maxVersion != null && maxVersion < minVersion) {
+            logger.warn(
+                "Invalid worker descriptor range for {}: minVersion {} > maxVersion {}",
+                config.id,
+                minVersion.raw,
+                maxVersion.raw,
+            )
+            return null
         }
         val features = parseFeatures(config.id, config.features)
         val connector = parseConnector(config.id, config.connector) ?: return null
