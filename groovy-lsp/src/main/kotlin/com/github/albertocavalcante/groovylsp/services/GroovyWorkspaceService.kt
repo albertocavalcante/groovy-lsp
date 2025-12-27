@@ -182,10 +182,9 @@ class GroovyWorkspaceService(
     }
 
     private fun selectWorker(info: GroovyVersionInfo, requiredFeatures: Set<WorkerFeature> = emptySet()) {
-        val previous = compilationService.getSelectedWorker()
         val selected = workerRouter.select(info, requiredFeatures)
-        compilationService.updateSelectedWorker(selected)
-        if (previous != selected) {
+        val changed = compilationService.updateSelectedWorker(selected)
+        if (changed) {
             val sourceUris = compilationService.workspaceManager.getWorkspaceSourceUris()
             if (sourceUris.isEmpty()) {
                 logger.debug("No workspace sources to reindex after worker change")

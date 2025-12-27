@@ -497,9 +497,10 @@ class GroovyCompilationService(private val parentClassLoader: ClassLoader = Clas
 
     fun getGroovyVersionInfo(): GroovyVersionInfo? = groovyVersionInfo.get()
 
-    fun updateSelectedWorker(worker: WorkerDescriptor?) {
+    fun updateSelectedWorker(worker: WorkerDescriptor?): Boolean {
         val previous = selectedWorker.getAndSet(worker)
-        if (previous != worker) {
+        val changed = previous != worker
+        if (changed) {
             workerSessionManager.select(worker)
             clearCaches()
             logger.info("Worker changed; cleared compilation caches")
@@ -514,6 +515,7 @@ class GroovyCompilationService(private val parentClassLoader: ClassLoader = Clas
         } else {
             logger.warn("No compatible worker selected")
         }
+        return changed
     }
 
     fun getSelectedWorker(): WorkerDescriptor? = selectedWorker.get()
