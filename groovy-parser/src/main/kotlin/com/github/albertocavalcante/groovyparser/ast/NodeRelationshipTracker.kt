@@ -213,13 +213,18 @@ class NodeRelationshipTracker {
     private class OrderedIdentitySet<T : Any> {
         private val index = IdentityHashMap<T, Unit>()
         private val items = mutableListOf<T>()
+        private val lock = Any()
 
         fun add(item: T) {
-            if (index.containsKey(item)) return
-            index[item] = Unit
-            items.add(item)
+            synchronized(lock) {
+                if (index.containsKey(item)) return
+                index[item] = Unit
+                items.add(item)
+            }
         }
 
-        fun toList(): List<T> = items.toList()
+        fun toList(): List<T> = synchronized(lock) {
+            items.toList()
+        }
     }
 }
