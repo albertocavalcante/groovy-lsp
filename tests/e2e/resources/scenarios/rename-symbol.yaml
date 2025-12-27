@@ -1,5 +1,3 @@
-# TODO(BUG): Cross-file rename not working. Server only renames in definition file, not usage files.
-# Expected: 2 documentChanges (Definitions.groovy + Usages.groovy), Actual: 1 (Definitions.groovy only)
 name: rename-symbol
 description: Rename a method reference across multiple files.
 workspace:
@@ -61,14 +59,20 @@ steps:
   - assert:
       source: renameResult
       checks:
-        # TODO(BUG): Expected 2 documentChanges, currently only returns 1
+        # We expect changes as documentChanges array
         - jsonPath: $.documentChanges.length()
           expect:
-            type: EQUALS
-            value: 1
+            type: SIZE
+            value: 2 # Changes in Definitions.groovy and Usages.groovy
         
         # Validate change in Definitions.groovy
         - jsonPath: "$.documentChanges[?(@.textDocument.uri == '{{workspace.uri}}src/main/groovy/Definitions.groovy')].edits[0].newText"
+          expect:
+            type: EQUALS
+            value: "doSomething"
+            
+        # Validate change in Usages.groovy
+        - jsonPath: "$.documentChanges[?(@.textDocument.uri == '{{workspace.uri}}src/main/groovy/Usages.groovy')].edits[0].newText"
           expect:
             type: EQUALS
             value: "doSomething"

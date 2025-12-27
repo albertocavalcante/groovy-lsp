@@ -34,30 +34,29 @@ steps:
             value: Ready
       timeoutMs: 30000
 
-  # Request definition on 'targetMethod' call at line 9 (0-indexed)
+  # Request definition on 'targetMethod' call at line 7
   - request:
       method: textDocument/definition
       params:
         textDocument:
           uri: "{{workspace.uri}}src/main/groovy/CallSite.groovy"
         position:
-          line: 9
+          line: 7
           character: 15
       saveAs: definitionResult
 
   - assert:
       source: definitionResult
       checks:
-        # Verify definition is found
-        - jsonPath: $.length()
+        - jsonPath: $.items.length()
           expect:
-            type: EQUALS
+            type: SIZE
             value: 1
-        - jsonPath: $[0].uri
+        - jsonPath: $.items[0].uri
           expect:
             type: CONTAINS
             value: "CallSite.groovy"
-        - jsonPath: $[0].range.start.line
+        - jsonPath: $.items[0].range.start.line
           expect:
             type: EQUALS
             value: 1 # Line 1 where targetMethod is defined
