@@ -39,7 +39,7 @@ steps:
         textDocument:
           uri: "{{workspace.uri}}src/TypeDefTest.groovy"
         position:
-          line: 5
+          line: 4
           character: 11
       saveAs: typeDefResult
 

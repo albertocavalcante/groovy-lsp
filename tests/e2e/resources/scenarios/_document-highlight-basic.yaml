@@ -44,7 +44,7 @@ steps:
           uri: "{{workspace.uri}}src/HighlightTest.groovy"
         position:
           line: 2
-          character: 20
+          character: 12
       saveAs: highlightResult
 
   # Verify highlights
