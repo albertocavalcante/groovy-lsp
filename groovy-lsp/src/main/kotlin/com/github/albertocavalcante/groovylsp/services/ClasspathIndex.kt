@@ -17,6 +17,7 @@ class JvmClasspathIndex : ClasspathIndex {
 
         val classGraph = ClassGraph()
             .enableClassInfo()
+            .enableSystemJarsAndModules()
         val configured = if (classpathEntries.isEmpty()) {
             classGraph
         } else {
