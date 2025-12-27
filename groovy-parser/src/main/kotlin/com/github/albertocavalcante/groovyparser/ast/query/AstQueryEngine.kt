@@ -1,6 +1,8 @@
 package com.github.albertocavalcante.groovyparser.ast.query
 
 import org.codehaus.groovy.ast.ASTNode
+import java.util.Collections
+import java.util.IdentityHashMap
 
 class AstQueryEngine(private val childrenProvider: (ASTNode) -> List<ASTNode>) {
     fun find(root: ASTNode, query: AstQuery): List<AstQueryMatch> {
@@ -31,7 +33,7 @@ class AstQueryEngine(private val childrenProvider: (ASTNode) -> List<ASTNode>) {
         }
 
         val children = childrenProvider(node)
-        val usedChildren = mutableSetOf<ASTNode>()
+        val usedChildren = Collections.newSetFromMap(IdentityHashMap<ASTNode, Boolean>())
         for (childPattern in pattern.children) {
             val matchResult = children.asSequence()
                 .filterNot { it in usedChildren }
