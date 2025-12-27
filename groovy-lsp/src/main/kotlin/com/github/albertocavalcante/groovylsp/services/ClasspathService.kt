@@ -1,7 +1,6 @@
 package com.github.albertocavalcante.groovylsp.services
 
 import org.slf4j.LoggerFactory
-import java.lang.reflect.Modifier
 import java.net.URLClassLoader
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
@@ -11,12 +10,17 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Service to manage the classpath and load classes/methods from the user's project and the JDK.
  * Acts as the "Window to the World" for the LSP.
  */
-class ClasspathService(private val classpathIndex: ClasspathIndex = JvmClasspathIndex()) {
+class ClasspathService(
+    private val classpathIndex: ClasspathIndex = JvmClasspathIndex(),
+    reflectionProvider: ClasspathReflection? = null,
+) {
     private val logger = LoggerFactory.getLogger(ClasspathService::class.java)
 
     // Start with the system classloader to access JDK and Groovy runtime
     private var currentClassLoader: ClassLoader = ClassLoader.getSystemClassLoader()
     private var classpathEntries: List<String> = emptyList()
+    private val reflection: ClasspathReflection =
+        reflectionProvider ?: JvmClasspathReflection { currentClassLoader }
 
     // Class index for type parameter completion: SimpleName -> List<FullyQualifiedName>
     private val classIndex = ClassIndex()
@@ -112,23 +116,7 @@ class ClasspathService(private val classpathIndex: ClasspathIndex = JvmClasspath
      * Tries to load a class by name and returns its reflected methods.
      */
     fun getMethods(className: String): List<ReflectedMethod> = try {
-        val clazz = currentClassLoader.loadClass(className)
-        clazz.methods.map { method ->
-            ReflectedMethod(
-                name = method.name,
-                returnType = method.returnType.simpleName, // Simplified for now
-                parameters = method.parameterTypes.map { it.simpleName },
-                isStatic = Modifier.isStatic(method.modifiers),
-                isPublic = Modifier.isPublic(method.modifiers),
-                doc = "JDK/Classpath method from ${clazz.simpleName}",
-            )
-        }
-    } catch (e: ClassNotFoundException) {
-        logger.debug("Class not found on classpath: $className")
-        emptyList()
-    } catch (e: NoClassDefFoundError) {
-        logger.debug("Class definition not found: $className")
-        emptyList()
+        reflection.getMethods(className)
     } catch (e: Exception) {
         logger.error("Error reflecting on class $className", e)
         emptyList()
@@ -138,10 +126,9 @@ class ClasspathService(private val classpathIndex: ClasspathIndex = JvmClasspath
      * Tries to load a class by name.
      */
     fun loadClass(className: String): Class<*>? = try {
-        currentClassLoader.loadClass(className)
-    } catch (e: ClassNotFoundException) {
-        null
-    } catch (e: NoClassDefFoundError) {
+        reflection.loadClass(className)
+    } catch (e: Exception) {
+        logger.error("Error loading class $className", e)
         null
     }
 

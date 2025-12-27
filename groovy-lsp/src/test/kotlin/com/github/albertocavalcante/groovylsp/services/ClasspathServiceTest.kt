@@ -221,6 +221,29 @@ class ClasspathServiceTest {
 
         assertThat(fakeIndex.entries).containsExactly(first.toString(), second.toString())
     }
+
+    @Test
+    fun `uses provided reflection for methods`() {
+        val reflection = RecordingClasspathReflection()
+        val service = ClasspathService(defaultIndex(), reflection)
+
+        service.getMethods("java.lang.String")
+
+        assertThat(reflection.methodCalls).containsExactly("java.lang.String")
+    }
+
+    @Test
+    fun `uses provided reflection for class loading`() {
+        val reflection = RecordingClasspathReflection().apply {
+            loadResult = String::class.java
+        }
+        val service = ClasspathService(defaultIndex(), reflection)
+
+        val loaded = service.loadClass("java.lang.String")
+
+        assertThat(loaded).isEqualTo(String::class.java)
+        assertThat(reflection.loadCalls).containsExactly("java.lang.String")
+    }
 }
 
 private fun defaultIndex(): ClasspathIndex = FakeClasspathIndex(
@@ -244,5 +267,21 @@ private class RecordingClasspathIndex : ClasspathIndex {
         entries.clear()
         entries.addAll(classpathEntries)
         return emptyList()
+    }
+}
+
+private class RecordingClasspathReflection : ClasspathReflection {
+    val methodCalls = mutableListOf<String>()
+    val loadCalls = mutableListOf<String>()
+    var loadResult: Class<*>? = null
+
+    override fun getMethods(className: String): List<ReflectedMethod> {
+        methodCalls.add(className)
+        return emptyList()
+    }
+
+    override fun loadClass(className: String): Class<*>? {
+        loadCalls.add(className)
+        return loadResult
     }
 }
