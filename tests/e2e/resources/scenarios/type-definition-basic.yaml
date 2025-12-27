@@ -49,14 +49,14 @@ steps:
   - assert:
       source: typeDefResult
       checks:
-        - jsonPath: $
+        - jsonPath: $.items
           expect:
             type: SIZE
             value: 1
             message: "Should find 1 type definition"
         
         # Verify it points to line 0 (class MyType)
-        - jsonPath: $[0].range.start.line
+        - jsonPath: $.items[0].range.start.line
           expect:
             type: EQUALS
             value: 0
