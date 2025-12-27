@@ -146,22 +146,12 @@ class ClasspathService(
     /**
      * Tries to load a class by name and returns its reflected methods.
      */
-    fun getMethods(className: String): List<ReflectedMethod> = try {
-        reflection.getMethods(className)
-    } catch (e: Exception) {
-        logger.error("Error reflecting on class $className", e)
-        emptyList()
-    }
+    fun getMethods(className: String): List<ReflectedMethod> = reflection.getMethods(className)
 
     /**
      * Tries to load a class by name.
      */
-    fun loadClass(className: String): Class<*>? = try {
-        reflection.loadClass(className)
-    } catch (e: Exception) {
-        logger.error("Error loading class $className", e)
-        null
-    }
+    fun loadClass(className: String): Class<*>? = reflection.loadClass(className)
 
     internal class ClassIndex {
         private val index = ConcurrentHashMap<String, MutableSet<String>>()

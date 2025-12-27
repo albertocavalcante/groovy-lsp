@@ -41,5 +41,8 @@ class JvmClasspathReflection(private val classLoaderProvider: () -> ClassLoader)
         null
     } catch (e: NoClassDefFoundError) {
         null
+    } catch (e: Exception) {
+        logger.error("Error loading class $className", e)
+        null
     }
 }
