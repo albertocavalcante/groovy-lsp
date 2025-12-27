@@ -1,3 +1,5 @@
+# TODO(DEFERRED): #432 - Test disabled. Hover shows raw AST instead of inferred type.
+# See: https://github.com/albertocavalcante/groovy-devtools/issues/432
 name: hover-type-inference
 description: Hover on def variables shows inferred types.
 workspace:

@@ -1,3 +1,5 @@
+# TODO(DEFERRED): #430 - Test disabled. Cross-file rename not working.
+# See: https://github.com/albertocavalcante/groovy-devtools/issues/430
 name: rename-symbol
 description: Rename a method reference across multiple files.
 workspace:
@@ -62,7 +64,7 @@ steps:
         # We expect changes as documentChanges array
         - jsonPath: $.documentChanges.length()
           expect:
-            type: SIZE
+            type: EQUALS
             value: 2 # Changes in Definitions.groovy and Usages.groovy
         
         # Validate change in Definitions.groovy

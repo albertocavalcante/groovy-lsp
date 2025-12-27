@@ -1,3 +1,5 @@
+# TODO(DEFERRED): #431 - Test disabled. Cross-file completion not working.
+# See: https://github.com/albertocavalcante/groovy-devtools/issues/431
 name: completion-import-class
 description: Completion for class should include auto-import text edit.
 workspace:

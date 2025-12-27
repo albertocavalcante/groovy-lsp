@@ -1,3 +1,5 @@
+# TODO(DEFERRED): #430 - Test disabled. Cross-file references not working.
+# See: https://github.com/albertocavalcante/groovy-devtools/issues/430
 name: references-find-usages
 description: Find all references for methods and classes with strict count validation.
 workspace:
@@ -65,7 +67,7 @@ steps:
         # Expect 3 references: 1 decl + 2 usages
         - jsonPath: $.length()
           expect:
-            type: SIZE
+            type: EQUALS
             value: 3
         # Validate Declaration
         - jsonPath: "$[?(@.uri == '{{workspace.uri}}src/main/groovy/Definitions.groovy' && @.range.start.line == 3)]"

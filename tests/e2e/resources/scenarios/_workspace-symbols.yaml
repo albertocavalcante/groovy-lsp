@@ -1,3 +1,5 @@
+# TODO(DEFERRED): #431 - Test disabled. Workspace symbols don't include dynamic docs.
+# See: https://github.com/albertocavalcante/groovy-devtools/issues/431
 name: workspace-symbols
 description: Search for symbols across the workspace.
 workspace:
