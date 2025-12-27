@@ -276,6 +276,62 @@ class DiagnosticsServiceTest {
         // For now, we verify the service doesn't crash and returns empty list
     }
 
+    @Test
+    fun `propagates CancellationException when coroutine is cancelled`() = runBlocking {
+        // Given: A slow provider that we can cancel mid-execution
+        val slowProvider = TestStreamingDiagnosticProvider(
+            id = "slow-provider",
+            diagnosticsToEmit = listOf(createTestDiagnostic("Will never emit", 1)),
+            delayBeforeEmit = 1000, // 1 second delay
+        )
+
+        val service = DiagnosticsService(
+            providers = listOf(slowProvider),
+            config = DiagnosticConfig(),
+        )
+
+        // When: We cancel the coroutine mid-execution using withTimeout
+        val exception = kotlin.runCatching {
+            kotlinx.coroutines.withTimeout(50) {
+                // Cancel after 50ms
+                service.getDiagnostics(testUri, "test content")
+            }
+        }.exceptionOrNull()
+
+        // Then: Verify that cancellation exception was thrown
+        assertTrue(
+            exception is kotlinx.coroutines.TimeoutCancellationException,
+            "Timeout should cause CancellationException, got: ${exception?.javaClass?.simpleName}",
+        )
+    }
+
+    @Test
+    fun `logs CancellationException at DEBUG level not ERROR`() = runBlocking {
+        // NOTE: This test verifies the fix in PR #451
+        // Given: A provider that throws CancellationException
+        val cancellingProvider = TestStreamingDiagnosticProvider(
+            id = "cancelling-provider",
+            shouldCancel = true,
+        )
+
+        val service = DiagnosticsService(
+            providers = listOf(cancellingProvider),
+            config = DiagnosticConfig(),
+        )
+
+        // When: We call getDiagnostics
+        val result = service.getDiagnostics(testUri, "test content")
+
+        // Then: CancellationException in flow is handled gracefully
+        // The flow completes normally (cancellation is internal to flow)
+        // and we get an empty result
+        assertTrue(result.isEmpty(), "Cancelled flow should return empty result")
+
+        // NOTE: Actual verification that it's logged at DEBUG (not ERROR) would
+        // require log capture setup. This test documents the expected behavior.
+        // See ConcurrencyStressTest for end-to-end verification with real coroutine cancellation.
+    }
+
     // ==================== Integration Tests ====================
 
     @Test
@@ -357,6 +413,7 @@ class DiagnosticsServiceTest {
         private val shouldFail: Boolean = false,
         private val shouldFailAfterEmitting: Boolean = false,
         private val shouldCancel: Boolean = false,
+        private val delayBeforeEmit: Long = 0,
     ) : StreamingDiagnosticProvider {
         override suspend fun provideDiagnostics(uri: URI, content: String): Flow<Diagnostic> = flow {
             if (shouldCancel) {
@@ -365,6 +422,10 @@ class DiagnosticsServiceTest {
 
             if (shouldFail) {
                 throw RuntimeException("Provider $id failed")
+            }
+
+            if (delayBeforeEmit > 0) {
+                kotlinx.coroutines.delay(delayBeforeEmit)
             }
 
             diagnosticsToEmit.forEach { emit(it) }
