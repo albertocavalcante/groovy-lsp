@@ -4,6 +4,7 @@ import com.github.albertocavalcante.diagnostics.api.DiagnosticProvider
 import com.github.albertocavalcante.groovylsp.config.DiagnosticConfig
 import com.github.albertocavalcante.groovylsp.providers.diagnostics.DiagnosticProviderAdapter
 import com.github.albertocavalcante.groovylsp.providers.diagnostics.StreamingDiagnosticProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
@@ -355,8 +356,13 @@ class DiagnosticsServiceTest {
         private val diagnosticsToEmit: List<Diagnostic> = emptyList(),
         private val shouldFail: Boolean = false,
         private val shouldFailAfterEmitting: Boolean = false,
+        private val shouldCancel: Boolean = false,
     ) : StreamingDiagnosticProvider {
         override suspend fun provideDiagnostics(uri: URI, content: String): Flow<Diagnostic> = flow {
+            if (shouldCancel) {
+                throw CancellationException("Test cancellation")
+            }
+
             if (shouldFail) {
                 throw RuntimeException("Provider $id failed")
             }
