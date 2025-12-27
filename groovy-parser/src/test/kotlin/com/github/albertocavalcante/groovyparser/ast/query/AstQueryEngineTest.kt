@@ -37,6 +37,21 @@ class AstQueryEngineTest {
         assertTrue(capture === childA || capture === childB)
     }
 
+    @Test
+    fun `captures distinct children for repeated patterns`() {
+        val (tracker, root, childA, childB) = sampleTree()
+        val engine = AstQueryEngine(tracker::getChildren)
+        val query = AstQuery.parse("(BlockStatement (ConstantExpression @a) (ConstantExpression @b))")
+
+        val matches = engine.find(root, query)
+
+        assertEquals(1, matches.size)
+        val captures = matches.single().captures
+        assertTrue(captures["a"] === childA || captures["a"] === childB)
+        assertTrue(captures["b"] === childA || captures["b"] === childB)
+        assertTrue(captures["a"] !== captures["b"])
+    }
+
     private fun sampleTree(): SampleTree {
         val tracker = NodeRelationshipTracker()
         val root = BlockStatement()
