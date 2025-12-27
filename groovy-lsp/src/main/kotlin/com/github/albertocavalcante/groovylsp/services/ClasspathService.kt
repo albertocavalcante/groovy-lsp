@@ -1,8 +1,10 @@
 package com.github.albertocavalcante.groovylsp.services
 
 import org.slf4j.LoggerFactory
+import java.io.File
 import java.net.URLClassLoader
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -67,7 +69,7 @@ class ClasspathService(
             val startTime = System.currentTimeMillis()
 
             try {
-                classpathIndex.index(classpathEntries).forEach { entry ->
+                classpathIndex.index(resolveClasspathEntries()).forEach { entry ->
                     classIndex.add(entry.simpleName, entry.fullName)
                 }
 
@@ -78,6 +80,35 @@ class ClasspathService(
                 logger.error("Failed to index classes", e)
             }
         }
+    }
+
+    private fun resolveClasspathEntries(): List<String> {
+        if (classpathEntries.isNotEmpty()) {
+            return classpathEntries
+        }
+
+        val urlEntries = (currentClassLoader as? URLClassLoader)
+            ?.urLs
+            ?.mapNotNull { url ->
+                if (url.protocol != "file") {
+                    return@mapNotNull null
+                }
+                runCatching { Paths.get(url.toURI()).toString() }.getOrNull()
+            }
+            .orEmpty()
+        if (urlEntries.isNotEmpty()) {
+            return urlEntries.distinct()
+        }
+
+        val classpathProperty = System.getProperty("java.class.path").orEmpty()
+        if (classpathProperty.isBlank()) {
+            return emptyList()
+        }
+
+        return classpathProperty
+            .split(File.pathSeparator)
+            .filter { it.isNotBlank() }
+            .distinct()
     }
 
     /**

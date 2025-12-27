@@ -4,6 +4,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.net.URLClassLoader
 import java.nio.file.Path
 
 /**
@@ -223,6 +224,27 @@ class ClasspathServiceTest {
     }
 
     @Test
+    fun `uses classloader urls when classpath entries are empty`() {
+        val root = tempDir.resolve("loader")
+        val first = root.resolve("first")
+        val second = root.resolve("second")
+
+        root.toFile().mkdirs()
+        first.toFile().mkdirs()
+        second.toFile().mkdirs()
+
+        val fakeIndex = RecordingClasspathIndex()
+        val service = ClasspathService(fakeIndex)
+
+        URLClassLoader(arrayOf(first.toUri().toURL(), second.toUri().toURL()), null).use { loader ->
+            setCurrentClassLoader(service, loader)
+            service.indexAllClasses()
+        }
+
+        assertThat(fakeIndex.entries).containsExactly(first.toString(), second.toString())
+    }
+
+    @Test
     fun `uses provided reflection for methods`() {
         val reflection = RecordingClasspathReflection()
         val service = ClasspathService(defaultIndex(), reflection)
@@ -284,4 +306,10 @@ private class RecordingClasspathReflection : ClasspathReflection {
         loadCalls.add(className)
         return loadResult
     }
+}
+
+private fun setCurrentClassLoader(service: ClasspathService, classLoader: ClassLoader) {
+    val field = ClasspathService::class.java.getDeclaredField("currentClassLoader")
+    field.isAccessible = true
+    field.set(service, classLoader)
 }
