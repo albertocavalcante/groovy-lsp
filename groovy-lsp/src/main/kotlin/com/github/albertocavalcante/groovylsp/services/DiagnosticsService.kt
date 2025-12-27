@@ -76,7 +76,7 @@ class DiagnosticsService(
                             val elapsedMs = (System.nanoTime() - startTime) / NANOS_TO_MILLIS
                             logger.debug("Provider {} completed in {}ms", provider.id, elapsedMs)
                         } catch (e: Exception) {
-                            // NOTE: Don't catch CancellationException - let it propagate for proper cancellation
+                            if (e is CancellationException) throw e
                             // NOTE: Error isolation - one provider failure doesn't stop others
                             // TODO: Consider publishing provider-specific error diagnostics
                             logger.error("Provider {} failed for {}: {}", provider.id, uri, e.message, e)
