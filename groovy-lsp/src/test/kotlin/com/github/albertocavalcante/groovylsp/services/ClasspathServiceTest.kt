@@ -252,7 +252,7 @@ private fun defaultIndex(): ClasspathIndex = FakeClasspathIndex(
         IndexedClass("String", "java.lang.String"),
         IndexedClass("Stringable", "com.example.Stringable"),
         IndexedClass("Assert", "org.assertj.core.api.Assert"),
-        IndexedClass("Assert", "org.assertj.core.api.Assertions"),
+        IndexedClass("Assert", "org.junit.Assert"),
     ),
 )
 
