@@ -33,20 +33,15 @@ class AstQueryEngine(private val childrenProvider: (ASTNode) -> List<ASTNode>) {
         val children = childrenProvider(node)
         val usedChildren = mutableSetOf<ASTNode>()
         for (childPattern in pattern.children) {
-            var matchedChild: ASTNode? = null
-            var childMatch: Map<String, ASTNode>? = null
-            for (child in children) {
-                if (child in usedChildren) continue
-                val candidate = match(child, childPattern) ?: continue
-                matchedChild = child
-                childMatch = candidate
-                break
-            }
-            if (childMatch == null || matchedChild == null) {
-                return null
-            }
+            val matchResult = children.asSequence()
+                .filterNot { it in usedChildren }
+                .firstNotNullOfOrNull { child ->
+                    match(child, childPattern)?.let { child to it }
+                }
+                ?: return null
+            val (matchedChild, childCaptures) = matchResult
             usedChildren.add(matchedChild)
-            if (!captures.mergeCaptures(childMatch)) {
+            if (!captures.mergeCaptures(childCaptures)) {
                 return null
             }
         }
