@@ -46,17 +46,21 @@ steps:
   # Verify navigation to MyType class definition (Line 0)
   # Standard GoToDefinition returns a list of Location or LocationLink
   
-  # TODO(BUG): #421 - Current behavior returns empty list.
-  # Expected: SIZE 1 (pointing to Line 0)
-  # Actual: SIZE 0
   - assert:
       source: typeDefResult
       checks:
         - jsonPath: $
           expect:
             type: SIZE
+            value: 1
+            message: "Should find 1 type definition"
+        
+        # Verify it points to line 0 (class MyType)
+        - jsonPath: $[0].range.start.line
+          expect:
+            type: EQUALS
             value: 0
-            message: "BUG: Currently returns 0 items (expected 1)"
+            message: "Should point to line 0 (MyType definition)"
 
   - shutdown: {}
   - exit: {}
