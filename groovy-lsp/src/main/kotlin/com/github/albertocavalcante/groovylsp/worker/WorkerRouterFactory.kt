@@ -19,7 +19,11 @@ object WorkerRouterFactory {
 
     private fun toDescriptor(config: WorkerDescriptorConfig): WorkerDescriptor? {
         val minVersion = parseVersion(config.id, "minVersion", config.minVersion) ?: return null
-        val maxVersion = config.maxVersion?.let { parseVersion(config.id, "maxVersion", it) } ?: null
+        val maxVersion = if (config.maxVersion != null) {
+            parseVersion(config.id, "maxVersion", config.maxVersion) ?: return null
+        } else {
+            null
+        }
         val features = parseFeatures(config.id, config.features)
         val connector = parseConnector(config.id, config.connector) ?: return null
 
