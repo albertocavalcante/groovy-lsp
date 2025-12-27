@@ -34,14 +34,14 @@ steps:
             value: Ready
       timeoutMs: 30000
 
-  # Request definition on 'targetMethod' call at line 7
+  # Request definition on 'targetMethod' call at line 9 (0-indexed)
   - request:
       method: textDocument/definition
       params:
         textDocument:
           uri: "{{workspace.uri}}src/main/groovy/CallSite.groovy"
         position:
-          line: 7
+          line: 9
           character: 15
       saveAs: definitionResult
 
