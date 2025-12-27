@@ -16,6 +16,7 @@ class ClasspathService(private val classpathIndex: ClasspathIndex = JvmClasspath
 
     // Start with the system classloader to access JDK and Groovy runtime
     private var currentClassLoader: ClassLoader = ClassLoader.getSystemClassLoader()
+    private var classpathEntries: List<String> = emptyList()
 
     // Class index for type parameter completion: SimpleName -> List<FullyQualifiedName>
     private val classIndex = ClassIndex()
@@ -28,12 +29,14 @@ class ClasspathService(private val classpathIndex: ClasspathIndex = JvmClasspath
      */
     fun updateClasspath(paths: List<Path>) {
         val oldClassLoader = currentClassLoader
+        val oldClasspathEntries = classpathEntries
         try {
             logger.info("Updating classpath with ${paths.size} paths")
             val urls = paths.map { it.toUri().toURL() }.toTypedArray()
             // Parent is null to strictly separate (or system to inherit JDK/Groovy)
             // We likely want system as parent to get the GDK classes
             currentClassLoader = URLClassLoader(urls, ClassLoader.getSystemClassLoader())
+            classpathEntries = paths.map { it.toString() }
 
             // Invalidate index when classpath changes
             isIndexed.set(false)
@@ -42,6 +45,7 @@ class ClasspathService(private val classpathIndex: ClasspathIndex = JvmClasspath
             logger.error("Failed to update classpath", e)
             // Restore previous classloader to maintain consistent state
             currentClassLoader = oldClassLoader
+            classpathEntries = oldClasspathEntries
         }
     }
 
@@ -59,7 +63,7 @@ class ClasspathService(private val classpathIndex: ClasspathIndex = JvmClasspath
             val startTime = System.currentTimeMillis()
 
             try {
-                classpathIndex.index(currentClassLoader).forEach { entry ->
+                classpathIndex.index(classpathEntries).forEach { entry ->
                     classIndex.add(entry.simpleName, entry.fullName)
                 }
 
