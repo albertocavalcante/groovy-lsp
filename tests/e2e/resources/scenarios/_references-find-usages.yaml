@@ -75,12 +75,12 @@ steps:
             type: SIZE
             value: 1
         # Validate Usage 1
-        - jsonPath: "$[?(@.uri == '{{workspace.uri}}src/main/groovy/Usages.groovy' && @.range.start.line == 6)]"
+        - jsonPath: "$[?(@.uri == '{{workspace.uri}}src/main/groovy/Usages.groovy' && @.range.start.line == 5)]"
           expect:
             type: SIZE
             value: 1
         # Validate Usage 2
-        - jsonPath: "$[?(@.uri == '{{workspace.uri}}src/main/groovy/Usages.groovy' && @.range.start.line == 7)]"
+        - jsonPath: "$[?(@.uri == '{{workspace.uri}}src/main/groovy/Usages.groovy' && @.range.start.line == 6)]"
           expect:
             type: SIZE
             value: 1
