@@ -305,33 +305,6 @@ class DiagnosticsServiceTest {
         )
     }
 
-    @Test
-    fun `logs CancellationException at DEBUG level not ERROR`() = runBlocking {
-        // NOTE: This test verifies the fix in PR #451
-        // Given: A provider that throws CancellationException
-        val cancellingProvider = TestStreamingDiagnosticProvider(
-            id = "cancelling-provider",
-            shouldCancel = true,
-        )
-
-        val service = DiagnosticsService(
-            providers = listOf(cancellingProvider),
-            config = DiagnosticConfig(),
-        )
-
-        // When: We call getDiagnostics
-        val result = service.getDiagnostics(testUri, "test content")
-
-        // Then: CancellationException in flow is handled gracefully
-        // The flow completes normally (cancellation is internal to flow)
-        // and we get an empty result
-        assertTrue(result.isEmpty(), "Cancelled flow should return empty result")
-
-        // NOTE: Actual verification that it's logged at DEBUG (not ERROR) would
-        // require log capture setup. This test documents the expected behavior.
-        // See ConcurrencyStressTest for end-to-end verification with real coroutine cancellation.
-    }
-
     // ==================== Integration Tests ====================
 
     @Test
@@ -412,14 +385,9 @@ class DiagnosticsServiceTest {
         private val diagnosticsToEmit: List<Diagnostic> = emptyList(),
         private val shouldFail: Boolean = false,
         private val shouldFailAfterEmitting: Boolean = false,
-        private val shouldCancel: Boolean = false,
         private val delayBeforeEmit: Long = 0,
     ) : StreamingDiagnosticProvider {
         override suspend fun provideDiagnostics(uri: URI, content: String): Flow<Diagnostic> = flow {
-            if (shouldCancel) {
-                throw CancellationException("Test cancellation")
-            }
-
             if (shouldFail) {
                 throw RuntimeException("Provider $id failed")
             }
