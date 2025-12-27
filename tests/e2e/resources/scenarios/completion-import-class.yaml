@@ -49,7 +49,7 @@ steps:
           uri: "{{workspace.uri}}src/main/groovy/App.groovy"
         position:
           line: 2
-          character: 23
+          character: 15
       saveAs: completionResult
 
   - assert:

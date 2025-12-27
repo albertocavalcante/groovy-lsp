@@ -36,7 +36,7 @@ steps:
           uri: "{{workspace.uri}}src/main/groovy/Inference.groovy"
         position:
           line: 2
-          character: 15
+          character: 14
       saveAs: hoverNum
 
   - assert:
@@ -78,7 +78,7 @@ steps:
           uri: "{{workspace.uri}}src/main/groovy/Inference.groovy"
         position:
           line: 4
-          character: 15
+          character: 14
       saveAs: hoverMap
 
   - assert:
